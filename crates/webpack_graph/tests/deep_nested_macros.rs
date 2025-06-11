@@ -309,6 +309,9 @@ fn test_dependency_depth_analysis() -> Result<()> {
     // Module A should have deepest chain (A->A1->A1_1->shared->deep->leaf)
     assert!(module_a_depth >= 6);
     
+    // Module B should have moderate depth (B->B1->B1_1->shared->deep->leaf)
+    assert!(module_b_depth >= 4);
+    
     // Module C should have moderate depth (C->C1->shared->deep->leaf)
     assert!(module_c_depth >= 4);
     

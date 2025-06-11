@@ -1,4 +1,4 @@
-use webpack_graph::{WebpackBundleParser, Result};
+use webpack_graph::WebpackBundleParser;
 
 #[test]
 fn test_debug_optimized_output_parsing() {
@@ -150,7 +150,6 @@ fn test_debug_optimized_output_parsing() {
     });
     
     // Reachability analysis
-    let reachable = graph.get_reachable_modules();
     let mut unreachable = graph.get_unreachable_modules();
     unreachable.sort();
     

@@ -186,6 +186,7 @@ var __webpack_modules__ = ({
     let shared_deps = graph.modules.values()
         .filter(|m| m.dependents.len() > 1)
         .count();
+    assert!(shared_deps >= 4, "Complex graph should have at least 4 shared dependencies");
 
     // Analyze dependency depth
     let max_depth = graph.entry_points.iter()

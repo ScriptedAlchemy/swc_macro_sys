@@ -1,4 +1,4 @@
-use webpack_graph::{WebpackBundleParser, TreeShaker, Result};
+use webpack_graph::{parser::WebpackBundleParser, tree_shaker::TreeShaker, Result};
 
 #[test]
 fn test_shake_simple_bundle() -> Result<()> {
@@ -274,7 +274,6 @@ __webpack_require__(100);
     let mut graph = parser.parse_bundle(complex_bundle)?;
 
     // Show reachability analysis
-    let _reachable = graph.get_reachable_modules();
     let mut unreachable = graph.get_unreachable_modules();
     unreachable.sort();
     
@@ -485,6 +484,247 @@ __webpack_require__(1);
     shaken.sort();
     assert_eq!(shaken, vec!["5", "6", "7", "8", "9"]);
     assert_eq!(graph.modules.len(), 3); // 1,2,3 remain
+    
+    Ok(())
+}
+
+#[test]
+fn test_shake_string_module_ids_simple() -> Result<()> {
+    let bundle_content = r#"
+var __webpack_modules__ = ({
+  "./main.js": (function (module, exports, __webpack_require__) { 
+    var dep = __webpack_require__("./utils.js");
+  }),
+  "./utils.js": (function (module, exports, __webpack_require__) { 
+    console.log("Utils module");
+  }),
+  "./unused.js": (function (module, exports, __webpack_require__) { 
+    console.log("Unused module - should be tree shaken");
+  })
+});
+__webpack_require__("./main.js");
+"#;
+    let parser = WebpackBundleParser::new()?;
+    let mut graph = parser.parse_bundle(bundle_content)?;
+
+    assert_eq!(graph.modules.len(), 3);
+    assert!(graph.get_module("./unused.js").is_some());
+
+    let shaken_ids = TreeShaker::new(&mut graph).shake();
+
+    assert_eq!(shaken_ids, vec!["./unused.js".to_string()]);
+    assert_eq!(graph.modules.len(), 2);
+    assert!(graph.get_module("./main.js").is_some());
+    assert!(graph.get_module("./utils.js").is_some());
+    assert!(graph.get_module("./unused.js").is_none());
+
+    Ok(())
+}
+
+#[test]
+fn test_shake_mixed_module_id_formats() -> Result<()> {
+    let bundle_content = r#"
+var __webpack_modules__ = ({
+  1: (function(m,e,__webpack_require__){ __webpack_require__("./feature.js"); }), // numeric entry
+  "./feature.js": (function(m,e,__webpack_require__){ __webpack_require__(300); }), // string -> numeric
+  300: (function(m,e,__webpack_require__){}),                                        // numeric dependency
+  "./dead-feature.js": (function(m,e,__webpack_require__){}),                       // string dead
+  999: (function(m,e,__webpack_require__){})                                        // numeric dead
+});
+__webpack_require__(1);
+"#;
+    let parser = WebpackBundleParser::new()?;
+    let mut graph = parser.parse_bundle(bundle_content)?;
+
+    assert_eq!(graph.modules.len(), 5);
+    let mut unreachable = graph.get_unreachable_modules();
+    unreachable.sort();
+    assert_eq!(unreachable, vec!["./dead-feature.js".to_string(), "999".to_string()]);
+
+    let mut shaken_ids = TreeShaker::new(&mut graph).shake();
+    shaken_ids.sort();
+
+    assert_eq!(shaken_ids, vec!["./dead-feature.js".to_string(), "999".to_string()]);
+    assert_eq!(graph.modules.len(), 3);
+    assert!(graph.get_module("1").is_some());
+    assert!(graph.get_module("./feature.js").is_some());
+    assert!(graph.get_module("300").is_some());
+    assert!(graph.get_module("./dead-feature.js").is_none());
+    assert!(graph.get_module("999").is_none());
+
+    Ok(())
+}
+
+#[test]
+fn test_shake_realistic_string_module_names() -> Result<()> {
+    let bundle_content = r#"
+var __webpack_modules__ = ({
+  "./src/index.js": (function(m,e,__webpack_require__){ 
+    __webpack_require__("./src/components/App.jsx"); 
+    __webpack_require__("./src/utils/helpers.js");
+  }),
+  "./src/components/App.jsx": (function(m,e,__webpack_require__){ 
+    __webpack_require__("./src/components/Header.jsx");
+  }),
+  "./src/components/Header.jsx": (function(m,e,__webpack_require__){}),
+  "./src/utils/helpers.js": (function(m,e,__webpack_require__){}),
+  "./src/features/unused-feature.js": (function(m,e,__webpack_require__){ 
+    __webpack_require__("./src/features/unused-helper.js");
+  }),
+  "./src/features/unused-helper.js": (function(m,e,__webpack_require__){}),
+  "./src/legacy/old-code.js": (function(m,e,__webpack_require__){})
+});
+__webpack_require__("./src/index.js");
+"#;
+    let parser = WebpackBundleParser::new()?;
+    let mut graph = parser.parse_bundle(bundle_content)?;
+
+    assert_eq!(graph.modules.len(), 7, "Should parse all 7 modules");
+    assert_eq!(graph.entry_points.len(), 1, "Should have 1 entry point");
+
+    let mut unreachable = graph.get_unreachable_modules();
+    unreachable.sort();
+    assert_eq!(
+        unreachable,
+        vec![
+            "./src/features/unused-feature.js", 
+            "./src/features/unused-helper.js", 
+            "./src/legacy/old-code.js"
+        ],
+        "Should identify 3 unreachable modules"
+    );
+    
+    let mut shaken_ids = TreeShaker::new(&mut graph).shake();
+    shaken_ids.sort();
+    
+    assert_eq!(
+        shaken_ids,
+        vec![
+            "./src/features/unused-feature.js", 
+            "./src/features/unused-helper.js", 
+            "./src/legacy/old-code.js"
+        ],
+        "Should tree shake the 3 unreachable modules"
+    );
+    
+    assert_eq!(graph.modules.len(), 4, "Should have 4 modules remaining");
+    assert!(graph.get_module("./src/index.js").is_some());
+    assert!(graph.get_module("./src/components/App.jsx").is_some());
+    assert!(graph.get_module("./src/components/Header.jsx").is_some());
+    assert!(graph.get_module("./src/utils/helpers.js").is_some());
+    assert!(graph.get_module("./src/features/unused-feature.js").is_none());
+    assert!(graph.get_module("./src/features/unused-helper.js").is_none());
+    assert!(graph.get_module("./src/legacy/old-code.js").is_none());
+    
+    Ok(())
+}
+
+#[test]
+fn test_string_module_circular_dependencies() -> Result<()> {
+    let bundle_content = r#"
+var __webpack_modules__ = ({
+  "./entry.js": (function(m,e,__webpack_require__){ __webpack_require__("./moduleA.js"); }),
+  "./moduleA.js": (function(m,e,__webpack_require__){ __webpack_require__("./moduleB.js"); }),
+  "./moduleB.js": (function(m,e,__webpack_require__){ __webpack_require__("./moduleA.js"); }), // circular
+  "./isolated.js": (function(m,e,__webpack_require__){})
+});
+__webpack_require__("./entry.js");
+"#;
+    let parser = WebpackBundleParser::new()?;
+    let mut graph = parser.parse_bundle(bundle_content)?;
+
+    // Verify circular dependency
+    assert!(graph.get_module("./moduleA.js").unwrap().dependencies.contains("./moduleB.js"));
+    assert!(graph.get_module("./moduleB.js").unwrap().dependencies.contains("./moduleA.js"));
+    assert!(graph.get_module("./moduleA.js").unwrap().dependents.contains("./moduleB.js"));
+    assert!(graph.get_module("./moduleB.js").unwrap().dependents.contains("./moduleA.js"));
+    
+    // Only isolated module should be unreachable
+    let mut unreachable = graph.get_unreachable_modules();
+    unreachable.sort();
+    assert_eq!(unreachable, vec!["./isolated.js"]);
+    
+    let shaken_ids = TreeShaker::new(&mut graph).shake();
+    assert_eq!(shaken_ids, vec!["./isolated.js".to_string()]);
+    assert_eq!(graph.modules.len(), 3); // entry, moduleA, moduleB remain
+    
+    Ok(())
+}
+
+#[test]
+fn test_string_module_entry_points_as_dependencies() -> Result<()> {
+    let bundle_content = r#"
+var __webpack_modules__ = ({
+  "./main.js": (function(m,e,__webpack_require__){ __webpack_require__("./shared.js"); }),
+  "./shared.js": (function(m,e,__webpack_require__){}),                                     // also an entry point
+  "./unused.js": (function(m,e,__webpack_require__){})
+});
+__webpack_require__("./main.js");
+__webpack_require__("./shared.js"); // also entry point
+"#;
+    let parser = WebpackBundleParser::new()?;
+    let mut graph = parser.parse_bundle(bundle_content)?;
+
+    // Both should be entry points
+    assert_eq!(graph.entry_points.len(), 2);
+    assert!(graph.entry_points.contains(&"./main.js".to_string()));
+    assert!(graph.entry_points.contains(&"./shared.js".to_string()));
+    
+    // Module shared.js should be both entry point and dependency
+    assert!(graph.get_module("./main.js").unwrap().dependencies.contains("./shared.js"));
+    assert!(graph.get_module("./shared.js").unwrap().dependents.contains("./main.js"));
+    
+    // Only unused should be unreachable
+    let unreachable = graph.get_unreachable_modules();
+    assert_eq!(unreachable, vec!["./unused.js".to_string()]);
+    
+    let shaken_ids = TreeShaker::new(&mut graph).shake();
+    assert_eq!(shaken_ids, vec!["./unused.js".to_string()]);
+    assert_eq!(graph.modules.len(), 2); // main.js, shared.js remain
+    
+    Ok(())
+}
+
+#[test]
+fn test_string_vs_numeric_tree_shaking_comparison() -> Result<()> {
+    let numeric_bundle = r#"
+var __webpack_modules__ = ({
+  1: (function(m,e,__webpack_require__){ __webpack_require__(2); __webpack_require__(3); }),
+  2: (function(m,e,__webpack_require__){}),
+  3: (function(m,e,__webpack_require__){}),
+  4: (function(m,e,__webpack_require__){}) // dead code
+});
+__webpack_require__(1);
+"#;
+
+    let string_bundle = r#"
+var __webpack_modules__ = ({
+  "./main.js": (function(m,e,__webpack_require__){ __webpack_require__("./utils.js"); __webpack_require__("./components.js"); }),
+  "./utils.js": (function(m,e,__webpack_require__){}),
+  "./components.js": (function(m,e,__webpack_require__){}),
+  "./dead.js": (function(m,e,__webpack_require__){}) // dead code
+});
+__webpack_require__("./main.js");
+"#;
+
+    let parser = WebpackBundleParser::new()?;
+    
+    // Test numeric IDs
+    let mut numeric_graph = parser.parse_bundle(numeric_bundle)?;
+    assert_eq!(numeric_graph.modules.len(), 4);
+    let numeric_shaken = TreeShaker::new(&mut numeric_graph).shake();
+    assert_eq!(numeric_shaken, vec!["4".to_string()]);
+    assert_eq!(numeric_graph.modules.len(), 3);
+    
+    // Test string IDs  
+    let mut string_graph = parser.parse_bundle(string_bundle)?;
+    assert_eq!(string_graph.modules.len(), 4);
+    let string_shaken = TreeShaker::new(&mut string_graph).shake();
+    assert_eq!(string_shaken, vec!["./dead.js".to_string()]);
+    assert_eq!(string_graph.modules.len(), 3);
+    
+    // Both should behave identically in terms of tree shaking effectiveness
+    assert_eq!(numeric_shaken.len(), string_shaken.len(), "Both should shake same number of modules");
     
     Ok(())
 } 

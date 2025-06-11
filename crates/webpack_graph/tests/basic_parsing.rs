@@ -1,4 +1,4 @@
-use webpack_graph::{WebpackBundleParser, Result};
+use webpack_graph::WebpackBundleParser;
 
 const BUNDLE_CONTENT: &str = include_str!("../../../test-cases/webpack-bundles/bundle-all-features.js");
 
