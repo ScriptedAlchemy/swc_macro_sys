@@ -1,7 +1,7 @@
 (() => { // webpackBootstrap
 "use strict";
 var __webpack_modules__ = ({
-418: (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+"dataProcessor": (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.d(__webpack_exports__, {
   V: () => (dataProcessor)
 });
@@ -35,7 +35,7 @@ var dataProcessor = {
 
 
 }),
-422: (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+"debugUtils": (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.d(__webpack_exports__, {
   qu: () => (debugLog)
 });
@@ -65,7 +65,7 @@ function debugNetworkCalls() {
 
 
 }),
-803: (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+"expensiveUIUtils": (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.d(__webpack_exports__, {
   B: () => (expensiveUIUtils)
 });
@@ -108,12 +108,12 @@ var expensiveUIUtils = {
 
 
 }),
-153: (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+"featureA": (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.d(__webpack_exports__, {
   v: () => (featureA)
 });
-/* ESM import */var _heavyMathUtils_ts__WEBPACK_IMPORTED_MODULE_0__ = /*#__PURE__*/ __webpack_require__(78);
-/* ESM import */var _dataProcessor_ts__WEBPACK_IMPORTED_MODULE_1__ = /*#__PURE__*/ __webpack_require__(418);
+/* ESM import */var _heavyMathUtils_ts__WEBPACK_IMPORTED_MODULE_0__ = /*#__PURE__*/ __webpack_require__("heavyMathUtils");
+/* ESM import */var _dataProcessor_ts__WEBPACK_IMPORTED_MODULE_1__ = /*#__PURE__*/ __webpack_require__("dataProcessor");
 // featureA.js - Feature A implementation that uses heavy utilities
 
 
@@ -133,12 +133,12 @@ function featureA() {
 
 
 }),
-722: (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+"featureB": (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.d(__webpack_exports__, {
   S: () => (featureB)
 });
-/* ESM import */var _expensiveUIUtils_ts__WEBPACK_IMPORTED_MODULE_0__ = /*#__PURE__*/ __webpack_require__(803);
-/* ESM import */var _networkUtils_ts__WEBPACK_IMPORTED_MODULE_1__ = /*#__PURE__*/ __webpack_require__(812);
+/* ESM import */var _expensiveUIUtils_ts__WEBPACK_IMPORTED_MODULE_0__ = /*#__PURE__*/ __webpack_require__("expensiveUIUtils");
+/* ESM import */var _networkUtils_ts__WEBPACK_IMPORTED_MODULE_1__ = /*#__PURE__*/ __webpack_require__("networkUtils");
 // featureB.js - Feature B implementation that uses different heavy utilities
 
 
@@ -152,7 +152,7 @@ function featureB() {
 
 
 }),
-78: (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+"heavyMathUtils": (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.d(__webpack_exports__, {
   D: () => (heavyMathUtils)
 });
@@ -192,7 +192,7 @@ var heavyMathUtils = {
 
 
 }),
-812: (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+"networkUtils": (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.d(__webpack_exports__, {
   t: () => (networkUtils)
 });
@@ -283,9 +283,9 @@ __webpack_require__.ruid = "bundler=rspack@1.3.12";
 var __webpack_exports__ = {};
 // This entry needs to be wrapped in an IIFE because it needs to be isolated against other modules in the chunk.
 (() => {
-/* ESM import */var _featureA_ts__WEBPACK_IMPORTED_MODULE_0__ = /*#__PURE__*/ __webpack_require__(153);
-/* ESM import */var _featureB_ts__WEBPACK_IMPORTED_MODULE_1__ = /*#__PURE__*/ __webpack_require__(722);
-/* ESM import */var _debugUtils_ts__WEBPACK_IMPORTED_MODULE_2__ = /*#__PURE__*/ __webpack_require__(422);
+/* ESM import */var _featureA_ts__WEBPACK_IMPORTED_MODULE_0__ = /*#__PURE__*/ __webpack_require__("featureA");
+/* ESM import */var _featureB_ts__WEBPACK_IMPORTED_MODULE_1__ = /*#__PURE__*/ __webpack_require__("featureB");
+/* ESM import */var _debugUtils_ts__WEBPACK_IMPORTED_MODULE_2__ = /*#__PURE__*/ __webpack_require__("debugUtils");
 // main.js - Entry point demonstrating conditional macro tree shaking
 
 
