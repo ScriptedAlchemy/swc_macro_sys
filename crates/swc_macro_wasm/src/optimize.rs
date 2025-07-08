@@ -18,15 +18,24 @@ use rustc_hash::FxHashSet;
 pub fn optimize(source: String, config: serde_json::Value) -> String {
     let cm: Lrc<SourceMap> = Default::default();
     let (mut program, comments) = {
-        let fm = cm.new_source_file(FileName::Custom("test.js".to_string()).into(), source);
+        let fm = cm.new_source_file(FileName::Custom("test.js".to_string()).into(), source.clone());
         let comments = SingleThreadedComments::default();
-        let program = Parser::new(
+        
+        // Handle parsing errors gracefully without panicking
+        let program = match Parser::new(
             Syntax::Es(EsSyntax::default()),
             StringInput::from(&*fm),
             Some(&comments),
         )
-        .parse_program()
-        .unwrap();
+        .parse_program() {
+            Ok(program) => program,
+            Err(e) => {
+                eprintln!("SWC parsing failed: {:?}", e);
+                eprintln!("Returning original source due to parsing error");
+                // Return the original source if parsing fails
+                return source;
+            }
+        };
         (program, comments)
     };
 
@@ -68,10 +77,19 @@ pub fn optimize(source: String, config: serde_json::Value) -> String {
             cm: cm.clone(),
             wr,
         };
-        emitter.emit_program(&program).unwrap();
+        if let Err(e) = emitter.emit_program(&program) {
+            eprintln!("Failed to emit program: {:?}", e);
+            return source;
+        }
         drop(emitter);
 
-        unsafe { String::from_utf8_unchecked(buf) }
+        match String::from_utf8(buf) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Failed to convert to UTF-8: {:?}", e);
+                return source;
+            }
+        }
     };
 
     ret
@@ -164,7 +182,10 @@ impl WebpackModuleRemover {
         if let PropOrSpread::Prop(prop) = prop {
             if let Prop::KeyValue(kv) = prop.as_ref() {
                 let module_id = match &kv.key {
-                    PropName::Num(num) => num.value.to_string().split('.').next().unwrap_or("").to_string(),
+                    PropName::Num(num) => {
+                        // Convert numeric property name to string (supports decimal IDs like 123.5)
+                        num.value.to_string()
+                    },
                     PropName::Str(s) => s.value.to_string(),
                     PropName::Ident(ident) => ident.sym.to_string(),
                     _ => return false,
