@@ -1,5 +1,38 @@
 {
   "consume_shared_modules": {
+    "react": {
+      "used_exports": [
+        "version"
+      ],
+      "unused_exports": [],
+      "possibly_unused_exports": []
+    },
+    "cjs-pure-helper": {
+      "used_exports": [
+        "CONSTANTS"
+      ],
+      "unused_exports": [
+        "DataValidator",
+        "createValidator",
+        "generateId",
+        "hashString",
+        "helpers",
+        "info",
+        "processData",
+        "validateInput"
+      ],
+      "possibly_unused_exports": []
+    },
+    "cjs-data-processor": {
+      "used_exports": [],
+      "unused_exports": [],
+      "possibly_unused_exports": []
+    },
+    "cjs-module-exports": {
+      "used_exports": [],
+      "unused_exports": [],
+      "possibly_unused_exports": []
+    },
     "api-lib": {
       "used_exports": [
         "createApiClient",
@@ -31,34 +64,26 @@
       ],
       "possibly_unused_exports": []
     },
-    "cjs-data-processor": {
-      "used_exports": [],
-      "unused_exports": [],
-      "possibly_unused_exports": []
-    },
-    "component-lib": {
+    "utility-lib": {
       "used_exports": [
-        "Modal",
-        "Button",
+        "capitalize",
+        "formatDate",
         "default"
       ],
       "unused_exports": [
-        "Tooltip",
-        "createAlert",
-        "createCard"
+        "debounce",
+        "deepClone",
+        "generateId",
+        "processWithHelper",
+        "validateEmail"
       ],
-      "possibly_unused_exports": []
-    },
-    "cjs-module-exports": {
-      "used_exports": [],
-      "unused_exports": [],
       "possibly_unused_exports": []
     },
     "lodash-es": {
       "used_exports": [
         "map",
-        "VERSION",
         "filter",
+        "VERSION",
         "default"
       ],
       "unused_exports": [
@@ -384,47 +409,22 @@
       ],
       "possibly_unused_exports": []
     },
-    "cjs-legacy-utils": {
-      "used_exports": [],
-      "unused_exports": [],
-      "possibly_unused_exports": []
-    },
-    "react": {
+    "component-lib": {
       "used_exports": [
-        "version"
-      ],
-      "unused_exports": [],
-      "possibly_unused_exports": []
-    },
-    "utility-lib": {
-      "used_exports": [
-        "capitalize",
-        "formatDate",
+        "Modal",
+        "Button",
         "default"
       ],
       "unused_exports": [
-        "debounce",
-        "deepClone",
-        "generateId",
-        "processWithHelper",
-        "validateEmail"
+        "Tooltip",
+        "createAlert",
+        "createCard"
       ],
       "possibly_unused_exports": []
     },
-    "cjs-pure-helper": {
-      "used_exports": [
-        "CONSTANTS"
-      ],
-      "unused_exports": [
-        "DataValidator",
-        "createValidator",
-        "generateId",
-        "hashString",
-        "helpers",
-        "info",
-        "processData",
-        "validateInput"
-      ],
+    "cjs-legacy-utils": {
+      "used_exports": [],
+      "unused_exports": [],
       "possibly_unused_exports": []
     }
   },
