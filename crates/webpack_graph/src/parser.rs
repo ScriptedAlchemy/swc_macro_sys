@@ -518,17 +518,16 @@ impl WebpackVisitor {
         // Split chunk format: .push([[chunk_ids], { modules }])
         if call.args.len() >= 1 {
             let ExprOrSpread { expr, .. } = &call.args[0];
-                if let Expr::Array(array) = expr.as_ref() {
-                    // We expect 2 elements: [chunk_ids, modules_object]
-                    if array.elems.len() >= 2 {
-                        if let Some(ExprOrSpread { expr: modules_expr, .. }) = &array.elems[1] {
-                            if let Expr::Object(obj) = modules_expr.as_ref() {
-                                eprintln!("[webpack_graph] Found split chunk modules object with {} properties", obj.props.len());
-                                // Extract modules from the object
-                                for prop in &obj.props {
-                                    if let Some((module_id, module_source)) = self.extract_module_content(prop) {
-                                        self.rspack_chunk_modules.insert(module_id, module_source);
-                                    }
+            if let Expr::Array(array) = expr.as_ref() {
+                // We expect 2 elements: [chunk_ids, modules_object]
+                if array.elems.len() >= 2 {
+                    if let Some(ExprOrSpread { expr: modules_expr, .. }) = &array.elems[1] {
+                        if let Expr::Object(obj) = modules_expr.as_ref() {
+                            eprintln!("[webpack_graph] Found split chunk modules object with {} properties", obj.props.len());
+                            // Extract modules from the object
+                            for prop in &obj.props {
+                                if let Some((module_id, module_source)) = self.extract_module_content(prop) {
+                                    self.rspack_chunk_modules.insert(module_id, module_source);
                                 }
                             }
                         }
