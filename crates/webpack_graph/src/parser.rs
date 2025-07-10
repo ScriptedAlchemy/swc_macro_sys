@@ -229,7 +229,7 @@ impl WebpackBundleParser {
         let module_pattern = r#""([^"]+)":\s*(?:/\*[!*][^*]*\*+(?:[^/*][^*]*\*+)*/\s*)?(?:\()?function\s*\([^)]*\)\s*\{"#;
         let module_re = regex::Regex::new(module_pattern).unwrap();
         
-        let mut last_end = 0;
+        let _last_end = 0;
         for cap in module_re.find_iter(modules_str) {
             // Extract module ID from the capture
             if let Some(id_match) = regex::Regex::new(r#""([^"]+)""#).unwrap().captures(cap.as_str()) {
@@ -325,7 +325,14 @@ impl WebpackVisitor {
         
         // Return a representation that includes the dependencies for our regex fallback
         let deps_string = dependencies.iter()
-            .map(|dep| format!("__webpack_require__({})", dep))
+            .map(|dep| {
+                // Check if dep is numeric or string
+                if dep.chars().all(|c| c.is_numeric() || c == '.') {
+                    format!("__webpack_require__({})", dep)
+                } else {
+                    format!(r#"__webpack_require__("{}")"#, dep)
+                }
+            })
             .collect::<Vec<_>>()
             .join("; ");
         
@@ -385,8 +392,14 @@ impl WebpackVisitor {
                 if ident.sym == "__webpack_require__" {
                     // Extract first argument (module ID)
                     if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
-                        if let Expr::Lit(Lit::Num(num)) = expr.as_ref() {
-                            return Some(num.value.to_string().split('.').next()?.to_string());
+                        match expr.as_ref() {
+                            Expr::Lit(Lit::Num(num)) => {
+                                return Some(num.value.to_string().split('.').next()?.to_string());
+                            }
+                            Expr::Lit(Lit::Str(s)) => {
+                                return Some(s.value.to_string());
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -421,7 +434,7 @@ impl Visit for WebpackVisitor {
                         if ident.sym == "push" {
                             // Check if object is the webpack chunk assignment
                             if let Expr::Paren(paren) = &member.obj.as_ref() {
-                                if let Expr::Assign(assign) = paren.expr.as_ref() {
+                                if let Expr::Assign(_assign) = paren.expr.as_ref() {
                                     // This looks like split chunk format
                                     self.process_split_chunk_push(call);
                                 }
@@ -504,7 +517,7 @@ impl WebpackVisitor {
     fn process_split_chunk_push(&mut self, call: &CallExpr) {
         // Split chunk format: .push([[chunk_ids], { modules }])
         if call.args.len() >= 1 {
-            if let ExprOrSpread { expr, .. } = &call.args[0] {
+            let ExprOrSpread { expr, .. } = &call.args[0];
                 if let Expr::Array(array) = expr.as_ref() {
                     // We expect 2 elements: [chunk_ids, modules_object]
                     if array.elems.len() >= 2 {
