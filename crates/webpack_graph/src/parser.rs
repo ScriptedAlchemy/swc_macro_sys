@@ -1,5 +1,5 @@
 use crate::{error::WebpackGraphError, graph::{ModuleGraph, ModuleNode}, Result};
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 use swc_core::common::{sync::Lrc, SourceMap, FileName, Span};
 use swc_core::ecma::parser::{Parser, StringInput, Syntax, EsSyntax};
 use swc_core::ecma::ast::*;
@@ -39,21 +39,53 @@ impl WebpackBundleParser {
         let mut visitor = WebpackVisitor::new();
         program.visit_with(&mut visitor);
 
+        // If no standard webpack modules found, try split chunk format
         if visitor.webpack_modules.is_empty() {
-            return Err(WebpackGraphError::InvalidBundleFormat(
-                "No __webpack_modules__ found in bundle".to_string(),
-            ));
+            eprintln!("[webpack_graph] No standard webpack modules found, checking for split chunk format...");
+            
+            // Also check AST visitor results
+            if !visitor.rspack_chunk_modules.is_empty() {
+                eprintln!("[webpack_graph] AST visitor found {} split chunk modules", visitor.rspack_chunk_modules.len());
+            }
+            
+            // Try regex extraction as fallback
+            let regex_modules = self.extract_rspack_modules(source);
+            if !regex_modules.is_empty() {
+                eprintln!("[webpack_graph] Regex extraction found {} split chunk modules", regex_modules.len());
+                // Merge both sources
+                for (id, source) in regex_modules {
+                    visitor.rspack_chunk_modules.insert(id, source);
+                }
+            }
+            
+            if visitor.rspack_chunk_modules.is_empty() {
+                return Err(WebpackGraphError::InvalidBundleFormat(
+                    "No webpack modules or split chunk modules found in bundle".to_string(),
+                ));
+            }
+            
+            // For split chunks, there are usually no explicit entry points
+            // as they are loaded on demand. We'll treat this as valid.
+            eprintln!("[webpack_graph] Split chunk detected with {} modules - no explicit entry points expected", 
+                     visitor.rspack_chunk_modules.len());
         }
 
         // Build the module graph
         let mut graph = ModuleGraph::new();
 
-        // Add all modules to the graph with their dependencies extracted during AST traversal
-        for (module_id, (_module_ast, dependencies)) in &visitor.webpack_modules {
-            let mut module_node = ModuleNode::new(module_id.clone(), format!("/* Module {} */", module_id));
+        // Combine both webpack modules and rspack chunk modules
+        let all_modules: FxHashMap<String, String> = visitor.webpack_modules.iter()
+            .chain(visitor.rspack_chunk_modules.iter())
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+
+        // Add all modules to the graph and extract their dependencies
+        for (module_id, module_source) in &all_modules {
+            let dependencies = self.extract_dependencies_from_source(module_source);
+            let mut module_node = ModuleNode::new(module_id.clone(), module_source.clone());
             
             for dep_id in dependencies {
-                module_node.add_dependency(dep_id.clone());
+                module_node.add_dependency(dep_id);
             }
             
             graph.add_module(module_node);
@@ -73,16 +105,182 @@ impl WebpackBundleParser {
             }
         }
 
+        // For split chunks without explicit entry points, we need to determine reachability differently
+        // In split chunks, modules can be reached through exports or dynamic imports
+        if graph.entry_points.is_empty() && !visitor.rspack_chunk_modules.is_empty() {
+            eprintln!("[webpack_graph] Split chunk has no explicit entry points - analyzing module exports for reachability");
+            // Don't add any implicit entry points - let the tree shaker determine reachability
+            // based on the actual module dependencies
+            eprintln!("[webpack_graph] Allowing tree shaker to analyze all {} modules for reachability", graph.modules.len());
+        }
+
         // Note: Empty entry points are allowed for tree shaking scenarios where DCE
         // has removed all entry point imports, making all modules unreachable
 
         Ok(graph)
     }
+
+    /// Extract __webpack_require__ calls from module source code using regex as fallback
+    fn extract_dependencies_from_source(&self, source: &str) -> Vec<String> {
+        let mut dependencies = Vec::new();
+        
+        // Match numeric module IDs: __webpack_require__(123)
+        let numeric_re = regex::Regex::new(r"__webpack_require__\((\d+)\)").unwrap();
+        for cap in numeric_re.captures_iter(source) {
+            if let Some(m) = cap.get(1) {
+                dependencies.push(m.as_str().to_string());
+            }
+        }
+        
+        // Match string module IDs: __webpack_require__("../../path/to/module.js")
+        // Also handles cases with comments: __webpack_require__(/*! comment */ "path")
+        let string_re = regex::Regex::new(r#"__webpack_require__\s*\(\s*(?:/\*[^*]*\*/\s*)?"([^"]+)""#).unwrap();
+        for cap in string_re.captures_iter(source) {
+            if let Some(m) = cap.get(1) {
+                dependencies.push(m.as_str().to_string());
+            }
+        }
+        
+        dependencies
+    }
+    
+    /// Extract modules from split chunk format (code split chunks without runtime)
+    fn extract_rspack_modules(&self, source: &str) -> FxHashMap<String, String> {
+        let mut modules = FxHashMap::default();
+        
+        // Look for split chunk format: (self["webpackChunk..."] = ...).push([[...], {...}])
+        // This is used when code is split into separate chunks
+        // The modules are in the second element of the array
+        let chunk_re = regex::Regex::new(r#"\bself\[["']webpackChunk[^"']*["']\]\s*=\s*self\[["']webpackChunk[^"']*["']\]\s*\|\|\s*\[\]\)\s*\.push\(\["#).unwrap();
+        
+        if chunk_re.is_match(source) {
+            eprintln!("[webpack_graph] Detected split chunk format (code split without runtime)");
+            
+            // Find the modules object which starts after the chunk ID array
+            // Look for pattern: ], { "module_id": function(...) {...}, ... }])
+            // Also handle ], {\n format with newline
+            let patterns = ["], {", "],\n{", "],\n    {", "],\n{"];
+            let mut modules_start_opt = None;
+            
+            for pattern in &patterns {
+                if let Some(pos) = source.find(pattern) {
+                    modules_start_opt = Some(pos + pattern.len() - 1); // Keep the {
+                    break;
+                }
+            }
+            
+            if let Some(modules_start) = modules_start_opt {
+                let modules_section = &source[modules_start..];
+                eprintln!("[webpack_graph] Found modules section starting at position {}", modules_start);
+                
+                // Find the end of the modules object
+                let mut brace_count = 1;
+                let mut in_string = false;
+                let mut escape_next = false;
+                let mut end_pos = 0;
+                
+                for (i, ch) in modules_section.chars().enumerate() {
+                    if escape_next {
+                        escape_next = false;
+                        continue;
+                    }
+                    
+                    match ch {
+                        '\\' if in_string => escape_next = true,
+                        '"' if !in_string => in_string = true,
+                        '"' if in_string => in_string = false,
+                        '{' if !in_string => brace_count += 1,
+                        '}' if !in_string => {
+                            brace_count -= 1;
+                            if brace_count == 0 {
+                                end_pos = i;
+                                break;
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+                
+                if end_pos > 0 {
+                    let modules_content = &modules_section[..=end_pos];
+                    eprintln!("[webpack_graph] Parsing modules object of length {}", modules_content.len());
+                    modules = self.parse_modules_object(modules_content);
+                } else {
+                    eprintln!("[webpack_graph] Failed to find end of modules object");
+                }
+            } else {
+                eprintln!("[webpack_graph] Could not find modules object pattern in chunk");
+            }
+        }
+        
+        println!("Extracted {} modules from split chunk format", modules.len());
+        modules
+    }
+    
+    /// Parse a modules object and extract module IDs and their source
+    fn parse_modules_object(&self, modules_str: &str) -> FxHashMap<String, String> {
+        let mut modules = FxHashMap::default();
+        
+        // Use AST visitor to properly parse the modules instead of regex
+        // For now, use regex as fallback but this should be improved
+        
+        // Match module entries: "module_id": function(...) { ... }
+        // Also handles entries with comments: "module_id": /*! comment */ function(...) { ... }
+        let module_pattern = r#""([^"]+)":\s*(?:/\*[!*][^*]*\*+(?:[^/*][^*]*\*+)*/\s*)?(?:\()?function\s*\([^)]*\)\s*\{"#;
+        let module_re = regex::Regex::new(module_pattern).unwrap();
+        
+        let mut last_end = 0;
+        for cap in module_re.find_iter(modules_str) {
+            // Extract module ID from the capture
+            if let Some(id_match) = regex::Regex::new(r#""([^"]+)""#).unwrap().captures(cap.as_str()) {
+                if let Some(module_id) = id_match.get(1) {
+                    let id = module_id.as_str().to_string();
+                    
+                    // Find the function body by counting braces
+                    let start = cap.end();
+                    let mut brace_count = 1;
+                    let mut in_string = false;
+                    let mut escape_next = false;
+                    let mut body_end = start;
+                    
+                    for (i, ch) in modules_str[start..].chars().enumerate() {
+                        if escape_next {
+                            escape_next = false;
+                            continue;
+                        }
+                        
+                        match ch {
+                            '\\' if in_string => escape_next = true,
+                            '"' if !in_string => in_string = true,
+                            '"' if in_string => in_string = false,
+                            '{' if !in_string => brace_count += 1,
+                            '}' if !in_string => {
+                                brace_count -= 1;
+                                if brace_count == 0 {
+                                    body_end = start + i;
+                                    break;
+                                }
+                            },
+                            _ => {}
+                        }
+                    }
+                    
+                    if body_end > start {
+                        let body = modules_str[start..body_end].to_string();
+                        modules.insert(id, body);
+                    }
+                }
+            }
+        }
+        
+        modules
+    }
 }
 
 /// AST visitor to extract webpack module information
 struct WebpackVisitor {
-    webpack_modules: FxHashMap<String, (Box<Expr>, FxHashSet<String>)>,
+    webpack_modules: FxHashMap<String, String>,
+    rspack_chunk_modules: FxHashMap<String, String>,
     entry_points: Vec<String>,
     webpack_modules_span: Option<Span>,
 }
@@ -91,13 +289,14 @@ impl WebpackVisitor {
     fn new() -> Self {
         Self {
             webpack_modules: FxHashMap::default(),
+            rspack_chunk_modules: FxHashMap::default(),
             entry_points: Vec::new(),
             webpack_modules_span: None,
         }
     }
 
     /// Extract module content from object property
-    fn extract_module_content(&self, prop: &PropOrSpread) -> Option<(String, Box<Expr>, FxHashSet<String>)> {
+    fn extract_module_content(&self, prop: &PropOrSpread) -> Option<(String, String)> {
         if let PropOrSpread::Prop(prop) = prop {
             if let Prop::KeyValue(kv) = prop.as_ref() {
                 // Extract module ID
@@ -108,18 +307,33 @@ impl WebpackVisitor {
                     _ => return None,
                 };
 
-                // Extract dependencies using pure AST traversal
-                let mut dependencies = FxHashSet::default();
-                self.extract_require_calls_from_expr(&kv.value, &mut dependencies);
+                // Extract module source from the function expression
+                let module_source = self.extract_function_source(&kv.value)
+                    .unwrap_or_else(|| format!("/* Module {} */", module_id));
                 
-                return Some((module_id, kv.value.clone(), dependencies));
+                return Some((module_id, module_source));
             }
         }
         None
     }
 
-    /// Recursively extract webpack_require calls from an expression using pure AST traversal
-    fn extract_require_calls_from_expr(&self, expr: &Expr, dependencies: &mut FxHashSet<String>) {
+    /// Extract source code from a function expression in the module value
+    fn extract_function_source(&self, expr: &Expr) -> Option<String> {
+        // Instead of trying to convert back to source, let's extract the webpack_require calls directly
+        let mut dependencies = Vec::new();
+        self.extract_require_calls_from_expr(expr, &mut dependencies);
+        
+        // Return a representation that includes the dependencies for our regex fallback
+        let deps_string = dependencies.iter()
+            .map(|dep| format!("__webpack_require__({})", dep))
+            .collect::<Vec<_>>()
+            .join("; ");
+        
+        Some(format!("function() {{ {} }}", deps_string))
+    }
+
+    /// Recursively extract webpack_require calls from an expression
+    fn extract_require_calls_from_expr(&self, expr: &Expr, dependencies: &mut Vec<String>) {
         match expr {
             Expr::Paren(paren) => {
                 self.extract_require_calls_from_expr(&paren.expr, dependencies);
@@ -131,156 +345,23 @@ impl WebpackVisitor {
                     }
                 }
             }
-            Expr::Arrow(arrow) => {
-                match arrow.body.as_ref() {
-                    BlockStmtOrExpr::BlockStmt(block) => {
-                        for stmt in &block.stmts {
-                            self.extract_require_calls_from_stmt(stmt, dependencies);
-                        }
-                    }
-                    BlockStmtOrExpr::Expr(expr) => {
-                        self.extract_require_calls_from_expr(expr, dependencies);
-                    }
-                }
-            }
             Expr::Call(call) => {
                 if let Some(module_id) = self.extract_webpack_require_call(call) {
-                    dependencies.insert(module_id);
+                    if !dependencies.contains(&module_id) {
+                        dependencies.push(module_id);
+                    }
                 }
                 // Also check arguments for nested calls
                 for arg in &call.args {
                     self.extract_require_calls_from_expr(&arg.expr, dependencies);
-                }
-                // Check callee for nested expressions
-                if let Callee::Expr(callee_expr) = &call.callee {
-                    self.extract_require_calls_from_expr(callee_expr, dependencies);
-                }
-            }
-            Expr::Assign(assign) => {
-                self.extract_require_calls_from_expr(&assign.right, dependencies);
-                if let AssignTarget::Simple(SimpleAssignTarget::Paren(paren)) = &assign.left {
-                    self.extract_require_calls_from_expr(&paren.expr, dependencies);
-                }
-            }
-            Expr::Seq(seq) => {
-                for expr in &seq.exprs {
-                    self.extract_require_calls_from_expr(expr, dependencies);
-                }
-            }
-            Expr::Cond(cond) => {
-                self.extract_require_calls_from_expr(&cond.test, dependencies);
-                self.extract_require_calls_from_expr(&cond.cons, dependencies);
-                self.extract_require_calls_from_expr(&cond.alt, dependencies);
-            }
-            Expr::Bin(bin) => {
-                self.extract_require_calls_from_expr(&bin.left, dependencies);
-                self.extract_require_calls_from_expr(&bin.right, dependencies);
-            }
-            Expr::Unary(unary) => {
-                self.extract_require_calls_from_expr(&unary.arg, dependencies);
-            }
-            Expr::Update(update) => {
-                self.extract_require_calls_from_expr(&update.arg, dependencies);
-            }
-            Expr::Member(member) => {
-                self.extract_require_calls_from_expr(&member.obj, dependencies);
-                if let MemberProp::Computed(computed) = &member.prop {
-                    self.extract_require_calls_from_expr(&computed.expr, dependencies);
-                }
-            }
-            Expr::SuperProp(super_prop) => {
-                if let SuperProp::Computed(computed) = &super_prop.prop {
-                    self.extract_require_calls_from_expr(&computed.expr, dependencies);
-                }
-            }
-            Expr::Object(obj) => {
-                for prop in &obj.props {
-                    match prop {
-                        PropOrSpread::Prop(prop) => {
-                            match prop.as_ref() {
-                                Prop::KeyValue(kv) => {
-                                    self.extract_require_calls_from_expr(&kv.value, dependencies);
-                                    if let PropName::Computed(computed) = &kv.key {
-                                        self.extract_require_calls_from_expr(&computed.expr, dependencies);
-                                    }
-                                }
-                                Prop::Assign(assign) => {
-                                    self.extract_require_calls_from_expr(&assign.value, dependencies);
-                                }
-                                Prop::Getter(getter) => {
-                                    if let Some(body) = &getter.body {
-                                        for stmt in &body.stmts {
-                                            self.extract_require_calls_from_stmt(stmt, dependencies);
-                                        }
-                                    }
-                                }
-                                Prop::Setter(setter) => {
-                                    if let Some(body) = &setter.body {
-                                        for stmt in &body.stmts {
-                                            self.extract_require_calls_from_stmt(stmt, dependencies);
-                                        }
-                                    }
-                                }
-                                Prop::Method(method) => {
-                                    if let Some(body) = &method.function.body {
-                                        for stmt in &body.stmts {
-                                            self.extract_require_calls_from_stmt(stmt, dependencies);
-                                        }
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                        PropOrSpread::Spread(spread) => {
-                            self.extract_require_calls_from_expr(&spread.expr, dependencies);
-                        }
-                    }
-                }
-            }
-            Expr::Array(array) => {
-                for elem in &array.elems {
-                    if let Some(elem) = elem {
-                        match elem {
-                            ExprOrSpread { expr, .. } => {
-                                self.extract_require_calls_from_expr(expr, dependencies);
-                            }
-                        }
-                    }
-                }
-            }
-            Expr::Tpl(tpl) => {
-                for expr in &tpl.exprs {
-                    self.extract_require_calls_from_expr(expr, dependencies);
-                }
-            }
-            Expr::TaggedTpl(tagged) => {
-                self.extract_require_calls_from_expr(&tagged.tag, dependencies);
-                for expr in &tagged.tpl.exprs {
-                    self.extract_require_calls_from_expr(expr, dependencies);
-                }
-            }
-            Expr::New(new_expr) => {
-                self.extract_require_calls_from_expr(&new_expr.callee, dependencies);
-                if let Some(args) = &new_expr.args {
-                    for arg in args {
-                        self.extract_require_calls_from_expr(&arg.expr, dependencies);
-                    }
-                }
-            }
-            Expr::Await(await_expr) => {
-                self.extract_require_calls_from_expr(&await_expr.arg, dependencies);
-            }
-            Expr::Yield(yield_expr) => {
-                if let Some(arg) = &yield_expr.arg {
-                    self.extract_require_calls_from_expr(arg, dependencies);
                 }
             }
             _ => {}
         }
     }
 
-    /// Extract webpack_require calls from a statement using pure AST traversal
-    fn extract_require_calls_from_stmt(&self, stmt: &Stmt, dependencies: &mut FxHashSet<String>) {
+    /// Extract webpack_require calls from a statement
+    fn extract_require_calls_from_stmt(&self, stmt: &Stmt, dependencies: &mut Vec<String>) {
         match stmt {
             Stmt::Expr(expr_stmt) => {
                 self.extract_require_calls_from_expr(&expr_stmt.expr, dependencies);
@@ -291,143 +372,6 @@ impl WebpackVisitor {
                         self.extract_require_calls_from_expr(init, dependencies);
                     }
                 }
-            }
-            Stmt::Decl(Decl::Fn(fn_decl)) => {
-                if let Some(body) = &fn_decl.function.body {
-                    for stmt in &body.stmts {
-                        self.extract_require_calls_from_stmt(stmt, dependencies);
-                    }
-                }
-            }
-            Stmt::Decl(Decl::Class(class_decl)) => {
-                for member in &class_decl.class.body {
-                    match member {
-                        ClassMember::Constructor(constructor) => {
-                            if let Some(body) = &constructor.body {
-                                for stmt in &body.stmts {
-                                    self.extract_require_calls_from_stmt(stmt, dependencies);
-                                }
-                            }
-                        }
-                        ClassMember::Method(method) => {
-                            if let Some(body) = &method.function.body {
-                                for stmt in &body.stmts {
-                                    self.extract_require_calls_from_stmt(stmt, dependencies);
-                                }
-                            }
-                        }
-                        ClassMember::PrivateMethod(method) => {
-                            if let Some(body) = &method.function.body {
-                                for stmt in &body.stmts {
-                                    self.extract_require_calls_from_stmt(stmt, dependencies);
-                                }
-                            }
-                        }
-                        ClassMember::ClassProp(prop) => {
-                            if let Some(value) = &prop.value {
-                                self.extract_require_calls_from_expr(value, dependencies);
-                            }
-                        }
-                        ClassMember::PrivateProp(prop) => {
-                            if let Some(value) = &prop.value {
-                                self.extract_require_calls_from_expr(value, dependencies);
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            Stmt::Block(block) => {
-                for stmt in &block.stmts {
-                    self.extract_require_calls_from_stmt(stmt, dependencies);
-                }
-            }
-            Stmt::If(if_stmt) => {
-                self.extract_require_calls_from_expr(&if_stmt.test, dependencies);
-                self.extract_require_calls_from_stmt(&if_stmt.cons, dependencies);
-                if let Some(alt) = &if_stmt.alt {
-                    self.extract_require_calls_from_stmt(alt, dependencies);
-                }
-            }
-            Stmt::Switch(switch_stmt) => {
-                self.extract_require_calls_from_expr(&switch_stmt.discriminant, dependencies);
-                for case in &switch_stmt.cases {
-                    if let Some(test) = &case.test {
-                        self.extract_require_calls_from_expr(test, dependencies);
-                    }
-                    for stmt in &case.cons {
-                        self.extract_require_calls_from_stmt(stmt, dependencies);
-                    }
-                }
-            }
-            Stmt::While(while_stmt) => {
-                self.extract_require_calls_from_expr(&while_stmt.test, dependencies);
-                self.extract_require_calls_from_stmt(&while_stmt.body, dependencies);
-            }
-            Stmt::DoWhile(do_while) => {
-                self.extract_require_calls_from_stmt(&do_while.body, dependencies);
-                self.extract_require_calls_from_expr(&do_while.test, dependencies);
-            }
-            Stmt::For(for_stmt) => {
-                if let Some(init) = &for_stmt.init {
-                    match init {
-                        VarDeclOrExpr::VarDecl(var_decl) => {
-                            for declarator in &var_decl.decls {
-                                if let Some(init) = &declarator.init {
-                                    self.extract_require_calls_from_expr(init, dependencies);
-                                }
-                            }
-                        }
-                        VarDeclOrExpr::Expr(expr) => {
-                            self.extract_require_calls_from_expr(expr, dependencies);
-                        }
-                    }
-                }
-                if let Some(test) = &for_stmt.test {
-                    self.extract_require_calls_from_expr(test, dependencies);
-                }
-                if let Some(update) = &for_stmt.update {
-                    self.extract_require_calls_from_expr(update, dependencies);
-                }
-                self.extract_require_calls_from_stmt(&for_stmt.body, dependencies);
-            }
-            Stmt::ForIn(for_in) => {
-                self.extract_require_calls_from_expr(&for_in.right, dependencies);
-                self.extract_require_calls_from_stmt(&for_in.body, dependencies);
-            }
-            Stmt::ForOf(for_of) => {
-                self.extract_require_calls_from_expr(&for_of.right, dependencies);
-                self.extract_require_calls_from_stmt(&for_of.body, dependencies);
-            }
-            Stmt::Return(ret_stmt) => {
-                if let Some(arg) = &ret_stmt.arg {
-                    self.extract_require_calls_from_expr(arg, dependencies);
-                }
-            }
-            Stmt::Throw(throw_stmt) => {
-                self.extract_require_calls_from_expr(&throw_stmt.arg, dependencies);
-            }
-            Stmt::Try(try_stmt) => {
-                for stmt in &try_stmt.block.stmts {
-                    self.extract_require_calls_from_stmt(stmt, dependencies);
-                }
-                if let Some(handler) = &try_stmt.handler {
-                    for stmt in &handler.body.stmts {
-                        self.extract_require_calls_from_stmt(stmt, dependencies);
-                    }
-                }
-                if let Some(finalizer) = &try_stmt.finalizer {
-                    for stmt in &finalizer.stmts {
-                        self.extract_require_calls_from_stmt(stmt, dependencies);
-                    }
-                }
-            }
-            Stmt::With(with_stmt) => {
-                self.extract_require_calls_from_expr(&with_stmt.obj, dependencies);
-                self.extract_require_calls_from_stmt(&with_stmt.body, dependencies);
-            }
-            Stmt::Labeled(labeled) => {
-                self.extract_require_calls_from_stmt(&labeled.body, dependencies);
             }
             _ => {}
         }
@@ -441,17 +385,9 @@ impl WebpackVisitor {
                 if ident.sym == "__webpack_require__" {
                     // Extract first argument (module ID)
                     if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
-                        return match expr.as_ref() {
-                            // Handle numeric module IDs: __webpack_require__(123)
-                            Expr::Lit(Lit::Num(num)) => {
-                                Some(num.value.to_string().split('.').next()?.to_string())
-                            }
-                            // Handle string module IDs: __webpack_require__("moduleId")
-                            Expr::Lit(Lit::Str(string_lit)) => {
-                                Some(string_lit.value.to_string())
-                            }
-                            _ => None,
-                        };
+                        if let Expr::Lit(Lit::Num(num)) = expr.as_ref() {
+                            return Some(num.value.to_string().split('.').next()?.to_string());
+                        }
                     }
                 }
             }
@@ -468,6 +404,32 @@ impl Visit for WebpackVisitor {
                 self.process_var_declaration(var_decl);
             }
             _ => {}
+        }
+        
+        // Continue visiting children
+        node.visit_children_with(self);
+    }
+    
+    /// Visit call expressions to find split chunk format
+    fn visit_expr(&mut self, node: &Expr) {
+        // Look for (self["webpackChunk..."] = ...).push([...])
+        if let Expr::Call(call) = node {
+            if let Callee::Expr(callee) = &call.callee {
+                if let Expr::Member(member) = callee.as_ref() {
+                    // Check if this is a .push() call
+                    if let MemberProp::Ident(ident) = &member.prop {
+                        if ident.sym == "push" {
+                            // Check if object is the webpack chunk assignment
+                            if let Expr::Paren(paren) = &member.obj.as_ref() {
+                                if let Expr::Assign(assign) = paren.expr.as_ref() {
+                                    // This looks like split chunk format
+                                    self.process_split_chunk_push(call);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         
         // Continue visiting children
@@ -502,8 +464,8 @@ impl Visit for WebpackVisitor {
 
                 if let Some(obj) = obj {
                     for prop in &obj.props {
-                        if let Some((module_id, module_ast, dependencies)) = self.extract_module_content(prop) {
-                            self.webpack_modules.insert(module_id, (module_ast, dependencies));
+                        if let Some((module_id, module_source)) = self.extract_module_content(prop) {
+                            self.webpack_modules.insert(module_id, module_source);
                         }
                     }
                 }
@@ -538,6 +500,31 @@ impl Visit for WebpackVisitor {
 }
 
 impl WebpackVisitor {
+    /// Process split chunk .push() call
+    fn process_split_chunk_push(&mut self, call: &CallExpr) {
+        // Split chunk format: .push([[chunk_ids], { modules }])
+        if call.args.len() >= 1 {
+            if let ExprOrSpread { expr, .. } = &call.args[0] {
+                if let Expr::Array(array) = expr.as_ref() {
+                    // We expect 2 elements: [chunk_ids, modules_object]
+                    if array.elems.len() >= 2 {
+                        if let Some(ExprOrSpread { expr: modules_expr, .. }) = &array.elems[1] {
+                            if let Expr::Object(obj) = modules_expr.as_ref() {
+                                eprintln!("[webpack_graph] Found split chunk modules object with {} properties", obj.props.len());
+                                // Extract modules from the object
+                                for prop in &obj.props {
+                                    if let Some((module_id, module_source)) = self.extract_module_content(prop) {
+                                        self.rspack_chunk_modules.insert(module_id, module_source);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     /// Process variable declarations (works for var, let, const)
     fn process_var_declaration(&mut self, node: &VarDecl) {
         for declarator in &node.decls {
@@ -563,8 +550,8 @@ impl WebpackVisitor {
 
                         if let Some(obj) = obj {
                             for prop in &obj.props {
-                                if let Some((module_id, module_ast, dependencies)) = self.extract_module_content(prop) {
-                                    self.webpack_modules.insert(module_id, (module_ast, dependencies));
+                                if let Some((module_id, module_source)) = self.extract_module_content(prop) {
+                                    self.webpack_modules.insert(module_id, module_source);
                                 }
                             }
                         }
@@ -573,6 +560,10 @@ impl WebpackVisitor {
             }
         }
     }
+}
+
+impl WebpackBundleParser {
+    // Removed analyze_split_chunk_reachability - let tree shaker handle it
 }
 
 impl Default for WebpackBundleParser {

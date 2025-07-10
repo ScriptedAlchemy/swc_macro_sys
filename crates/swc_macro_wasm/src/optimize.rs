@@ -18,24 +18,15 @@ use rustc_hash::FxHashSet;
 pub fn optimize(source: String, config: serde_json::Value) -> String {
     let cm: Lrc<SourceMap> = Default::default();
     let (mut program, comments) = {
-        let fm = cm.new_source_file(FileName::Custom("test.js".to_string()).into(), source.clone());
+        let fm = cm.new_source_file(FileName::Custom("test.js".to_string()).into(), source);
         let comments = SingleThreadedComments::default();
-        
-        // Handle parsing errors gracefully without panicking
-        let program = match Parser::new(
+        let program = Parser::new(
             Syntax::Es(EsSyntax::default()),
             StringInput::from(&*fm),
             Some(&comments),
         )
-        .parse_program() {
-            Ok(program) => program,
-            Err(e) => {
-                eprintln!("SWC parsing failed: {:?}", e);
-                eprintln!("Returning original source due to parsing error");
-                // Return the original source if parsing fails
-                return source;
-            }
-        };
+        .parse_program()
+        .unwrap();
         (program, comments)
     };
 
@@ -77,19 +68,10 @@ pub fn optimize(source: String, config: serde_json::Value) -> String {
             cm: cm.clone(),
             wr,
         };
-        if let Err(e) = emitter.emit_program(&program) {
-            eprintln!("Failed to emit program: {:?}", e);
-            return source;
-        }
+        emitter.emit_program(&program).unwrap();
         drop(emitter);
 
-        match String::from_utf8(buf) {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("Failed to convert to UTF-8: {:?}", e);
-                return source;
-            }
-        }
+        unsafe { String::from_utf8_unchecked(buf) }
     };
 
     ret
@@ -118,52 +100,92 @@ fn perform_dce(m: &mut Program, comments: SingleThreadedComments, unresolved_mar
     }
 }
 
-/// Performs webpack module tree shaking after DCE
+/// Performs iterative webpack module tree shaking after DCE
 fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comments: &SingleThreadedComments) {
-    // Step 1: Emit current AST to string for analysis
-    let current_code = {
-        let mut buf = vec![];
-        let wr = Box::new(text_writer::JsWriter::new(cm.clone(), "\n", &mut buf, None))
-            as Box<dyn WriteJs>;
-        let mut emitter = Emitter {
-            cfg: codegen::Config::default().with_minify(false),
-            comments: Some(comments),
-            cm: cm.clone(),
-            wr,
-        };
-        if emitter.emit_program(program).is_err() {
-            return; // Skip tree shaking if emit fails
-        }
-        drop(emitter);
-        
-        match String::from_utf8(buf) {
-            Ok(code) => code,
-            Err(_) => return, // Skip tree shaking if invalid UTF-8
-        }
-    };
-
-    // Step 2: Parse with webpack_graph to analyze module dependencies
     let parser = match WebpackBundleParser::new() {
         Ok(p) => p,
         Err(_) => return, // Skip tree shaking if parser creation fails
     };
-
-    let mut graph = match parser.parse_bundle(&current_code) {
-        Ok(g) => g,
-        Err(_) => return, // Skip tree shaking if parsing fails - maybe it's not a webpack bundle
-    };
-
-    // Step 3: Use TreeShaker to identify unreachable modules
-    let unreachable_modules = TreeShaker::new(&mut graph).shake();
     
-    if !unreachable_modules.is_empty() {
-        println!("Tree shaking: Removing {} unreachable webpack modules: {:?}", 
-                 unreachable_modules.len(), unreachable_modules);
+    // For split chunks with no entry points, we need special handling
+    // If this is a split chunk, we'll remove ALL modules since there are no entry points
+
+    let mut total_removed = 0;
+    let max_iterations = 5; // Prevent infinite loops
+    
+    for iteration in 1..=max_iterations {
+        // Step 1: Emit current AST to string for analysis
+        let current_code = {
+            let mut buf = vec![];
+            let wr = Box::new(text_writer::JsWriter::new(cm.clone(), "\n", &mut buf, None))
+                as Box<dyn WriteJs>;
+            let mut emitter = Emitter {
+                cfg: codegen::Config::default().with_minify(false),
+                comments: Some(comments),
+                cm: cm.clone(),
+                wr,
+            };
+            if emitter.emit_program(program).is_err() {
+                break; // Stop if emit fails
+            }
+            drop(emitter);
+            
+            match String::from_utf8(buf) {
+                Ok(code) => code,
+                Err(_) => break, // Stop if invalid UTF-8
+            }
+        };
+
+        // Step 2: Parse with webpack_graph to analyze module dependencies
+        let mut graph = match parser.parse_bundle(&current_code) {
+            Ok(g) => g,
+            Err(_) => {
+                if iteration == 1 {
+                    return; // Skip tree shaking entirely if first parse fails - maybe it's not a webpack bundle
+                } else {
+                    break; // Stop iterations if parsing fails on subsequent attempts
+                }
+            }
+        };
+
+        // Step 3: Use TreeShaker to identify unreachable modules
+        let mut unreachable_modules = TreeShaker::new(&mut graph).shake();
+        
+        // Special handling for split chunks with no entry points
+        if graph.entry_points.is_empty() && !graph.modules.is_empty() {
+            eprintln!("[webpack_tree_shaking] Split chunk detected with {} modules and no entry points", graph.modules.len());
+            // In split chunks with no entry points, ALL modules should be considered unreachable
+            // unless they're explicitly preserved by other mechanisms
+            unreachable_modules = graph.modules.keys().cloned().collect();
+            eprintln!("[webpack_tree_shaking] Marking all {} modules as unreachable in split chunk", unreachable_modules.len());
+        }
+        
+        if unreachable_modules.is_empty() {
+            // No more modules to remove - convergence reached
+            if iteration == 1 {
+                println!("Tree shaking: No unreachable modules found on first pass");
+            } else {
+                println!("Tree shaking: Converged after {} iterations, removed {} total modules", 
+                         iteration - 1, total_removed);
+            }
+            break;
+        }
+
+        println!("Tree shaking iteration {}: Removing {} unreachable webpack modules: {:?}", 
+                 iteration, unreachable_modules.len(), unreachable_modules);
+        
+        total_removed += unreachable_modules.len();
         
         // Step 4: Remove unreachable modules from the AST
         let unreachable_set: FxHashSet<String> = unreachable_modules.into_iter().collect();
         let mut module_remover = WebpackModuleRemover::new(unreachable_set);
         program.visit_mut_with(&mut module_remover);
+        
+        // Continue to next iteration to see if more modules become unreachable
+    }
+    
+    if total_removed > 0 {
+        println!("Tree shaking: Total removed {} modules across all iterations", total_removed);
     }
 }
 
@@ -182,10 +204,7 @@ impl WebpackModuleRemover {
         if let PropOrSpread::Prop(prop) = prop {
             if let Prop::KeyValue(kv) = prop.as_ref() {
                 let module_id = match &kv.key {
-                    PropName::Num(num) => {
-                        // Convert numeric property name to string (supports decimal IDs like 123.5)
-                        num.value.to_string()
-                    },
+                    PropName::Num(num) => num.value.to_string().split('.').next().unwrap_or("").to_string(),
                     PropName::Str(s) => s.value.to_string(),
                     PropName::Ident(ident) => ident.sym.to_string(),
                     _ => return false,
@@ -215,6 +234,27 @@ impl WebpackModuleRemover {
     fn remove_modules_from_object(&mut self, obj: &mut ObjectLit) {
         obj.props.retain(|prop| !self.should_remove_property(prop));
     }
+    
+    /// Process split chunk .push() arguments
+    fn visit_mut_split_chunk_args(&mut self, args: &mut Vec<swc_ecma_ast::ExprOrSpread>) {
+        // Split chunk format: .push([[chunk_ids], { modules }])
+        if args.len() >= 1 {
+            let swc_ecma_ast::ExprOrSpread { expr, .. } = &mut args[0];
+            if let Expr::Array(array) = expr.as_mut() {
+                // We expect 2 elements: [chunk_ids, modules_object]
+                if array.elems.len() >= 2 {
+                    if let Some(Some(swc_ecma_ast::ExprOrSpread { expr: modules_expr, .. })) = array.elems.get_mut(1) {
+                        if let Expr::Object(obj) = modules_expr.as_mut() {
+                            // Remove modules from the object
+                            self.remove_modules_from_object(obj);
+                            eprintln!("[WebpackModuleRemover] Removing {} modules from split chunk", 
+                                     obj.props.iter().filter(|p| self.should_remove_property(p)).count());
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl VisitMut for WebpackModuleRemover {
@@ -225,6 +265,24 @@ impl VisitMut for WebpackModuleRemover {
                 if ident.sym == "__webpack_modules__" {
                     if let Some(init) = &mut declarator.init {
                         self.remove_modules_from_expr(init);
+                    }
+                }
+            }
+        }
+        // Continue visiting children
+        node.visit_mut_children_with(self);
+    }
+    
+    /// Visit call expressions to find split chunk .push() calls
+    fn visit_mut_call_expr(&mut self, node: &mut swc_ecma_ast::CallExpr) {
+        // Look for (self["webpackChunk..."] = ...).push([...])
+        if let swc_ecma_ast::Callee::Expr(callee) = &node.callee {
+            if let Expr::Member(member) = callee.as_ref() {
+                // Check if this is a .push() call
+                if let swc_ecma_ast::MemberProp::Ident(ident) = &member.prop {
+                    if ident.sym == "push" {
+                        // Check if this looks like a webpack chunk push
+                        self.visit_mut_split_chunk_args(&mut node.args);
                     }
                 }
             }

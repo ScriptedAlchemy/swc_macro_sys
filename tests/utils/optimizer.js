@@ -121,12 +121,8 @@ export class SWCOptimizer {
    * Count webpack modules in source
    */
   countWebpackModules(source) {
-    // Updated regex to handle both numeric IDs (123:) and string IDs ("moduleA":)
-    // Matches patterns like:
-    // - 123: function or 123: (function
-    // - "moduleA": function or "moduleA": (function
-    // - 'moduleB': function or 'moduleB': (function
-    const moduleRegex = /(?:\d+|["'][^"']+["']):\s*(?:\()?function/g;
+    // Updated regex to handle both (function and function formats
+    const moduleRegex = /\d+:\s*(?:\()?function/g;
     const matches = source.match(moduleRegex);
     return matches ? matches.length : 0;
   }
