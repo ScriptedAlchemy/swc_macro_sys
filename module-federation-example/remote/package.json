@@ -1,0 +1,16 @@
+{
+  "name": "remote",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "rspack serve",
+    "build": "rspack build"
+  },
+  "dependencies": {
+    "lodash-es": "^4.17.21"
+  },
+  "devDependencies": {
+    "@rspack/cli": "npm:@rspack-canary/cli@1.4.7-canary-beb6dd58-20250714231525",
+    "@rspack/core": "npm:@rspack-canary/core@1.4.7-canary-beb6dd58-20250714231525"
+  }
+}
