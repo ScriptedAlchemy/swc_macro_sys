@@ -1,0 +1,22 @@
+{
+  "name": "module-federation-example",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "host",
+    "remote"
+  ],
+  "scripts": {
+    "dev": "pnpm run --parallel dev",
+    "build": "pnpm run --recursive build",
+    "build:optimized": "pnpm run build && node --experimental-wasm-modules scripts/optimize-shared-chunks.js",
+    "optimize": "node --experimental-wasm-modules scripts/optimize-shared-chunks.js",
+    "test:optimized": "node scripts/test-optimized-apps.js",
+    "test:full": "pnpm run build:optimized && pnpm run test:optimized"
+  },
+  "devDependencies": {
+    "@rspack/cli": "^1.0.0",
+    "@rspack/core": "^1.0.0",
+    "swc_macro_wasm": "workspace:*"
+  }
+}

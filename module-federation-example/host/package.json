@@ -1,5 +1,5 @@
 {
-  "name": "remote",
+  "name": "host",
   "version": "1.0.0",
   "private": true,
   "scripts": {

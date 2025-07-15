@@ -1,5 +1,8 @@
 packages:
-  - 'examples/*'
+  - 'examples/jsx-server-demo'
+  - 'module-federation-example'
+  - 'module-federation-example/*'
+  - 'crates/swc_macro_wasm/pkg'
 onlyBuiltDependencies:
   - '@swc/core'
   - esbuild

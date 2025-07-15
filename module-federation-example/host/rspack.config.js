@@ -5,7 +5,7 @@ module.exports = {
   mode: 'development',
   entry: './src/index.js',
   output: {
-    publicPath: 'http://localhost:3002/',
+    publicPath: 'http://localhost:3001/',
     library: {
       type: 'commonjs2',
     },
@@ -14,7 +14,7 @@ module.exports = {
     },
   },
   devServer: {
-    port: 3002,
+    port: 3001,
   },
   module: {
     rules: [
@@ -38,11 +38,9 @@ module.exports = {
   },
   plugins: [
     new ModuleFederationPlugin({
-      name: 'remote',
-      filename: 'remoteEntry.js',
-      exposes: {
-        './Button': './src/Button',
-        './utils': './src/utils',
+      name: 'host',
+      remotes: {
+        remote: 'remote@http://localhost:3002/remoteEntry.js',
       },
       shared: {
         'lodash-es': {
