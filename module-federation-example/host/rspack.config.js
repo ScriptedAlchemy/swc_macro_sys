@@ -4,13 +4,12 @@ const { ModuleFederationPlugin } = rspack.container;
 module.exports = {
   mode: 'development',
   entry: './src/index.js',
+  target: 'async-node',
+  devtool: false,
   output: {
     publicPath: 'http://localhost:3001/',
     library: {
-      type: 'commonjs2',
-    },
-    environment: {
-      module: false,
+      type: 'commonjs-module',
     },
   },
   devServer: {

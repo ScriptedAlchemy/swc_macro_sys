@@ -11,6 +11,7 @@
     "build": "pnpm run --recursive build",
     "build:optimized": "pnpm run build && node --experimental-wasm-modules scripts/optimize-shared-chunks.js",
     "optimize": "node --experimental-wasm-modules scripts/optimize-shared-chunks.js",
+    "test:pipeline": "node --experimental-wasm-modules scripts/build-optimize-test.js",
     "test:optimized": "node scripts/test-optimized-apps.js",
     "test:full": "pnpm run build:optimized && pnpm run test:optimized"
   },

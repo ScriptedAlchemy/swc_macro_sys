@@ -1,5 +1,6 @@
 "use strict";
-(self["webpackChunkremote"] = self["webpackChunkremote"] || []).push([["src_utils_js"], {
+exports.ids = ["src_utils_js"];
+exports.modules = {
 "./src/utils.js": 
 /*!**********************!*\
   !*** ./src/utils.js ***!
@@ -94,5 +95,5 @@ const formatUserData = (userData)=>{
 
 }),
 
-}]);
-//# sourceMappingURL=src_utils_js.js.map
+};
+;

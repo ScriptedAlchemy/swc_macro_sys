@@ -1,13 +1,89 @@
 {
   "consume_shared_modules": {
+    "react": {
+      "used_exports": [
+        "version"
+      ],
+      "unused_exports": [],
+      "possibly_unused_exports": []
+    },
+    "cjs-pure-helper": {
+      "used_exports": [
+        "CONSTANTS"
+      ],
+      "unused_exports": [
+        "DataValidator",
+        "createValidator",
+        "generateId",
+        "hashString",
+        "helpers",
+        "info",
+        "processData",
+        "validateInput"
+      ],
+      "possibly_unused_exports": []
+    },
+    "cjs-data-processor": {
+      "used_exports": [],
+      "unused_exports": [],
+      "possibly_unused_exports": []
+    },
+    "cjs-module-exports": {
+      "used_exports": [],
+      "unused_exports": [],
+      "possibly_unused_exports": []
+    },
+    "api-lib": {
+      "used_exports": [
+        "createApiClient",
+        "default"
+      ],
+      "unused_exports": [
+        "ApiClient",
+        "fetchWithTimeout"
+      ],
+      "possibly_unused_exports": []
+    },
+    "react-dom": {
+      "used_exports": [],
+      "unused_exports": [
+        "__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE",
+        "createPortal",
+        "flushSync",
+        "preconnect",
+        "prefetchDNS",
+        "preinit",
+        "preinitModule",
+        "preload",
+        "preloadModule",
+        "requestFormReset",
+        "unstable_batchedUpdates",
+        "useFormState",
+        "useFormStatus",
+        "version"
+      ],
+      "possibly_unused_exports": []
+    },
+    "utility-lib": {
+      "used_exports": [
+        "capitalize",
+        "formatDate",
+        "default"
+      ],
+      "unused_exports": [
+        "debounce",
+        "deepClone",
+        "generateId",
+        "processWithHelper",
+        "validateEmail"
+      ],
+      "possibly_unused_exports": []
+    },
     "lodash-es": {
       "used_exports": [
-        "throttle",
-        "debounce",
-        "groupBy",
-        "omit",
-        "capitalize",
-        "pick",
+        "map",
+        "filter",
+        "VERSION",
         "default"
       ],
       "unused_exports": [
@@ -25,6 +101,7 @@
         "bindAll",
         "bindKey",
         "camelCase",
+        "capitalize",
         "castArray",
         "ceil",
         "chain",
@@ -45,6 +122,7 @@
         "create",
         "curry",
         "curryRight",
+        "debounce",
         "deburr",
         "defaultTo",
         "defaults",
@@ -71,7 +149,6 @@
         "extend",
         "extendWith",
         "fill",
-        "filter",
         "find",
         "findIndex",
         "findKey",
@@ -99,6 +176,7 @@
         "functions",
         "functionsIn",
         "get",
+        "groupBy",
         "gt",
         "gte",
         "has",
@@ -166,7 +244,6 @@
         "lowerFirst",
         "lt",
         "lte",
-        "map",
         "mapKeys",
         "mapValues",
         "matches",
@@ -190,6 +267,7 @@
         "now",
         "nth",
         "nthArg",
+        "omit",
         "omitBy",
         "once",
         "orderBy",
@@ -204,6 +282,7 @@
         "partial",
         "partialRight",
         "partition",
+        "pick",
         "pickBy",
         "plant",
         "property",
@@ -265,6 +344,7 @@
         "tap",
         "template",
         "templateSettings",
+        "throttle",
         "thru",
         "times",
         "toArray",
@@ -328,9 +408,27 @@
         "zipWith"
       ],
       "possibly_unused_exports": []
+    },
+    "component-lib": {
+      "used_exports": [
+        "Modal",
+        "Button",
+        "default"
+      ],
+      "unused_exports": [
+        "Tooltip",
+        "createAlert",
+        "createCard"
+      ],
+      "possibly_unused_exports": []
+    },
+    "cjs-legacy-utils": {
+      "used_exports": [],
+      "unused_exports": [],
+      "possibly_unused_exports": []
     }
   },
   "metadata": {
-    "total_modules": 1
+    "total_modules": 10
   }
 }

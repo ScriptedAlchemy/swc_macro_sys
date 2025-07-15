@@ -1,5 +1,6 @@
 "use strict";
-(self["webpackChunkremote"] = self["webpackChunkremote"] || []).push([["src_Button_js"], {
+exports.ids = ["src_Button_js"];
+exports.modules = {
 "./src/Button.js": 
 /*!***********************!*\
   !*** ./src/Button.js ***!
@@ -30,5 +31,5 @@ function Button({ text, onClick }) {
 
 }),
 
-}]);
-//# sourceMappingURL=src_Button_js.js.map
+};
+;

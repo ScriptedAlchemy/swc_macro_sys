@@ -91,172 +91,11 @@ exports.typeDescMap = typeDescMap;
   \**********************/
 (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
-/* ESM import */var lodash_es__WEBPACK_IMPORTED_MODULE_0__ = /* #__PURE__ */ __webpack_require__(/*! lodash-es */ "webpack/sharing/consume/default/lodash-es/lodash-es");
-/* ESM import */var lodash_es__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(lodash_es__WEBPACK_IMPORTED_MODULE_0__);
-function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) {
-    try {
-        var info = gen[key](arg);
-        var value = info.value;
-    } catch (error) {
-        reject(error);
-        return;
-    }
-    if (info.done) {
-        resolve(value);
-    } else {
-        Promise.resolve(value).then(_next, _throw);
-    }
-}
-function _async_to_generator(fn) {
-    return function() {
-        var self = this, args = arguments;
-        return new Promise(function(resolve, reject) {
-            var gen = fn.apply(self, args);
-            function _next(value) {
-                asyncGeneratorStep(gen, resolve, reject, _next, _throw, "next", value);
-            }
-            function _throw(err) {
-                asyncGeneratorStep(gen, resolve, reject, _next, _throw, "throw", err);
-            }
-            _next(undefined);
-        });
-    };
-}
-
-// Dynamically import remote components
-function loadRemoteComponents() {
-    return _async_to_generator(function*() {
-        try {
-            const [Button, utils] = yield Promise.all([
-                __webpack_require__.e(/*! import() */ "webpack_container_remote_remote_Button").then(__webpack_require__.t.bind(__webpack_require__, /*! remote/Button */ "webpack/container/remote/remote/Button", 23)),
-                __webpack_require__.e(/*! import() */ "webpack_container_remote_remote_utils").then(__webpack_require__.t.bind(__webpack_require__, /*! remote/utils */ "webpack/container/remote/remote/utils", 23))
-            ]);
-            console.log('Remote components loaded successfully!');
-            return {
-                Button: Button.default,
-                utils
-            };
-        } catch (error) {
-            console.error('Failed to load remote components:', error);
-            return null;
-        }
-    })();
-}
-// Demo data for host app
-const items = [
-    {
-        name: 'Apple',
-        category: 'fruit',
-        price: 1.5
-    },
-    {
-        name: 'Banana',
-        category: 'fruit',
-        price: 0.8
-    },
-    {
-        name: 'Carrot',
-        category: 'vegetable',
-        price: 1.2
-    },
-    {
-        name: 'Broccoli',
-        category: 'vegetable',
-        price: 2.0
-    }
-];
-function initializeApp() {
-    return _async_to_generator(function*() {
-        const app = document.getElementById('app');
-        // Use lodash-es in host app
-        const sortedItems = (0,lodash_es__WEBPACK_IMPORTED_MODULE_0__.sortBy)(items, 'price');
-        const categories = (0,lodash_es__WEBPACK_IMPORTED_MODULE_0__.uniq)(items.map((item)=>item.category));
-        app.innerHTML = `
-    <div style="padding: 20px; font-family: Arial, sans-serif;">
-      <h1>Host App - Module Federation Example</h1>
-      
-      <div style="margin-bottom: 30px;">
-        <h2>Host App Data (using lodash-es)</h2>
-        <h3>Items sorted by price:</h3>
-        <ul>
-          ${sortedItems.map((item)=>`
-            <li>${item.name} (${item.category}) - $${item.price}</li>
-          `).join('')}
-        </ul>
-        <p><strong>Categories:</strong> ${categories.join(', ')}</p>
-      </div>
-
-      <div id="remote-components">
-        <h2>Loading Remote Components...</h2>
-      </div>
-    </div>
-  `;
-        // Load and use remote components
-        const remoteComponents = yield loadRemoteComponents();
-        if (remoteComponents) {
-            const { Button, utils } = remoteComponents;
-            const remoteContainer = document.getElementById('remote-components');
-            // Test data for remote utils
-            const testUser = {
-                name: 'alice johnson',
-                email: 'alice@example.com',
-                role: 'moderator',
-                password: 'secret123',
-                internalId: 12345
-            };
-            const formattedUser = utils.formatUserData(testUser);
-            const publicData = utils.pickFields(testUser, [
-                'name',
-                'email',
-                'role'
-            ]);
-            remoteContainer.innerHTML = `
-      <h2>Remote Components Loaded!</h2>
-      
-      <div style="margin-bottom: 20px;">
-        <h3>Remote Button Component:</h3>
-        <div id="button-container"></div>
-      </div>
-      
-      <div style="margin-bottom: 20px;">
-        <h3>Remote Utils Demo:</h3>
-        <p><strong>Original user:</strong></p>
-        <pre style="background: #f5f5f5; padding: 10px;">${JSON.stringify(testUser, null, 2)}</pre>
-        
-        <p><strong>Formatted user data:</strong></p>
-        <pre style="background: #f5f5f5; padding: 10px;">${JSON.stringify(formattedUser, null, 2)}</pre>
-        
-        <p><strong>Public fields only:</strong></p>
-        <pre style="background: #f5f5f5; padding: 10px;">${JSON.stringify(publicData, null, 2)}</pre>
-      </div>
-    `;
-            // Create and mount the remote Button component
-            const buttonContainer = document.getElementById('button-container');
-            if (buttonContainer && Button) {
-                const buttonElement = Button({
-                    text: 'hello from remote!',
-                    onClick: ()=>alert('Button clicked! This button came from the remote app.')
-                });
-                // Since we're not using React, create a simple button manually
-                const btn = document.createElement('button');
-                btn.textContent = 'Hello From Remote!';
-                btn.style.cssText = `
-        padding: 10px 20px;
-        background-color: #007acc;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 16px;
-      `;
-                btn.onclick = ()=>alert('Button clicked! This button came from the remote app.');
-                buttonContainer.appendChild(btn);
-            }
-        }
-    })();
-}
-// Initialize the app
-initializeApp();
+__webpack_require__.d(__webpack_exports__, {
+  "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+});
+// Use dynamic import for async chunks to avoid top-level await
+/* ESM default export */ const __WEBPACK_DEFAULT_EXPORT__ = (__webpack_require__.e(/*! import() */ "src_bootstrap_js").then(__webpack_require__.bind(__webpack_require__, /*! ./bootstrap.js */ "./src/bootstrap.js")));
 
 
 }),
@@ -5208,10 +5047,6 @@ __webpack_require__.r = (exports) => {
 	Object.defineProperty(exports, '__esModule', { value: true });
 };
 })();
-// webpack/runtime/public_path
-(() => {
-__webpack_require__.p = "http://localhost:3001/";
-})();
 // webpack/runtime/sharing
 (() => {
 
@@ -5223,100 +5058,61 @@ __webpack_require__.I = __webpack_require__.I || function() { throw new Error("s
 // webpack/runtime/consumes_loading
 (() => {
 
-__webpack_require__.consumesLoadingData = { chunkMapping: {"main":["webpack/sharing/consume/default/lodash-es/lodash-es"]}, moduleIdToConsumeDataMapping: { "webpack/sharing/consume/default/lodash-es/lodash-es": { shareScope: "default", shareKey: "lodash-es", import: "lodash-es", requiredVersion: "^4.17.21", strictVersion: true, singleton: true, eager: false, fallback: () => (__webpack_require__.e("vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js").then(() => (() => (__webpack_require__(/*! lodash-es */ "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"))))) } }, initialConsumes: ["webpack/sharing/consume/default/lodash-es/lodash-es"] };
+__webpack_require__.consumesLoadingData = { chunkMapping: {"src_bootstrap_js":["webpack/sharing/consume/default/lodash-es/lodash-es"]}, moduleIdToConsumeDataMapping: { "webpack/sharing/consume/default/lodash-es/lodash-es": { shareScope: "default", shareKey: "lodash-es", import: "lodash-es", requiredVersion: "^4.17.21", strictVersion: true, singleton: true, eager: false, fallback: () => (__webpack_require__.e("vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js").then(() => (() => (__webpack_require__(/*! lodash-es */ "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"))))) } }, initialConsumes: [] };
 __webpack_require__.f.consumes = __webpack_require__.f.consumes || function() { throw new Error("should have __webpack_require__.f.consumes") }
 })();
-// webpack/runtime/jsonp_chunk_loading
+// webpack/runtime/readfile_chunk_loading
 (() => {
-
-      // object to store loaded and loading chunks
-      // undefined = chunk not loaded, null = chunk preloaded/prefetched
-      // [resolve, reject, Promise] = chunk loading, 0 = chunk loaded
-      var installedChunks = {"main": 0,};
-      
-        __webpack_require__.f.j = function (chunkId, promises) {
-          // JSONP chunk loading for javascript
-var installedChunkData = __webpack_require__.o(installedChunks, chunkId)
-	? installedChunks[chunkId]
-	: undefined;
-if (installedChunkData !== 0) {
-	// 0 means "already installed".
-
-	// a Promise means "currently loading".
-	if (installedChunkData) {
-		promises.push(installedChunkData[2]);
-	} else {
-		if (!/^webpack_container_remote_remote_(Button|utils)$/.test(chunkId)) {
-			// setup Promise in chunk cache
-			var promise = new Promise((resolve, reject) => (installedChunkData = installedChunks[chunkId] = [resolve, reject]));
-			promises.push((installedChunkData[2] = promise));
-
-			// start chunk loading
-			var url = __webpack_require__.p + __webpack_require__.u(chunkId);
-			// create error before stack unwound to get useful stacktrace later
-			var error = new Error();
-			var loadingEnded = function (event) {
-				if (__webpack_require__.o(installedChunks, chunkId)) {
-					installedChunkData = installedChunks[chunkId];
-					if (installedChunkData !== 0) installedChunks[chunkId] = undefined;
-					if (installedChunkData) {
-						var errorType =
-							event && (event.type === 'load' ? 'missing' : event.type);
-						var realSrc = event && event.target && event.target.src;
-						error.message =
-							'Loading chunk ' +
-							chunkId +
-							' failed.\n(' +
-							errorType +
-							': ' +
-							realSrc +
-							')';
-						error.name = 'ChunkLoadError';
-						error.type = errorType;
-						error.request = realSrc;
-						installedChunkData[1](error);
-					}
-				}
-			};
-			__webpack_require__.l(url, loadingEnded, "chunk-" + chunkId, chunkId);
-		} else installedChunks[chunkId] = 0;
-
-	}
-}
-
-        }
-        // install a JSONP callback for chunk loading
-var webpackJsonpCallback = (parentChunkLoadingFunction, data) => {
-	var [chunkIds, moreModules, runtime] = data;
-	// add "moreModules" to the modules object,
-	// then flag all "chunkIds" as loaded and fire callback
-	var moduleId, chunkId, i = 0;
-	if (chunkIds.some((id) => (installedChunks[id] !== 0))) {
-		for (moduleId in moreModules) {
-			if (__webpack_require__.o(moreModules, moduleId)) {
-				__webpack_require__.m[moduleId] = moreModules[moduleId];
-			}
-		}
-		if (runtime) var result = runtime(__webpack_require__);
-	}
-	if (parentChunkLoadingFunction) parentChunkLoadingFunction(data);
-	for (; i < chunkIds.length; i++) {
-		chunkId = chunkIds[i];
-		if (
-			__webpack_require__.o(installedChunks, chunkId) &&
-			installedChunks[chunkId]
-		) {
-			installedChunks[chunkId][0]();
-		}
-		installedChunks[chunkId] = 0;
-	}
-	
+var installedChunks = {"main": 0,};
+var installChunk = (chunk) => {
+  var moreModules = chunk.modules, chunkIds = chunk.ids,
+    runtime = chunk.runtime;
+  for (var moduleId in moreModules) {
+    if (__webpack_require__.o(moreModules, moduleId)) {
+      __webpack_require__.m[moduleId] = moreModules[moduleId];
+    }
+  }
+  if (runtime) runtime(__webpack_require__ );
+  for (var i = 0; i < chunkIds.length; i++) {
+    if (installedChunks[chunkIds[i]]) {
+      installedChunks[chunkIds[i]][0]();
+    }
+    installedChunks[chunkIds[i]] = 0;
+  }
+  
 };
+        // ReadFile + VM.run chunk loading for javascript"
+        __webpack_require__.f.readFileVm = function (chunkId, promises) {
+          var installedChunkData = installedChunks[chunkId];
+if (installedChunkData !== 0) {  // 0 means "already installed".
+  // array of [resolve, reject, promise] means "currently loading"
+  if (installedChunkData) {
+    promises.push(installedChunkData[2]);
+  } else {
+    if (!/^webpack_container_remote_remote_(Button|utils)$/.test(chunkId)) {  // all chunks have JS
+      // load the chunk and return promise to it
+      var promise = new Promise(function (resolve, reject) {
+        installedChunkData = installedChunks[chunkId] = [resolve, reject];
+        var filename = require('path').join(
+          __dirname, "" + __webpack_require__.u(chunkId));
+        require('fs').readFile(filename, 'utf-8', function (err, content) {
+          if (err) return reject(err);
+          var chunk = {};
+          require('vm').runInThisContext(
+            '(function(exports, require, __dirname, __filename) {' +
+            content + '\n})',
+            filename)(
+              chunk, require, require('path').dirname(filename), filename);
+          installChunk(chunk);
+        });
+      });
+      promises.push(installedChunkData[2] = promise);
+    } else installedChunks[chunkId] = 0;
 
-var chunkLoadingGlobal = self["webpackChunkhost"] = self["webpackChunkhost"] || [];
-chunkLoadingGlobal.forEach(webpackJsonpCallback.bind(null, 0));
-chunkLoadingGlobal.push = webpackJsonpCallback.bind(null, chunkLoadingGlobal.push.bind(chunkLoadingGlobal));
-
+  }
+}
+        };
+        
 })();
 // webpack/runtime/remotes_loading
 (() => {
@@ -5334,4 +5130,3 @@ var __webpack_exports__ = __webpack_require__("./src/index.js");
 module.exports = __webpack_exports__;
 })()
 ;
-//# sourceMappingURL=main.js.map

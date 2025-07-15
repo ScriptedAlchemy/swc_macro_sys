@@ -4,12 +4,6 @@
       "uniq": true,
       "sortBy": true,
       "default": true,
-      "throttle": true,
-      "capitalize": true,
-      "omit": true,
-      "debounce": true,
-      "pick": true,
-      "groupBy": true,
       "add": false,
       "after": false,
       "ary": false,
@@ -24,6 +18,7 @@
       "bindAll": false,
       "bindKey": false,
       "camelCase": false,
+      "capitalize": true,
       "castArray": false,
       "ceil": false,
       "chain": false,
@@ -44,6 +39,7 @@
       "create": false,
       "curry": false,
       "curryRight": false,
+      "debounce": true,
       "deburr": false,
       "defaultTo": false,
       "defaults": false,
@@ -98,6 +94,7 @@
       "functions": false,
       "functionsIn": false,
       "get": false,
+      "groupBy": true,
       "gt": false,
       "gte": false,
       "has": false,
@@ -189,6 +186,7 @@
       "now": false,
       "nth": false,
       "nthArg": false,
+      "omit": true,
       "omitBy": false,
       "once": false,
       "orderBy": false,
@@ -203,6 +201,7 @@
       "partial": false,
       "partialRight": false,
       "partition": false,
+      "pick": true,
       "pickBy": false,
       "plant": false,
       "property": false,
@@ -263,6 +262,7 @@
       "tap": false,
       "template": false,
       "templateSettings": false,
+      "throttle": true,
       "thru": false,
       "times": false,
       "toArray": false,
@@ -324,15 +324,5 @@
       "zipObjectDeep": false,
       "zipWith": false
     }
-  },
-  "metadata": {
-    "timestamp": "2025-07-15T04:31:18.827Z",
-    "apps": [
-      "host",
-      "remote"
-    ],
-    "modules": [
-      "lodash-es"
-    ]
   }
 }

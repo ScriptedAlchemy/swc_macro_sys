@@ -2,12 +2,12 @@
   "consume_shared_modules": {
     "lodash-es": {
       "used_exports": [
-        "throttle",
         "debounce",
+        "throttle",
         "groupBy",
         "omit",
-        "capitalize",
         "pick",
+        "capitalize",
         "default"
       ],
       "unused_exports": [

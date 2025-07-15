@@ -1,0 +1,417 @@
+use std::fs;
+use std::path::Path;
+use swc_macro_wasm::optimize;
+
+#[test]
+fn test_optimization_pipeline_on_real_chunk() {
+    println!("\n=== TESTING OPTIMIZATION PIPELINE ON REAL MODULE FEDERATION CHUNK ===");
+    
+    // Load the same real chunk fixture
+    let mf_chunk_path = Path::new("tests/fixtures/module_federation_lodash_chunk.js");
+    let host_usage_path = Path::new("tests/fixtures/module_federation_usage.json");
+    let remote_usage_path = Path::new("tests/fixtures/module_federation_remote_usage.json");
+    
+    if !mf_chunk_path.exists() {
+        println!("⚠️  Real MF chunk fixture not found - skipping test");
+        return;
+    }
+    
+    let original_code = fs::read_to_string(mf_chunk_path).expect("Failed to read MF chunk fixture");
+    let original_size = original_code.len();
+    
+    println!("Starting with real MF chunk: {:.2} KB ({} bytes)", 
+        original_size as f64 / 1024.0, original_size);
+    
+    // Load usage data exactly like the scripts do
+    let host_usage: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(host_usage_path).expect("Failed to read host usage")
+    ).expect("Failed to parse host usage JSON");
+    
+    let remote_usage: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(remote_usage_path).expect("Failed to read remote usage")
+    ).expect("Failed to parse remote usage JSON");
+    
+    // Extract usage patterns exactly like the scripts
+    let host_used = host_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
+    let remote_used = remote_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
+    let unused_exports = host_usage["consume_shared_modules"]["lodash-es"]["unused_exports"].as_array().unwrap();
+    
+    println!("Host exports: {:?}", host_used.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>());
+    println!("Remote exports: {:?}", remote_used.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>());
+    
+    // === TEST 1: Direct optimize() call (like our successful test) ===
+    println!("\n--- TEST 1: Direct optimize() call ---");
+    
+    let mut all_used_exports = std::collections::HashSet::new();
+    for export in host_used {
+        all_used_exports.insert(export.as_str().unwrap().to_string());
+    }
+    for export in remote_used {
+        all_used_exports.insert(export.as_str().unwrap().to_string());
+    }
+    
+    let mut tree_shake_config = serde_json::Map::new();
+    for export in &all_used_exports {
+        tree_shake_config.insert(export.clone(), serde_json::Value::Bool(true));
+    }
+    for export in unused_exports {
+        let export_name = export.as_str().unwrap();
+        if !all_used_exports.contains(export_name) {
+            tree_shake_config.insert(export_name.to_string(), serde_json::Value::Bool(false));
+        }
+    }
+    
+    let config1 = serde_json::json!({
+        "treeShake": {
+            "lodash-es": tree_shake_config
+        }
+    });
+    
+    let config_str1 = serde_json::to_string(&config1).unwrap();
+    let result1 = optimize(original_code.clone(), &config_str1);
+    let reduction1 = ((original_size - result1.len()) as f64 / original_size as f64) * 100.0;
+    
+    println!("Direct optimize() result: {:.2}% reduction → {:.2}KB", 
+        reduction1, result1.len() as f64 / 1024.0);
+    
+    // === TEST 2: Simulating script behavior with multiple iterations ===
+    println!("\n--- TEST 2: Multi-pass optimization (like scripts) ---");
+    
+    let mut current_code = original_code.clone();
+    let mut total_reduction = 0.0;
+    let max_passes = 10;
+    
+    for pass in 1..=max_passes {
+        let before_size = current_code.len();
+        let pass_result = optimize(current_code.clone(), &config_str1);
+        let after_size = pass_result.len();
+        
+        let pass_reduction = ((before_size - after_size) as f64 / before_size as f64) * 100.0;
+        let cumulative_reduction = ((original_size - after_size) as f64 / original_size as f64) * 100.0;
+        
+        println!("Pass {}: {:.1}% reduction → {:.2}KB (cumulative: {:.1}%)", 
+            pass, pass_reduction, after_size as f64 / 1024.0, cumulative_reduction);
+        
+        if pass_reduction < 0.1 {
+            println!("Converged after {} passes", pass);
+            break;
+        }
+        
+        current_code = pass_result;
+    }
+    
+    // === TEST 3: Different config formats ===
+    println!("\n--- TEST 3: Different configuration formats ---");
+    
+    // Test with minimal config (like some scripts might use)
+    let minimal_config = serde_json::json!({
+        "treeShake": {
+            "lodash-es": {
+                "default": true
+            }
+        }
+    });
+    
+    let minimal_result = optimize(original_code.clone(), &serde_json::to_string(&minimal_config).unwrap());
+    let minimal_reduction = ((original_size - minimal_result.len()) as f64 / original_size as f64) * 100.0;
+    
+    println!("Minimal config result: {:.2}% reduction → {:.2}KB", 
+        minimal_reduction, minimal_result.len() as f64 / 1024.0);
+    
+    // Test with no tree shaking (pure DCE)
+    let no_treeshake_config = serde_json::json!({});
+    let no_treeshake_result = optimize(original_code.clone(), &serde_json::to_string(&no_treeshake_config).unwrap());
+    let no_treeshake_reduction = ((original_size - no_treeshake_result.len()) as f64 / original_size as f64) * 100.0;
+    
+    println!("No tree-shaking (DCE only): {:.2}% reduction → {:.2}KB", 
+        no_treeshake_reduction, no_treeshake_result.len() as f64 / 1024.0);
+    
+    // === TEST 4: Enhanced config with features ===
+    println!("\n--- TEST 4: Enhanced config (like enhanced optimizer) ---");
+    
+    let enhanced_config = serde_json::json!({
+        "treeShake": {
+            "lodash-es": tree_shake_config.clone()
+        },
+        "optimization": {
+            "aggressive": true,
+            "convergence_mode": true,
+            "max_iterations": 10
+        },
+        "features": {
+            "enableDebugging": false,
+            "enableLogging": false,
+            "enableWebpackHMR": false
+        },
+        "build": {
+            "target": "production",
+            "mode": "aggressive"
+        }
+    });
+    
+    let enhanced_result = optimize(original_code.clone(), &serde_json::to_string(&enhanced_config).unwrap());
+    let enhanced_reduction = ((original_size - enhanced_result.len()) as f64 / original_size as f64) * 100.0;
+    
+    println!("Enhanced config result: {:.2}% reduction → {:.2}KB", 
+        enhanced_reduction, enhanced_result.len() as f64 / 1024.0);
+    
+    // === ANALYSIS ===
+    println!("\n=== ANALYSIS ===");
+    println!("Direct optimize():     {:.1}% reduction", reduction1);
+    println!("Multi-pass:           {:.1}% reduction", ((original_size - current_code.len()) as f64 / original_size as f64) * 100.0);
+    println!("Minimal config:       {:.1}% reduction", minimal_reduction);
+    println!("No tree-shaking:      {:.1}% reduction", no_treeshake_reduction);
+    println!("Enhanced config:      {:.1}% reduction", enhanced_reduction);
+    
+    // Check if all results are similar (indicating our tree shaker works consistently)
+    let results = vec![reduction1, minimal_reduction, no_treeshake_reduction, enhanced_reduction];
+    let max_reduction = results.iter().cloned().fold(0.0, f64::max);
+    let min_reduction = results.iter().cloned().fold(100.0, f64::min);
+    let variance = max_reduction - min_reduction;
+    
+    println!("\nVariance between approaches: {:.1}% points", variance);
+    
+    if variance < 5.0 {
+        println!("✅ All optimization approaches yield similar results - tree shaker working consistently");
+    } else if max_reduction > 90.0 {
+        println!("✅ Maximum optimization achieved: {:.1}% - tree shaker working well", max_reduction);
+    } else {
+        println!("⚠️  Inconsistent results - may indicate integration issues");
+    }
+    
+    println!("✅ Optimization pipeline test completed!");
+}
+
+#[test]
+fn test_javascript_integration_simulation() {
+    println!("\n=== SIMULATING JAVASCRIPT INTEGRATION EXACTLY ===");
+    
+    let mf_chunk_path = Path::new("tests/fixtures/module_federation_lodash_chunk.js");
+    let host_usage_path = Path::new("tests/fixtures/module_federation_usage.json");
+    let remote_usage_path = Path::new("tests/fixtures/module_federation_remote_usage.json");
+    
+    if !mf_chunk_path.exists() {
+        println!("⚠️  Fixtures not available - skipping JS integration test");
+        return;
+    }
+    
+    let original_code = fs::read_to_string(mf_chunk_path).unwrap();
+    let original_size = original_code.len();
+    
+    println!("Testing JavaScript integration simulation...");
+    println!("Original chunk: {:.2}KB", original_size as f64 / 1024.0);
+    
+    // Simulate exactly what the JavaScript enhanced optimizer does
+    let host_usage: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(host_usage_path).unwrap()
+    ).unwrap();
+    
+    let remote_usage: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(remote_usage_path).unwrap()
+    ).unwrap();
+    
+    // Extract usage exactly like JS code
+    let host_used = host_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
+    let remote_used = remote_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
+    let unused_exports = host_usage["consume_shared_modules"]["lodash-es"]["unused_exports"].as_array().unwrap();
+    
+    // Create the same tree-shake config structure as JS
+    let mut combined_used = std::collections::HashSet::new();
+    for export in host_used {
+        combined_used.insert(export.as_str().unwrap().to_string());
+    }
+    for export in remote_used {
+        combined_used.insert(export.as_str().unwrap().to_string());
+    }
+    
+    let mut tree_shake_config = serde_json::Map::new();
+    for export in &combined_used {
+        tree_shake_config.insert(export.clone(), serde_json::Value::Bool(true));
+    }
+    for export in unused_exports {
+        let export_name = export.as_str().unwrap();
+        if !combined_used.contains(export_name) {
+            tree_shake_config.insert(export_name.to_string(), serde_json::Value::Bool(false));
+        }
+    }
+    
+    // Simulate the enhanced optimizer's config structure
+    let js_config = serde_json::json!({
+        "treeShake": {
+            "lodash-es": tree_shake_config
+        },
+        "optimization": {
+            "pass": 1,
+            "aggressive": true,
+            "convergence_mode": true,
+            "max_iterations": 10,
+            "remove_unused_imports": true,
+            "eliminate_dead_code": true
+        },
+        "features": {
+            "enableDebugging": false,
+            "enableLogging": false,
+            "enableDevMode": false,
+            "enableTestMode": false,
+            "enableAnalytics": false,
+            "enableMetrics": false,
+            "enableTracing": false,
+            "enableProfiling": false,
+            "enableWebpackHMR": false,
+            "enableSourceMaps": false,
+            "enableComments": false,
+            "enableLazyLoading": false,
+            "enableCodeSplitting": false,
+            "enableDynamicImports": false,
+            "enablePolyfills": false,
+            "enableBabelTransforms": false,
+            "enableMinification": false
+        },
+        "build": {
+            "target": "production",
+            "mode": "aggressive",
+            "minify": false,
+            "removeDeadCode": true,
+            "treeShake": true,
+            "removeUnusedImports": true,
+            "eliminateDeadBranches": true
+        }
+    });
+    
+    // Run multiple passes like the JS enhanced optimizer does
+    let mut current_code = original_code.clone();
+    let max_passes = 10;
+    let convergence_threshold = 0.1;
+    
+    for pass in 1..=max_passes {
+        let before_size = current_code.len();
+        
+        // Update pass number in config
+        let mut pass_config = js_config.clone();
+        pass_config["optimization"]["pass"] = serde_json::Value::Number(serde_json::Number::from(pass));
+        
+        let config_str = serde_json::to_string(&pass_config).unwrap();
+        let optimized_code = optimize(current_code.clone(), &config_str);
+        let after_size = optimized_code.len();
+        
+        let pass_reduction = ((before_size - after_size) as f64 / before_size as f64) * 100.0;
+        let cumulative_reduction = ((original_size - after_size) as f64 / original_size as f64) * 100.0;
+        
+        println!("Pass {}: {:.1}% reduction → {:.2}KB (cumulative: {:.1}%)", 
+            pass, pass_reduction, after_size as f64 / 1024.0, cumulative_reduction);
+        
+        if pass_reduction < convergence_threshold {
+            println!("✅ Converged after {} passes (reduction < {}%)", pass, convergence_threshold);
+            break;
+        }
+        
+        if after_size == before_size {
+            println!("✅ No further optimization possible after {} passes", pass);
+            break;
+        }
+        
+        current_code = optimized_code;
+    }
+    
+    let final_reduction = ((original_size - current_code.len()) as f64 / original_size as f64) * 100.0;
+    
+    println!("\n📊 FINAL RESULTS:");
+    println!("Original size: {:.2}KB", original_size as f64 / 1024.0);
+    println!("Final size: {:.2}KB", current_code.len() as f64 / 1024.0);
+    println!("Total reduction: {:.1}%", final_reduction);
+    
+    // Compare with expected results
+    if final_reduction > 90.0 {
+        println!("✅ Excellent optimization achieved - matches test expectations");
+    } else if final_reduction > 70.0 {
+        println!("📊 Good optimization achieved");
+    } else if final_reduction > 30.0 {
+        println!("⚠️  Moderate optimization - may not match test expectations");
+    } else {
+        println!("❌ Poor optimization - significant discrepancy with test expectations");
+    }
+    
+    println!("✅ JavaScript integration simulation completed!");
+}
+
+#[test]
+fn test_compare_with_scripts_behavior() {
+    println!("\n=== COMPARING WITH ACTUAL SCRIPT BEHAVIOR ===");
+    
+    let mf_chunk_path = Path::new("tests/fixtures/module_federation_lodash_chunk.js");
+    if !mf_chunk_path.exists() {
+        println!("⚠️  Fixture not available - skipping comparison");
+        return;
+    }
+    
+    let original_code = fs::read_to_string(mf_chunk_path).unwrap();
+    let original_size = original_code.len();
+    
+    println!("Simulating actual script behavior...");
+    println!("Original: {:.2}KB", original_size as f64 / 1024.0);
+    
+    // This simulates what the scripts are actually doing and getting 39.8%
+    let script_config = serde_json::json!({
+        "treeShake": {
+            "lodash-es": {
+                "uniq": true,
+                "sortBy": true,
+                "default": true,
+                "omit": true,
+                "capitalize": true,
+                "pick": true,
+                "groupBy": true,
+                "throttle": true,
+                "debounce": true
+            }
+        }
+    });
+    
+    let script_result = optimize(original_code.clone(), &serde_json::to_string(&script_config).unwrap());
+    let script_reduction = ((original_size - script_result.len()) as f64 / original_size as f64) * 100.0;
+    
+    println!("Script-like config result: {:.1}% reduction → {:.2}KB", 
+        script_reduction, script_result.len() as f64 / 1024.0);
+    
+    // Expected based on our successful test
+    let expected_reduction = 99.9;
+    let actual_reduction = script_reduction;
+    
+    println!("\nComparison:");
+    println!("Expected (from test): ~{:.1}%", expected_reduction);
+    println!("Actual (from script): {:.1}%", actual_reduction);
+    println!("Difference: {:.1}% points", (expected_reduction - actual_reduction).abs());
+    
+    if (expected_reduction - actual_reduction).abs() < 5.0 {
+        println!("✅ Results match expectations - optimization working correctly");
+    } else {
+        println!("❌ Significant discrepancy - need to investigate further");
+        
+        // Additional debugging
+        println!("\nDebugging info:");
+        println!("Original contains 'exports.modules': {}", original_code.contains("exports.modules"));
+        println!("Result contains 'exports.modules': {}", script_result.contains("exports.modules"));
+        println!("Original lodash modules: {}", original_code.matches("lodash-es").count());
+        println!("Result lodash modules: {}", script_result.matches("lodash-es").count());
+        
+        // Check if tree shaker is working by looking at module reduction
+        let original_modules = count_webpack_modules(&original_code);
+        let result_modules = count_webpack_modules(&script_result);
+        println!("Modules: {} → {} ({} removed)", original_modules, result_modules, original_modules - result_modules);
+        
+        if original_modules - result_modules > 100 {
+            println!("✅ Tree shaker is removing modules");
+        } else {
+            println!("⚠️  Tree shaker may not be working properly");
+        }
+    }
+    
+    println!("✅ Script behavior comparison completed!");
+}
+
+fn count_webpack_modules(code: &str) -> usize {
+    // Count webpack module patterns
+    let function_patterns = code.matches("function(__unused_webpack").count();
+    let path_patterns = code.matches("node_modules/.pnpm/lodash-es").count();
+    std::cmp::max(function_patterns, path_patterns)
+}

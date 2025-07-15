@@ -4,13 +4,12 @@ const { ModuleFederationPlugin } = rspack.container;
 module.exports = {
   mode: 'development',
   entry: './src/index.js',
+  target: 'async-node',
+  devtool: false,
   output: {
     publicPath: 'http://localhost:3002/',
     library: {
-      type: 'commonjs2',
-    },
-    environment: {
-      module: false,
+      type: 'commonjs-module',
     },
   },
   devServer: {
@@ -40,6 +39,7 @@ module.exports = {
     new ModuleFederationPlugin({
       name: 'remote',
       filename: 'remoteEntry.js',
+      library: { type: 'commonjs-module' },
       exposes: {
         './Button': './src/Button',
         './utils': './src/utils',
