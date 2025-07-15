@@ -1,0 +1,132 @@
+use webpack_analyzer_v2::*;
+
+#[test]
+fn test_real_world_webpack_chunk() {
+    let analyzer = WebpackAnalyzer::new();
+    
+    // This is a simplified version of a real webpack chunk
+    let source = r#"
+        "use strict";
+        exports.ids = ["vendors-lodash"];
+        exports.modules = {
+            "../../node_modules/lodash-es/lodash.js": function(__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
+                __webpack_require__.r(__webpack_exports__);
+                __webpack_require__.d(__webpack_exports__, {
+                    "map": () => reexport_map,
+                    "filter": () => reexport_filter,
+                    "default": () => __WEBPACK_DEFAULT_EXPORT__
+                });
+                var _map_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("../../node_modules/lodash-es/map.js");
+                var _filter_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__("../../node_modules/lodash-es/filter.js");
+                var reexport_map = _map_js__WEBPACK_IMPORTED_MODULE_0__["default"];
+                var reexport_filter = _filter_js__WEBPACK_IMPORTED_MODULE_1__["default"];
+                const __WEBPACK_DEFAULT_EXPORT__ = {
+                    map: reexport_map,
+                    filter: reexport_filter
+                };
+            },
+            "../../node_modules/lodash-es/map.js": function(__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
+                __webpack_require__.r(__webpack_exports__);
+                __webpack_require__.d(__webpack_exports__, {
+                    "default": () => __WEBPACK_DEFAULT_EXPORT__
+                });
+                var _baseMap_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("../../node_modules/lodash-es/_baseMap.js");
+                function map(collection, iteratee) {
+                    return _baseMap_js__WEBPACK_IMPORTED_MODULE_0__["default"](collection, iteratee);
+                }
+                const __WEBPACK_DEFAULT_EXPORT__ = map;
+            },
+            "../../node_modules/lodash-es/filter.js": function(__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
+                __webpack_require__.r(__webpack_exports__);
+                __webpack_require__.d(__webpack_exports__, {
+                    "default": () => __WEBPACK_DEFAULT_EXPORT__
+                });
+                var _baseFilter_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("../../node_modules/lodash-es/_baseFilter.js");
+                function filter(collection, predicate) {
+                    return _baseFilter_js__WEBPACK_IMPORTED_MODULE_0__["default"](collection, predicate);
+                }
+                const __WEBPACK_DEFAULT_EXPORT__ = filter;
+            },
+            "../../node_modules/lodash-es/_baseMap.js": function(__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
+                __webpack_require__.r(__webpack_exports__);
+                __webpack_require__.d(__webpack_exports__, {
+                    "default": () => __WEBPACK_DEFAULT_EXPORT__
+                });
+                function baseMap(collection, iteratee) {
+                    return collection.map(iteratee);
+                }
+                const __WEBPACK_DEFAULT_EXPORT__ = baseMap;
+            },
+            "../../node_modules/lodash-es/_baseFilter.js": function(__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
+                __webpack_require__.r(__webpack_exports__);
+                __webpack_require__.d(__webpack_exports__, {
+                    "default": () => __WEBPACK_DEFAULT_EXPORT__
+                });
+                function baseFilter(collection, predicate) {
+                    return collection.filter(predicate);
+                }
+                const __WEBPACK_DEFAULT_EXPORT__ = baseFilter;
+            },
+            "../../node_modules/lodash-es/reduce.js": function(__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
+                __webpack_require__.r(__webpack_exports__);
+                __webpack_require__.d(__webpack_exports__, {
+                    "default": () => __WEBPACK_DEFAULT_EXPORT__
+                });
+                function reduce(collection, iteratee, accumulator) {
+                    return collection.reduce(iteratee, accumulator);
+                }
+                const __WEBPACK_DEFAULT_EXPORT__ = reduce;
+            }
+        };
+    "#;
+    
+    let chunk = analyzer.analyze_chunk(source).unwrap();
+    
+    // Test basic chunk properties
+    assert_eq!(chunk.chunk_type, ChunkType::CommonJS);
+    assert_eq!(chunk.module_count(), 6);
+    
+    // Test main lodash module dependencies
+    {
+        let lodash_module = chunk.get_module(&"../../node_modules/lodash-es/lodash.js".to_string()).unwrap();
+        assert!(lodash_module.depends_on(&"../../node_modules/lodash-es/map.js".to_string()));
+        assert!(lodash_module.depends_on(&"../../node_modules/lodash-es/filter.js".to_string()));
+        
+        // Test map module dependencies
+        let map_module = chunk.get_module(&"../../node_modules/lodash-es/map.js".to_string()).unwrap();
+        assert!(map_module.depends_on(&"../../node_modules/lodash-es/_baseMap.js".to_string()));
+        
+        // Test filter module dependencies
+        let filter_module = chunk.get_module(&"../../node_modules/lodash-es/filter.js".to_string()).unwrap();
+        assert!(filter_module.depends_on(&"../../node_modules/lodash-es/_baseFilter.js".to_string()));
+    }
+    
+    // Test orphan detection
+    let mut graph = DependencyGraph::new();
+    for (_, module) in chunk.modules {
+        graph.add_module(module);
+    }
+    
+    // Use lodash.js as entry point
+    let entry_points = vec!["../../node_modules/lodash-es/lodash.js".to_string()];
+    let reachable = graph.get_reachable_from_multiple(&entry_points);
+    let orphaned = graph.find_orphaned_modules(&entry_points);
+    
+    // reduce.js should be orphaned since it's not used by lodash.js
+    assert_eq!(orphaned.len(), 1);
+    assert!(orphaned.contains(&"../../node_modules/lodash-es/reduce.js".to_string()));
+    
+    // All other modules should be reachable
+    assert_eq!(reachable.len(), 5);
+    assert!(reachable.contains(&"../../node_modules/lodash-es/lodash.js".to_string()));
+    assert!(reachable.contains(&"../../node_modules/lodash-es/map.js".to_string()));
+    assert!(reachable.contains(&"../../node_modules/lodash-es/filter.js".to_string()));
+    assert!(reachable.contains(&"../../node_modules/lodash-es/_baseMap.js".to_string()));
+    assert!(reachable.contains(&"../../node_modules/lodash-es/_baseFilter.js".to_string()));
+    
+    println!("✅ Real-world webpack chunk analysis complete!");
+    println!("   - Total modules: {}", 6);
+    println!("   - Reachable modules: {}", reachable.len());
+    println!("   - Orphaned modules: {}", orphaned.len());
+    println!("   - Successfully analyzed webpack chunk dependencies!");
+}

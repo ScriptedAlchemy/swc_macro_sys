@@ -1,0 +1,12 @@
+[package]
+name = "webpack_analyzer_v2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+swc_core = { workspace = true, features = ["common", "ecma_parser", "ecma_ast", "ecma_visit"] }
+rustc-hash = "2.1.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
