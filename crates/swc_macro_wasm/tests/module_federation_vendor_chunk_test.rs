@@ -70,6 +70,16 @@ exports.modules = {
     
     let optimized = optimize(vendor_chunk.to_string(), &config.to_string());
     
+    // Debug: print just the lodash.js module to see exports
+    if let Some(lodash_start) = optimized.find("lodash.js") {
+        let from_lodash = &optimized[lodash_start..];
+        if let Some(end) = from_lodash.find("\n    },\n    \"") {
+            println!("\nOptimized lodash.js module:\n{}", &from_lodash[..end]);
+        } else if let Some(end) = from_lodash.find("\n};\n") {
+            println!("\nOptimized lodash.js module:\n{}", &from_lodash[..end]);
+        }
+    }
+    
     println!("\nOptimization results:");
     println!("  Original size: {} bytes", vendor_chunk.len());
     println!("  Optimized size: {} bytes", optimized.len());
@@ -94,9 +104,9 @@ exports.modules = {
     
     // Check exports
     println!("\nVerifying exports:");
-    let exports_sortby = optimized.contains("sortBy:") && !optimized.contains("sortBy: () => null");
-    let exports_uniq = optimized.contains("uniq:") && !optimized.contains("uniq: () => null");
-    let exports_filter = optimized.contains("filter:") && !optimized.contains("filter: () => null");
+    let exports_sortby = optimized.contains("sortBy:") && !optimized.contains("sortBy: ()=>null");
+    let exports_uniq = optimized.contains("uniq:") && !optimized.contains("uniq: ()=>null");
+    let exports_filter = optimized.contains("filter:") && !optimized.contains("filter: ()=>null");
     
     println!("  sortBy export: {}", if exports_sortby { "✅ Active" } else { "❌ Removed/Nullified" });
     println!("  uniq export: {}", if exports_uniq { "✅ Active" } else { "❌ Removed/Nullified" });

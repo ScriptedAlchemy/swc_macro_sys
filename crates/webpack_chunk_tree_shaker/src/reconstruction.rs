@@ -37,6 +37,7 @@ impl ChunkReconstructor {
         match chunk.chunk_type {
             ChunkType::CommonJS => self.reconstruct_commonjs_chunk(preserved_modules),
             ChunkType::JSONP => self.reconstruct_jsonp_chunk(preserved_modules),
+            ChunkType::WebpackModules => self.reconstruct_webpack_modules_chunk(preserved_modules),
         }
     }
 
@@ -104,6 +105,56 @@ impl ChunkReconstructor {
         
         // Close modules object and JSONP
         output.push_str("\n    }\n]);\n");
+        
+        Ok(output)
+    }
+
+    /// Reconstruct a WebpackModules format chunk
+    fn reconstruct_webpack_modules_chunk(
+        &self,
+        modules: &FxHashMap<ModuleId, WebpackModule>,
+    ) -> Result<String> {
+        let mut output = String::new();
+        
+        // Add webpack bootstrap start
+        output.push_str("(() => { // webpackBootstrap\n");
+        output.push_str("\"use strict\";\n");
+        
+        // Add webpack modules object
+        output.push_str("var __webpack_modules__ = ({\n");
+        
+        // Add each module
+        let mut module_entries = Vec::new();
+        for (module_id, module) in modules {
+            let module_entry = self.format_module_entry(module_id, module)?;
+            module_entries.push(format!("    {}", module_entry));
+        }
+        
+        // Join modules with commas
+        output.push_str(&module_entries.join(",\n"));
+        
+        // Close modules object
+        output.push_str("\n});\n\n");
+        
+        // Add webpack runtime (simplified)
+        output.push_str("// The module cache\n");
+        output.push_str("var __webpack_module_cache__ = {};\n\n");
+        
+        output.push_str("// The require function\n");
+        output.push_str("function __webpack_require__(moduleId) {\n");
+        output.push_str("    var cachedModule = __webpack_module_cache__[moduleId];\n");
+        output.push_str("    if (cachedModule !== undefined) {\n");
+        output.push_str("        return cachedModule.exports;\n");
+        output.push_str("    }\n");
+        output.push_str("    var module = (__webpack_module_cache__[moduleId] = {\n");
+        output.push_str("        exports: {}\n");
+        output.push_str("    });\n");
+        output.push_str("    __webpack_modules__[moduleId](module, module.exports, __webpack_require__);\n");
+        output.push_str("    return module.exports;\n");
+        output.push_str("}\n\n");
+        
+        // Close webpack bootstrap
+        output.push_str("})();\n");
         
         Ok(output)
     }

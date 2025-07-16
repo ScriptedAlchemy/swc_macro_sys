@@ -2,11 +2,19 @@ pub mod error;
 pub mod graph;
 pub mod parser;
 pub mod tree_shaker;
+pub mod module_extractor;
+
+#[cfg(test)]
+mod tree_shaker_tests;
+
+#[cfg(test)]
+mod module_extractor_test;
 
 pub use error::WebpackGraphError;
 pub use graph::{ModuleGraph, ModuleNode};
 pub use parser::WebpackBundleParser;
 pub use tree_shaker::TreeShaker;
+pub use module_extractor::WebpackModuleExtractor;
 
 /// Result type for webpack graph operations
 pub type Result<T> = std::result::Result<T, WebpackGraphError>;

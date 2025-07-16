@@ -3,10 +3,10 @@
     "lodash-es": {
       "used_exports": [
         "throttle",
+        "capitalize",
         "debounce",
         "groupBy",
         "omit",
-        "capitalize",
         "pick",
         "default"
       ],

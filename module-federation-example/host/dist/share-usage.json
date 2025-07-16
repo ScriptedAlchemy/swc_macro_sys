@@ -327,7 +327,8 @@
         "zipObjectDeep",
         "zipWith"
       ],
-      "possibly_unused_exports": []
+      "possibly_unused_exports": [],
+      "entry_module_id": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
     }
   },
   "metadata": {

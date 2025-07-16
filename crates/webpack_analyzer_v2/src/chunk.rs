@@ -9,6 +9,8 @@ pub enum ChunkType {
     JSONP,
     /// CommonJS format: exports.modules = {...}
     CommonJS,
+    /// Webpack modules format: var __webpack_modules__ = ({...})
+    WebpackModules,
 }
 
 /// Represents a webpack chunk with its modules

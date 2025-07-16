@@ -50,6 +50,8 @@ impl WebpackAnalyzer {
             Ok(ChunkType::CommonJS)
         } else if source.contains("webpackChunk") && source.contains(".push(") {
             Ok(ChunkType::JSONP)
+        } else if source.contains("__webpack_modules__") {
+            Ok(ChunkType::WebpackModules)
         } else {
             Err("Unknown chunk type - not a recognized webpack chunk format".into())
         }
@@ -73,6 +75,7 @@ impl WebpackAnalyzer {
         match chunk.chunk_type {
             ChunkType::CommonJS => self.extract_commonjs_modules(program, chunk),
             ChunkType::JSONP => self.extract_jsonp_modules(program, chunk),
+            ChunkType::WebpackModules => self.extract_webpack_modules(program, chunk),
         }
     }
 
@@ -101,6 +104,20 @@ impl WebpackAnalyzer {
         }
 
         println!("[WebpackAnalyzer] Extracted {} JSONP modules", chunk.module_count());
+        Ok(())
+    }
+
+    /// Extract modules from WebpackModules format (var __webpack_modules__ = {...})
+    fn extract_webpack_modules(&self, program: &Program, chunk: &mut WebpackChunk) -> Result<()> {
+        let mut visitor = WebpackModulesVisitor::new();
+        program.visit_with(&mut visitor);
+
+        for (module_id, module_source) in visitor.modules {
+            let module = WebpackModule::new(module_id.clone(), module_source);
+            chunk.add_module(module_id, module);
+        }
+
+        println!("[WebpackAnalyzer] Extracted {} WebpackModules modules", chunk.module_count());
         Ok(())
     }
 
@@ -370,6 +387,84 @@ impl JSONPVisitor {
                     self.modules.insert(module_id, module_source);
                 }
             }
+        }
+    }
+}
+
+/// Visitor for extracting modules from WebpackModules format
+struct WebpackModulesVisitor {
+    modules: FxHashMap<ModuleId, String>,
+}
+
+impl WebpackModulesVisitor {
+    fn new() -> Self {
+        Self {
+            modules: FxHashMap::default(),
+        }
+    }
+}
+
+impl Visit for WebpackModulesVisitor {
+    fn visit_var_decl(&mut self, node: &VarDecl) {
+        // Look for: var __webpack_modules__ = ({...})
+        for declarator in &node.decls {
+            if let Some(ident) = declarator.name.as_ident() {
+                if ident.sym == "__webpack_modules__" {
+                    if let Some(init) = &declarator.init {
+                        if let Expr::Paren(paren) = init.as_ref() {
+                            if let Expr::Object(obj) = paren.expr.as_ref() {
+                                self.extract_modules_from_object(obj);
+                            }
+                        } else if let Expr::Object(obj) = init.as_ref() {
+                            self.extract_modules_from_object(obj);
+                        }
+                    }
+                }
+            }
+        }
+        
+        node.visit_children_with(self);
+    }
+}
+
+impl WebpackModulesVisitor {
+    fn extract_modules_from_object(&mut self, obj: &ObjectLit) {
+        for prop in &obj.props {
+            if let PropOrSpread::Prop(prop) = prop {
+                if let Prop::KeyValue(kv) = prop.as_ref() {
+                    // Extract module ID from key
+                    let module_id = match &kv.key {
+                        PropName::Str(s) => s.value.to_string(),
+                        PropName::Ident(ident) => ident.sym.to_string(),
+                        PropName::Num(num) => num.value.to_string(),
+                        _ => continue,
+                    };
+
+                    // Extract module source from the function
+                    let module_source = self.extract_function_source(&kv.value);
+                    
+                    self.modules.insert(module_id, module_source);
+                }
+            }
+        }
+    }
+
+    fn extract_function_source(&self, expr: &Expr) -> String {
+        match expr {
+            Expr::Paren(paren) => {
+                if let Expr::Fn(func) = paren.expr.as_ref() {
+                    // For now, return a simplified representation
+                    format!("function({}) {{ /* function body */ }}", 
+                           func.function.params.len())
+                } else {
+                    "/* unknown function format */".to_string()
+                }
+            }
+            Expr::Fn(func) => {
+                format!("function({}) {{ /* function body */ }}", 
+                       func.function.params.len())
+            }
+            _ => "/* non-function module */".to_string(),
         }
     }
 }
