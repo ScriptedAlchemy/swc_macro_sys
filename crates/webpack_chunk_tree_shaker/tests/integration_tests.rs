@@ -1,5 +1,4 @@
 use webpack_chunk_tree_shaker::*;
-use std::collections::HashSet;
 
 /// Test basic module removal functionality
 #[test]

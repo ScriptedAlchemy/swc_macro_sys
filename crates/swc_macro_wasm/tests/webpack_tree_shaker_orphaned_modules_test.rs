@@ -74,18 +74,18 @@ fn test_orphaned_modules_after_macro_processing() {
     
     // Check which modules are still present
     let has_main = optimized.contains("main.js");
-    let has_featureA = optimized.contains("featureA.js");
-    let has_featureB = optimized.contains("featureB.js");
-    let has_featureC = optimized.contains("featureC.js");
-    let has_helperA = optimized.contains("helperA.js");
-    let has_helperB = optimized.contains("helperB.js");
+    let has_feature_a = optimized.contains("featureA.js");
+    let has_feature_b = optimized.contains("featureB.js");
+    let has_feature_c = optimized.contains("featureC.js");
+    let has_helper_a = optimized.contains("helperA.js");
+    let has_helper_b = optimized.contains("helperB.js");
     
     println!("  main.js: {}", if has_main { "✓ Present" } else { "✗ Removed" });
-    println!("  featureA.js: {}", if has_featureA { "✗ Still present (should be removed!)" } else { "✓ Removed" });
-    println!("  featureB.js: {}", if has_featureB { "✗ Still present (should be removed!)" } else { "✓ Removed" });
-    println!("  featureC.js: {}", if has_featureC { "✓ Present (correctly kept)" } else { "✗ Removed (should be kept!)" });
-    println!("  helperA.js: {}", if has_helperA { "✗ Still present (should be removed!)" } else { "✓ Removed" });
-    println!("  helperB.js: {}", if has_helperB { "✗ Still present (should be removed!)" } else { "✓ Removed" });
+    println!("  featureA.js: {}", if has_feature_a { "✗ Still present (should be removed!)" } else { "✓ Removed" });
+    println!("  featureB.js: {}", if has_feature_b { "✗ Still present (should be removed!)" } else { "✓ Removed" });
+    println!("  featureC.js: {}", if has_feature_c { "✓ Present (correctly kept)" } else { "✗ Removed (should be kept!)" });
+    println!("  helperA.js: {}", if has_helper_a { "✗ Still present (should be removed!)" } else { "✓ Removed" });
+    println!("  helperB.js: {}", if has_helper_b { "✗ Still present (should be removed!)" } else { "✓ Removed" });
     
     // Count total modules
     let module_count = optimized.matches("\": function(").count();
@@ -103,10 +103,10 @@ fn test_orphaned_modules_after_macro_processing() {
     
     // These assertions will FAIL with current implementation
     // because orphaned modules are not removed
-    assert!(!has_featureA, "featureA.js should be removed when feature is disabled");
-    assert!(!has_featureB, "featureB.js should be removed when feature is disabled");
-    assert!(!has_helperA, "helperA.js should be removed when featureA is disabled");
-    assert!(!has_helperB, "helperB.js should be removed when featureB is disabled");
+    assert!(!has_feature_a, "featureA.js should be removed when feature is disabled");
+    assert!(!has_feature_b, "featureB.js should be removed when feature is disabled");
+    assert!(!has_helper_a, "helperA.js should be removed when featureA is disabled");
+    assert!(!has_helper_b, "helperB.js should be removed when featureB is disabled");
     assert!(has_main, "main.js should be preserved");
     // Enhanced parser now correctly detects __webpack_require__ calls inside complex structures
     // like __webpack_require__.d(exports, { featureC: () => __webpack_require__("featureC.js") })
@@ -114,7 +114,7 @@ fn test_orphaned_modules_after_macro_processing() {
     
     // With enhanced parser, both main.js and featureC.js should remain
     assert_eq!(module_count, 2, "Should have 2 modules (main.js and featureC.js) with enhanced parser");
-    assert!(has_featureC, "featureC.js should be kept when enabled");
+    assert!(has_feature_c, "featureC.js should be kept when enabled");
     
     println!("\n✅ Orphaned modules test passed!");
 }

@@ -104,18 +104,14 @@ fn perform_dce(m: &mut Program, comments: SingleThreadedComments, unresolved_mar
     }
 }
 
-/// Check if the config contains explicit tree shaking directives
-fn has_explicit_tree_shaking_config(config: &serde_json::Value) -> bool {
-    // Check if we have entry modules configuration - this is now required for tree shaking
+/// Check if the config contains macro processing directives that might create orphaned modules
+fn has_macro_processing_config(config: &serde_json::Value) -> bool {
+    // Check if there are macro processing directives like features, treeShake, etc.
+    // Also check for entryModules which enables tree shaking with specific entry points
+    config.get("features").is_some() || 
+    config.get("treeShake").is_some() ||
+    config.get("api").is_some() ||
     config.get("entryModules").is_some()
-}
-
-/// Extract entry module ID from config for a given library
-fn get_entry_module_id_from_config(config: &serde_json::Value, library_name: &str) -> Option<String> {
-    config.get("entryModules")
-        .and_then(|entry_modules| entry_modules.get(library_name))
-        .and_then(|entry_module| entry_module.as_str())
-        .map(|s| s.to_string())
 }
 
 /// Performs iterative webpack module tree shaking after DCE
@@ -171,6 +167,14 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                 }
             }
         };
+        
+        // Debug: Log dependency graph details
+        if iteration == 1 {
+            eprintln!("[webpack_tree_shaking] Dependency graph for iteration {}:", iteration);
+            for (module_id, module) in &graph.modules {
+                eprintln!("  Module '{}' depends on: {:?}", module_id, module.dependencies);
+            }
+        }
 
         // Step 3: Check if this is a split chunk before tree shaking
         let is_split_chunk = graph.entry_points.is_empty() && !graph.modules.is_empty();
@@ -178,48 +182,99 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
         let unreachable_modules = if is_split_chunk {
             eprintln!("[webpack_tree_shaking] Split chunk detected with {} modules and no entry points", graph.modules.len());
             
-            // Check if there are explicit tree shaking directives in the config
-            let has_explicit_config = has_explicit_tree_shaking_config(config);
+            // Check if there are macro processing directives that might create orphaned modules
+            let has_macro_config = has_macro_processing_config(config);
             
-            if has_explicit_config {
-                eprintln!("[webpack_tree_shaking] Split chunk with explicit tree shaking config - allowing tree shaking");
+            if has_macro_config {
+                eprintln!("[webpack_tree_shaking] Split chunk with macro processing config - attempting orphaned module detection");
                 
-                // For split chunks with explicit config, we need to designate a main export module
-                // as a pseudo-entry point, then shake from there
+                // For split chunks with macro processing, we can perform orphaned module detection
+                // by finding a reasonable entry point (like a main export module) and shaking from there
                 if !graph.modules.is_empty() {
-                    // Get entry module ID from config - this is now required
-                    let entry_module_id = get_entry_module_id_from_config(config, "lodash-es")
-                        .expect("Entry module ID must be provided in config for tree shaking");
-                    
-                    // Check if this module exists in our graph
-                    if !graph.modules.contains_key(&entry_module_id) {
-                        eprintln!("[webpack_tree_shaking] Entry module ID from config not found in graph: {}", entry_module_id);
-                        return; // Skip tree shaking if entry module not found
+                    // Check if there are explicit entry modules defined in the config
+                    let mut entry_points_from_config = Vec::new();
+                    if let Some(entry_modules) = config.get("entryModules") {
+                        if let Some(entry_obj) = entry_modules.as_object() {
+                            for (_, entry_module) in entry_obj {
+                                if let Some(entry_str) = entry_module.as_str() {
+                                    if graph.modules.contains_key(entry_str) {
+                                        entry_points_from_config.push(entry_str.to_string());
+                                        eprintln!("[webpack_tree_shaking] Using explicit entry point from config: '{}'", entry_str);
+                                    }
+                                }
+                            }
+                        }
                     }
                     
-                    eprintln!("[webpack_tree_shaking] Using entry module ID from config: {}", entry_module_id);
-                    let main_export_module = entry_module_id;
-                    eprintln!("[webpack_tree_shaking] Designating '{}' as main export module for split chunk", main_export_module);
+                    // If no explicit entries from config, find potential entry points by looking for modules that might be main exports
+                    let mut potential_entries: Vec<String> = if entry_points_from_config.is_empty() {
+                        graph.modules.keys()
+                            .filter(|module_id| {
+                                // Look for modules that might be main exports
+                                module_id.contains("main") || 
+                                module_id.contains("index") || 
+                                module_id.contains("entry") ||
+                                (module_id.ends_with(".js") && !module_id.contains("/")) ||
+                                // Special case for lodash: prioritize the main lodash.js file
+                                module_id.ends_with("lodash-es/lodash.js") ||
+                                module_id.ends_with("lodash/lodash.js")
+                            })
+                            .cloned()
+                            .collect()
+                    } else {
+                        entry_points_from_config
+                    };
                     
-                    // Add it as a pseudo-entry point
-                    graph.entry_points.push(main_export_module);
+                    // Sort to prioritize main.js, then index.js, then entry.js (only if not from config)
+                    if config.get("entryModules").is_none() {
+                        potential_entries.sort_by(|a, b| {
+                            // Special scoring for lodash main files
+                            let a_score = if a.ends_with("lodash-es/lodash.js") || a.ends_with("lodash/lodash.js") { -1 } 
+                                         else if a.contains("main") { 0 } 
+                                         else if a.contains("index") { 1 } 
+                                         else if a.contains("entry") { 2 } 
+                                         else { 3 };
+                            let b_score = if b.ends_with("lodash-es/lodash.js") || b.ends_with("lodash/lodash.js") { -1 } 
+                                         else if b.contains("main") { 0 } 
+                                         else if b.contains("index") { 1 } 
+                                         else if b.contains("entry") { 2 } 
+                                         else { 3 };
+                            a_score.cmp(&b_score)
+                        });
+                    }
                     
-                    // Now perform tree shaking from this pseudo-entry point
-                    let unreachable = TreeShaker::new(&mut graph).shake();
-                    eprintln!("[webpack_tree_shaking] Split chunk with config: {} modules, {} unreachable", 
-                             graph.modules.len(), unreachable.len());
-                    unreachable
+                    if !potential_entries.is_empty() {
+                        // For split chunks, we may have multiple potential entry points
+                        // If we have multiple entries that look like entry points, add them all
+                        if potential_entries.len() > 1 && potential_entries.iter().any(|e| e.contains("entry")) {
+                            // Multiple entry points detected - add all of them
+                            eprintln!("[webpack_tree_shaking] Multiple entry points detected: {:?}", potential_entries);
+                            for entry in &potential_entries {
+                                if entry.contains("entry") {
+                                    graph.entry_points.push(entry.clone());
+                                }
+                            }
+                        } else {
+                            // Use the first potential entry as our starting point
+                            let entry_point = potential_entries[0].clone();
+                            eprintln!("[webpack_tree_shaking] Using '{}' as entry point for orphaned module detection", entry_point);
+                            graph.entry_points.push(entry_point);
+                        }
+                        
+                        // Now perform tree shaking from the pseudo-entry point(s)
+                        let unreachable = TreeShaker::new(&mut graph).shake();
+                        eprintln!("[webpack_tree_shaking] Split chunk orphaned module detection: {} modules, {} unreachable", 
+                                 graph.modules.len(), unreachable.len());
+                        unreachable
+                    } else {
+                        eprintln!("[webpack_tree_shaking] No suitable entry point found for orphaned module detection");
+                        Vec::new()
+                    }
                 } else {
                     Vec::new()
                 }
             } else {
-                eprintln!("[webpack_tree_shaking] Split chunk with no explicit config - preserving all modules");
-                
-                // For split chunks (CommonJS exports.modules format), we preserve ALL modules by default
-                // This is the expected behavior according to the tests:
-                // - "Even unused module should be preserved in split chunk"
-                // - "CJS chunk should preserve unused moduleC"
-                // - All modules should be preserved (no entry point based tree shaking)
+                eprintln!("[webpack_tree_shaking] Split chunk with no macro processing config - preserving all modules");
                 Vec::new()
             }
         } else {
@@ -438,16 +493,16 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
         return;
     }
     
-    // Check if there are explicit tree shaking directives in the config
-    let has_explicit_config = has_explicit_tree_shaking_config(config);
+    // Check if there are macro processing directives that might create orphaned modules
+    let has_macro_config = has_macro_processing_config(config);
     
-    if !has_explicit_config {
-        // For CommonJS split chunks without explicit config, we should preserve all modules
-        eprintln!("[simple_orphan_removal] CommonJS split chunk detected with no explicit config - skipping orphan removal to preserve all modules");
+    if has_macro_config {
+        eprintln!("[simple_orphan_removal] CommonJS split chunk detected with macro processing config - attempting orphaned module detection");
+        // Continue with the orphaned module detection logic below
+    } else {
+        eprintln!("[simple_orphan_removal] CommonJS split chunk detected with no macro processing config - preserving all modules");
         return;
     }
-    
-    eprintln!("[simple_orphan_removal] CommonJS split chunk with explicit tree shaking config - proceeding with orphan removal");
     
     // Find all module IDs in exports.modules
     let module_pattern = regex::Regex::new(r#""([^"]+\.js)":\s*"#).unwrap();

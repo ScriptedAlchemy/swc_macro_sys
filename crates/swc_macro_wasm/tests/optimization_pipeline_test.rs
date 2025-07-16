@@ -78,7 +78,7 @@ fn test_optimization_pipeline_on_real_chunk() {
     println!("\n--- TEST 2: Multi-pass optimization (like scripts) ---");
     
     let mut current_code = original_code.clone();
-    let mut total_reduction = 0.0;
+    let _total_reduction = 0.0;
     let max_passes = 10;
     
     for pass in 1..=max_passes {

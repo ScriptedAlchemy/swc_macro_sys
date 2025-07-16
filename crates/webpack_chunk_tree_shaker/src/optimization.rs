@@ -1,7 +1,6 @@
-use std::collections::{HashSet, HashMap};
-use rustc_hash::FxHashMap;
+use std::collections::HashMap;
 use webpack_analyzer_v2::*;
-use crate::{Result, TreeShakingError, WebpackTreeShaker, TreeShakingOptions};
+use crate::{Result, WebpackTreeShaker, TreeShakingOptions};
 
 /// Advanced optimization strategies for webpack chunks
 pub struct ChunkOptimizer {

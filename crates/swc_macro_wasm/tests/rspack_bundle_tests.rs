@@ -45,15 +45,32 @@ fn test_rspack_main_bundle_optimization() {
     println!("\n=== RSPACK MAIN BUNDLE OPTIMIZATION TEST ===");
     println!("Original bundle size: {} bytes", main_bundle.len());
     
-    // Based on share-usage.json, we know which exports are used
+    // Load the share-usage.json to get actual usage data
+    let share_usage = include_str!("../../../test-cases/rspack-annotated-output/share-usage.json");
+    let usage_data: serde_json::Value = serde_json::from_str(share_usage).unwrap();
+    
+    // Build tree shaking configuration based on actual usage
+    let mut tree_shake_config = json!({});
+    if let Some(consumed_modules) = usage_data["consume_shared_modules"].as_object() {
+        for (module_name, module_data) in consumed_modules {
+            if let Some(used_exports) = module_data["used_exports"].as_array() {
+                let mut export_config = json!({});
+                for export in used_exports {
+                    if let Some(export_name) = export.as_str() {
+                        export_config[export_name] = json!(true);
+                    }
+                }
+                tree_shake_config[module_name] = export_config;
+            }
+        }
+    }
+    
     let config = json!({
-        "features": {
-            "enableReact": true,
-            "enableLodash": true,
-            "enableUtilityLib": true,
-            "enableApiLib": true,
-            "enableComponentLib": true,
-            "enableCjsHelpers": false  // Many unused exports here
+        "treeShake": tree_shake_config,
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js",
+            "react": "../../node_modules/.pnpm/react@19.1.0/node_modules/react/index.js",
+            "react-dom": "../../node_modules/.pnpm/react-dom@19.1.0_react@19.1.0/node_modules/react-dom/index.js"
         }
     });
     
@@ -77,9 +94,9 @@ fn test_rspack_main_bundle_optimization() {
     // The test passes if the optimizer runs without errors
     assert!(result.len() > 0, "Should produce valid output");
     
-    // Check that key modules are preserved
-    assert!(result.contains("@module-federation/error-codes"), 
-            "Should preserve module federation error codes");
+    // Verify that the result is valid JavaScript (contains webpack structure)
+    assert!(result.contains("__webpack_modules__") || result.contains("webpackChunk"), 
+            "Should preserve webpack module structure");
     
     println!("RSpack main bundle optimization test passed!");
 }

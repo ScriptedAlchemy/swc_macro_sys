@@ -1,5 +1,7 @@
 # webpack_graph
 
+> **⚠️ DEPRECATED**: This crate is deprecated in favor of `webpack_analyzer_v2` and `webpack_chunk_tree_shaker` which provide more comprehensive analysis and tree shaking capabilities. Use those crates for new development.
+
 A Rust crate for parsing webpack bundles and extracting module dependency graphs using **SWC AST parsing**. This crate provides robust analysis of webpack's `__webpack_modules__` structure and `__webpack_require__` function calls to reconstruct complete dependency relationships.
 
 ## Features

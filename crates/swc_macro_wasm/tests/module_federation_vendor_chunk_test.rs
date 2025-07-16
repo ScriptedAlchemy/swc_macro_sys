@@ -62,6 +62,9 @@ exports.modules = {
                 "uniq": true,
                 "filter": false
             }
+        },
+        "entryModules": {
+            "lodash-es": "node_modules/lodash-es/lodash.js"
         }
     });
     
@@ -151,6 +154,9 @@ fn test_vendor_chunk_with_usage_data() {
                 "pick": false,
                 "throttle": false
             }
+        },
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
         }
     });
     

@@ -1,9 +1,9 @@
 (() => { // webpackBootstrap
 "use strict";
 var __webpack_modules__ = ({
-"../../node_modules/.pnpm/@module-federation+error-codes@0.16.0/node_modules/@module-federation/error-codes/dist/index.cjs.js": 
+"../../node_modules/.pnpm/@module-federation+error-codes@0.17.0/node_modules/@module-federation/error-codes/dist/index.cjs.js": 
 /*!************************************************************************************************************************************!*\
-  !*** ../../node_modules/.pnpm/@module-federation+error-codes@0.16.0/node_modules/@module-federation/error-codes/dist/index.cjs.js ***!
+  !*** ../../node_modules/.pnpm/@module-federation+error-codes@0.17.0/node_modules/@module-federation/error-codes/dist/index.cjs.js ***!
   \************************************************************************************************************************************/
 (function (__unused_webpack_module, exports) {
 
@@ -16,6 +16,7 @@ const RUNTIME_005 = 'RUNTIME-005';
 const RUNTIME_006 = 'RUNTIME-006';
 const RUNTIME_007 = 'RUNTIME-007';
 const RUNTIME_008 = 'RUNTIME-008';
+const RUNTIME_009 = 'RUNTIME-009';
 const TYPE_001 = 'TYPE-001';
 const BUILD_001 = 'BUILD-001';
 const BUILD_002 = 'BUILD-002';
@@ -55,7 +56,8 @@ const runtimeDescMap = {
     [RUNTIME_005]: 'Invalid loadShareSync function call from bundler runtime',
     [RUNTIME_006]: 'Invalid loadShareSync function call from runtime',
     [RUNTIME_007]: 'Failed to get remote snapshot.',
-    [RUNTIME_008]: 'Failed to load script resources.'
+    [RUNTIME_008]: 'Failed to load script resources.',
+    [RUNTIME_009]: 'Please call createInstance first.'
 };
 const typeDescMap = {
     [TYPE_001]: 'Failed to generate type declaration. Execute the below cmd to reproduce and fix the error.'
@@ -76,6 +78,7 @@ exports.RUNTIME_005 = RUNTIME_005;
 exports.RUNTIME_006 = RUNTIME_006;
 exports.RUNTIME_007 = RUNTIME_007;
 exports.RUNTIME_008 = RUNTIME_008;
+exports.RUNTIME_009 = RUNTIME_009;
 exports.TYPE_001 = TYPE_001;
 exports.buildDescMap = buildDescMap;
 exports.errorDescMap = errorDescMap;
@@ -277,14 +280,14 @@ const formatUserData = (userData)=>{
 
 
 }),
-"@module-federation/runtime/rspack.js!=!data:text/javascript,import __module_federation_bundler_runtime__ from \"/Users/bytedance/dev/swc_macro_sys/node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.16.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs\";const __module_federation_runtime_plugins__ = [];const __module_federation_remote_infos__ = {};const __module_federation_container_name__ = \"remote\";const __module_federation_share_strategy__ = \"version-first\";if((__webpack_require__.initializeSharingData||__webpack_require__.initializeExposesData)&&__webpack_require__.federation){var __webpack_require___remotesLoadingData,__webpack_require___remotesLoadingData1,__webpack_require___initializeSharingData,__webpack_require___consumesLoadingData,__webpack_require___consumesLoadingData1,__webpack_require___initializeExposesData,__webpack_require___consumesLoadingData2;const override=(obj,key,value)=>{if(!obj)return;if(obj[key])obj[key]=value};const merge=(obj,key,fn)=>{const value=fn();if(Array.isArray(value)){var _obj,_key;var _;(_=(_obj=obj)[_key=key])!==null&&_!==void 0?_:_obj[_key]=[];obj[key].push(...value)}else if(typeof value===\"object\"&&value!==null){var _obj1,_key1;var _1;(_1=(_obj1=obj)[_key1=key])!==null&&_1!==void 0?_1:_obj1[_key1]={};Object.assign(obj[key],value)}};const early=(obj,key,initial)=>{var _obj,_key;var _;(_=(_obj=obj)[_key=key])!==null&&_!==void 0?_:_obj[_key]=initial()};var __webpack_require___remotesLoadingData_chunkMapping;const remotesLoadingChunkMapping=(__webpack_require___remotesLoadingData_chunkMapping=(__webpack_require___remotesLoadingData=__webpack_require__.remotesLoadingData)===null||__webpack_require___remotesLoadingData===void 0?void 0:__webpack_require___remotesLoadingData.chunkMapping)!==null&&__webpack_require___remotesLoadingData_chunkMapping!==void 0?__webpack_require___remotesLoadingData_chunkMapping:{};var __webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping;const remotesLoadingModuleIdToRemoteDataMapping=(__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping=(__webpack_require___remotesLoadingData1=__webpack_require__.remotesLoadingData)===null||__webpack_require___remotesLoadingData1===void 0?void 0:__webpack_require___remotesLoadingData1.moduleIdToRemoteDataMapping)!==null&&__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping!==void 0?__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping:{};var __webpack_require___initializeSharingData_scopeToSharingDataMapping;const initializeSharingScopeToInitDataMapping=(__webpack_require___initializeSharingData_scopeToSharingDataMapping=(__webpack_require___initializeSharingData=__webpack_require__.initializeSharingData)===null||__webpack_require___initializeSharingData===void 0?void 0:__webpack_require___initializeSharingData.scopeToSharingDataMapping)!==null&&__webpack_require___initializeSharingData_scopeToSharingDataMapping!==void 0?__webpack_require___initializeSharingData_scopeToSharingDataMapping:{};var __webpack_require___consumesLoadingData_chunkMapping;const consumesLoadingChunkMapping=(__webpack_require___consumesLoadingData_chunkMapping=(__webpack_require___consumesLoadingData=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData===void 0?void 0:__webpack_require___consumesLoadingData.chunkMapping)!==null&&__webpack_require___consumesLoadingData_chunkMapping!==void 0?__webpack_require___consumesLoadingData_chunkMapping:{};var __webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping;const consumesLoadingModuleToConsumeDataMapping=(__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping=(__webpack_require___consumesLoadingData1=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData1===void 0?void 0:__webpack_require___consumesLoadingData1.moduleIdToConsumeDataMapping)!==null&&__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping!==void 0?__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping:{};const consumesLoadinginstalledModules={};const initializeSharingInitPromises=[];const initializeSharingInitTokens={};const containerShareScope=(__webpack_require___initializeExposesData=__webpack_require__.initializeExposesData)===null||__webpack_require___initializeExposesData===void 0?void 0:__webpack_require___initializeExposesData.shareScope;for(const key in __module_federation_bundler_runtime__){__webpack_require__.federation[key]=__module_federation_bundler_runtime__[key]}early(__webpack_require__.federation,\"consumesLoadingModuleToHandlerMapping\",()=>{const consumesLoadingModuleToHandlerMapping={};for(let[moduleId,data]of Object.entries(consumesLoadingModuleToConsumeDataMapping)){consumesLoadingModuleToHandlerMapping[moduleId]={getter:data.fallback,shareInfo:{shareConfig:{fixedDependencies:false,requiredVersion:data.requiredVersion,strictVersion:data.strictVersion,singleton:data.singleton,eager:data.eager},scope:[data.shareScope]},shareKey:data.shareKey}}return consumesLoadingModuleToHandlerMapping});early(__webpack_require__.federation,\"initOptions\",()=>({}));early(__webpack_require__.federation.initOptions,\"name\",()=>__module_federation_container_name__);early(__webpack_require__.federation.initOptions,\"shareStrategy\",()=>__module_federation_share_strategy__);early(__webpack_require__.federation.initOptions,\"shared\",()=>{const shared={};for(let[scope,stages]of Object.entries(initializeSharingScopeToInitDataMapping)){for(let stage of stages){if(typeof stage===\"object\"&&stage!==null){const{name,version,factory,eager,singleton,requiredVersion,strictVersion}=stage;const shareConfig={};const isValidValue=function(val){return typeof val!==\"undefined\"};if(isValidValue(singleton)){shareConfig.singleton=singleton}if(isValidValue(requiredVersion)){shareConfig.requiredVersion=requiredVersion}if(isValidValue(eager)){shareConfig.eager=eager}if(isValidValue(strictVersion)){shareConfig.strictVersion=strictVersion}const options={version,scope:[scope],shareConfig,get:factory};if(shared[name]){shared[name].push(options)}else{shared[name]=[options]}}}}return shared});merge(__webpack_require__.federation.initOptions,\"remotes\",()=>Object.values(__module_federation_remote_infos__).flat().filter(remote=>remote.externalType===\"script\"));merge(__webpack_require__.federation.initOptions,\"plugins\",()=>__module_federation_runtime_plugins__);early(__webpack_require__.federation,\"bundlerRuntimeOptions\",()=>({}));early(__webpack_require__.federation.bundlerRuntimeOptions,\"remotes\",()=>({}));early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"chunkMapping\",()=>remotesLoadingChunkMapping);early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"idToExternalAndNameMapping\",()=>{const remotesLoadingIdToExternalAndNameMappingMapping={};for(let[moduleId,data]of Object.entries(remotesLoadingModuleIdToRemoteDataMapping)){remotesLoadingIdToExternalAndNameMappingMapping[moduleId]=[data.shareScope,data.name,data.externalModuleId,data.remoteName]}return remotesLoadingIdToExternalAndNameMappingMapping});early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"webpackRequire\",()=>__webpack_require__);merge(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"idToRemoteMap\",()=>{const idToRemoteMap={};for(let[id,remoteData]of Object.entries(remotesLoadingModuleIdToRemoteDataMapping)){const info=__module_federation_remote_infos__[remoteData.remoteName];if(info)idToRemoteMap[id]=info}return idToRemoteMap});override(__webpack_require__,\"S\",__webpack_require__.federation.bundlerRuntime.S);if(__webpack_require__.federation.attachShareScopeMap){__webpack_require__.federation.attachShareScopeMap(__webpack_require__)}override(__webpack_require__.f,\"remotes\",(chunkId,promises)=>__webpack_require__.federation.bundlerRuntime.remotes({chunkId,promises,chunkMapping:remotesLoadingChunkMapping,idToExternalAndNameMapping:__webpack_require__.federation.bundlerRuntimeOptions.remotes.idToExternalAndNameMapping,idToRemoteMap:__webpack_require__.federation.bundlerRuntimeOptions.remotes.idToRemoteMap,webpackRequire:__webpack_require__}));override(__webpack_require__.f,\"consumes\",(chunkId,promises)=>__webpack_require__.federation.bundlerRuntime.consumes({chunkId,promises,chunkMapping:consumesLoadingChunkMapping,moduleToHandlerMapping:__webpack_require__.federation.consumesLoadingModuleToHandlerMapping,installedModules:consumesLoadinginstalledModules,webpackRequire:__webpack_require__}));override(__webpack_require__,\"I\",(name,initScope)=>__webpack_require__.federation.bundlerRuntime.I({shareScopeName:name,initScope,initPromises:initializeSharingInitPromises,initTokens:initializeSharingInitTokens,webpackRequire:__webpack_require__}));override(__webpack_require__,\"initContainer\",(shareScope,initScope,remoteEntryInitOptions)=>__webpack_require__.federation.bundlerRuntime.initContainerEntry({shareScope,initScope,remoteEntryInitOptions,shareScopeKey:containerShareScope,webpackRequire:__webpack_require__}));override(__webpack_require__,\"getContainer\",(module1,getScope)=>{var moduleMap=__webpack_require__.initializeExposesData.moduleMap;__webpack_require__.R=getScope;getScope=Object.prototype.hasOwnProperty.call(moduleMap,module1)?moduleMap[module1]():Promise.resolve().then(()=>{throw new Error('Module \"'+module1+'\" does not exist in container.')});__webpack_require__.R=undefined;return getScope});__webpack_require__.federation.instance=__webpack_require__.federation.runtime.init(__webpack_require__.federation.initOptions);if((__webpack_require___consumesLoadingData2=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData2===void 0?void 0:__webpack_require___consumesLoadingData2.initialConsumes){__webpack_require__.federation.bundlerRuntime.installInitialConsumes({webpackRequire:__webpack_require__,installedModules:consumesLoadinginstalledModules,initialConsumes:__webpack_require__.consumesLoadingData.initialConsumes,moduleToHandlerMapping:__webpack_require__.federation.consumesLoadingModuleToHandlerMapping})}}": 
+"@module-federation/runtime/rspack.js!=!data:text/javascript,import __module_federation_bundler_runtime__ from \"/Users/bytedance/dev/swc_macro_sys/node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.17.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs\";const __module_federation_runtime_plugins__ = [];const __module_federation_remote_infos__ = {};const __module_federation_container_name__ = \"remote\";const __module_federation_share_strategy__ = \"version-first\";if((__webpack_require__.initializeSharingData||__webpack_require__.initializeExposesData)&&__webpack_require__.federation){var __webpack_require___remotesLoadingData,__webpack_require___remotesLoadingData1,__webpack_require___initializeSharingData,__webpack_require___consumesLoadingData,__webpack_require___consumesLoadingData1,__webpack_require___initializeExposesData,__webpack_require___consumesLoadingData2;const override=(obj,key,value)=>{if(!obj)return;if(obj[key])obj[key]=value};const merge=(obj,key,fn)=>{const value=fn();if(Array.isArray(value)){var _obj,_key;var _;(_=(_obj=obj)[_key=key])!==null&&_!==void 0?_:_obj[_key]=[];obj[key].push(...value)}else if(typeof value===\"object\"&&value!==null){var _obj1,_key1;var _1;(_1=(_obj1=obj)[_key1=key])!==null&&_1!==void 0?_1:_obj1[_key1]={};Object.assign(obj[key],value)}};const early=(obj,key,initial)=>{var _obj,_key;var _;(_=(_obj=obj)[_key=key])!==null&&_!==void 0?_:_obj[_key]=initial()};var __webpack_require___remotesLoadingData_chunkMapping;const remotesLoadingChunkMapping=(__webpack_require___remotesLoadingData_chunkMapping=(__webpack_require___remotesLoadingData=__webpack_require__.remotesLoadingData)===null||__webpack_require___remotesLoadingData===void 0?void 0:__webpack_require___remotesLoadingData.chunkMapping)!==null&&__webpack_require___remotesLoadingData_chunkMapping!==void 0?__webpack_require___remotesLoadingData_chunkMapping:{};var __webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping;const remotesLoadingModuleIdToRemoteDataMapping=(__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping=(__webpack_require___remotesLoadingData1=__webpack_require__.remotesLoadingData)===null||__webpack_require___remotesLoadingData1===void 0?void 0:__webpack_require___remotesLoadingData1.moduleIdToRemoteDataMapping)!==null&&__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping!==void 0?__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping:{};var __webpack_require___initializeSharingData_scopeToSharingDataMapping;const initializeSharingScopeToInitDataMapping=(__webpack_require___initializeSharingData_scopeToSharingDataMapping=(__webpack_require___initializeSharingData=__webpack_require__.initializeSharingData)===null||__webpack_require___initializeSharingData===void 0?void 0:__webpack_require___initializeSharingData.scopeToSharingDataMapping)!==null&&__webpack_require___initializeSharingData_scopeToSharingDataMapping!==void 0?__webpack_require___initializeSharingData_scopeToSharingDataMapping:{};var __webpack_require___consumesLoadingData_chunkMapping;const consumesLoadingChunkMapping=(__webpack_require___consumesLoadingData_chunkMapping=(__webpack_require___consumesLoadingData=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData===void 0?void 0:__webpack_require___consumesLoadingData.chunkMapping)!==null&&__webpack_require___consumesLoadingData_chunkMapping!==void 0?__webpack_require___consumesLoadingData_chunkMapping:{};var __webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping;const consumesLoadingModuleToConsumeDataMapping=(__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping=(__webpack_require___consumesLoadingData1=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData1===void 0?void 0:__webpack_require___consumesLoadingData1.moduleIdToConsumeDataMapping)!==null&&__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping!==void 0?__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping:{};const consumesLoadinginstalledModules={};const initializeSharingInitPromises=[];const initializeSharingInitTokens={};const containerShareScope=(__webpack_require___initializeExposesData=__webpack_require__.initializeExposesData)===null||__webpack_require___initializeExposesData===void 0?void 0:__webpack_require___initializeExposesData.shareScope;for(const key in __module_federation_bundler_runtime__){__webpack_require__.federation[key]=__module_federation_bundler_runtime__[key]}early(__webpack_require__.federation,\"consumesLoadingModuleToHandlerMapping\",()=>{const consumesLoadingModuleToHandlerMapping={};for(let[moduleId,data]of Object.entries(consumesLoadingModuleToConsumeDataMapping)){consumesLoadingModuleToHandlerMapping[moduleId]={getter:data.fallback,shareInfo:{shareConfig:{fixedDependencies:false,requiredVersion:data.requiredVersion,strictVersion:data.strictVersion,singleton:data.singleton,eager:data.eager},scope:[data.shareScope]},shareKey:data.shareKey}}return consumesLoadingModuleToHandlerMapping});early(__webpack_require__.federation,\"initOptions\",()=>({}));early(__webpack_require__.federation.initOptions,\"name\",()=>__module_federation_container_name__);early(__webpack_require__.federation.initOptions,\"shareStrategy\",()=>__module_federation_share_strategy__);early(__webpack_require__.federation.initOptions,\"shared\",()=>{const shared={};for(let[scope,stages]of Object.entries(initializeSharingScopeToInitDataMapping)){for(let stage of stages){if(typeof stage===\"object\"&&stage!==null){const{name,version,factory,eager,singleton,requiredVersion,strictVersion}=stage;const shareConfig={};const isValidValue=function(val){return typeof val!==\"undefined\"};if(isValidValue(singleton)){shareConfig.singleton=singleton}if(isValidValue(requiredVersion)){shareConfig.requiredVersion=requiredVersion}if(isValidValue(eager)){shareConfig.eager=eager}if(isValidValue(strictVersion)){shareConfig.strictVersion=strictVersion}const options={version,scope:[scope],shareConfig,get:factory};if(shared[name]){shared[name].push(options)}else{shared[name]=[options]}}}}return shared});merge(__webpack_require__.federation.initOptions,\"remotes\",()=>Object.values(__module_federation_remote_infos__).flat().filter(remote=>remote.externalType===\"script\"));merge(__webpack_require__.federation.initOptions,\"plugins\",()=>__module_federation_runtime_plugins__);early(__webpack_require__.federation,\"bundlerRuntimeOptions\",()=>({}));early(__webpack_require__.federation.bundlerRuntimeOptions,\"remotes\",()=>({}));early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"chunkMapping\",()=>remotesLoadingChunkMapping);early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"idToExternalAndNameMapping\",()=>{const remotesLoadingIdToExternalAndNameMappingMapping={};for(let[moduleId,data]of Object.entries(remotesLoadingModuleIdToRemoteDataMapping)){remotesLoadingIdToExternalAndNameMappingMapping[moduleId]=[data.shareScope,data.name,data.externalModuleId,data.remoteName]}return remotesLoadingIdToExternalAndNameMappingMapping});early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"webpackRequire\",()=>__webpack_require__);merge(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"idToRemoteMap\",()=>{const idToRemoteMap={};for(let[id,remoteData]of Object.entries(remotesLoadingModuleIdToRemoteDataMapping)){const info=__module_federation_remote_infos__[remoteData.remoteName];if(info)idToRemoteMap[id]=info}return idToRemoteMap});override(__webpack_require__,\"S\",__webpack_require__.federation.bundlerRuntime.S);if(__webpack_require__.federation.attachShareScopeMap){__webpack_require__.federation.attachShareScopeMap(__webpack_require__)}override(__webpack_require__.f,\"remotes\",(chunkId,promises)=>__webpack_require__.federation.bundlerRuntime.remotes({chunkId,promises,chunkMapping:remotesLoadingChunkMapping,idToExternalAndNameMapping:__webpack_require__.federation.bundlerRuntimeOptions.remotes.idToExternalAndNameMapping,idToRemoteMap:__webpack_require__.federation.bundlerRuntimeOptions.remotes.idToRemoteMap,webpackRequire:__webpack_require__}));override(__webpack_require__.f,\"consumes\",(chunkId,promises)=>__webpack_require__.federation.bundlerRuntime.consumes({chunkId,promises,chunkMapping:consumesLoadingChunkMapping,moduleToHandlerMapping:__webpack_require__.federation.consumesLoadingModuleToHandlerMapping,installedModules:consumesLoadinginstalledModules,webpackRequire:__webpack_require__}));override(__webpack_require__,\"I\",(name,initScope)=>__webpack_require__.federation.bundlerRuntime.I({shareScopeName:name,initScope,initPromises:initializeSharingInitPromises,initTokens:initializeSharingInitTokens,webpackRequire:__webpack_require__}));override(__webpack_require__,\"initContainer\",(shareScope,initScope,remoteEntryInitOptions)=>__webpack_require__.federation.bundlerRuntime.initContainerEntry({shareScope,initScope,remoteEntryInitOptions,shareScopeKey:containerShareScope,webpackRequire:__webpack_require__}));override(__webpack_require__,\"getContainer\",(module1,getScope)=>{var moduleMap=__webpack_require__.initializeExposesData.moduleMap;__webpack_require__.R=getScope;getScope=Object.prototype.hasOwnProperty.call(moduleMap,module1)?moduleMap[module1]():Promise.resolve().then(()=>{throw new Error('Module \"'+module1+'\" does not exist in container.')});__webpack_require__.R=undefined;return getScope});__webpack_require__.federation.instance=__webpack_require__.federation.runtime.init(__webpack_require__.federation.initOptions);if((__webpack_require___consumesLoadingData2=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData2===void 0?void 0:__webpack_require___consumesLoadingData2.initialConsumes){__webpack_require__.federation.bundlerRuntime.installInitialConsumes({webpackRequire:__webpack_require__,installedModules:consumesLoadinginstalledModules,initialConsumes:__webpack_require__.consumesLoadingData.initialConsumes,moduleToHandlerMapping:__webpack_require__.federation.consumesLoadingModuleToHandlerMapping})}}": 
 /*!***********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
-  !*** @module-federation/runtime/rspack.js!=!data:text/javascript,import __module_federation_bundler_runtime__ from "/Users/bytedance/dev/swc_macro_sys/node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.16.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs";const __module_federation_runtime_plugins__ = [];const __module_federation_remote_infos__ = {};const __module_federation_container_name__ = "remote";const __module_federation_share_strategy__ = "version-first";if((__webpack_require__.initializeSharingData||__webpack_require__.initializeExposesData)&&__webpack_require__.federation){var __webpack_require___remotesLoadingData,__webpack_require___remotesLoadingData1,__webpack_require___initializeSharingData,__webpack_require___consumesLoadingData,__webpack_require___consumesLoadingData1,__webpack_require___initializeExposesData,__webpack_require___consumesLoadingData2;const override=(obj,key,value)=>{if(!obj)return;if(obj[key])obj[key]=value};const merge=(obj,key,fn)=>{const value=fn();if(Array.isArray(value)){var _obj,_key;var _;(_=(_obj=obj)[_key=key])!==null&&_!==void 0?_:_obj[_key]=[];obj[key].push(...value)}else if(typeof value==="object"&&value!==null){var _obj1,_key1;var _1;(_1=(_obj1=obj)[_key1=key])!==null&&_1!==void 0?_1:_obj1[_key1]={};Object.assign(obj[key],value)}};const early=(obj,key,initial)=>{var _obj,_key;var _;(_=(_obj=obj)[_key=key])!==null&&_!==void 0?_:_obj[_key]=initial()};var __webpack_require___remotesLoadingData_chunkMapping;const remotesLoadingChunkMapping=(__webpack_require___remotesLoadingData_chunkMapping=(__webpack_require___remotesLoadingData=__webpack_require__.remotesLoadingData)===null||__webpack_require___remotesLoadingData===void 0?void 0:__webpack_require___remotesLoadingData.chunkMapping)!==null&&__webpack_require___remotesLoadingData_chunkMapping!==void 0?__webpack_require___remotesLoadingData_chunkMapping:{};var __webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping;const remotesLoadingModuleIdToRemoteDataMapping=(__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping=(__webpack_require___remotesLoadingData1=__webpack_require__.remotesLoadingData)===null||__webpack_require___remotesLoadingData1===void 0?void 0:__webpack_require___remotesLoadingData1.moduleIdToRemoteDataMapping)!==null&&__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping!==void 0?__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping:{};var __webpack_require___initializeSharingData_scopeToSharingDataMapping;const initializeSharingScopeToInitDataMapping=(__webpack_require___initializeSharingData_scopeToSharingDataMapping=(__webpack_require___initializeSharingData=__webpack_require__.initializeSharingData)===null||__webpack_require___initializeSharingData===void 0?void 0:__webpack_require___initializeSharingData.scopeToSharingDataMapping)!==null&&__webpack_require___initializeSharingData_scopeToSharingDataMapping!==void 0?__webpack_require___initializeSharingData_scopeToSharingDataMapping:{};var __webpack_require___consumesLoadingData_chunkMapping;const consumesLoadingChunkMapping=(__webpack_require___consumesLoadingData_chunkMapping=(__webpack_require___consumesLoadingData=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData===void 0?void 0:__webpack_require___consumesLoadingData.chunkMapping)!==null&&__webpack_require___consumesLoadingData_chunkMapping!==void 0?__webpack_require___consumesLoadingData_chunkMapping:{};var __webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping;const consumesLoadingModuleToConsumeDataMapping=(__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping=(__webpack_require___consumesLoadingData1=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData1===void 0?void 0:__webpack_require___consumesLoadingData1.moduleIdToConsumeDataMapping)!==null&&__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping!==void 0?__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping:{};const consumesLoadinginstalledModules={};const initializeSharingInitPromises=[];const initializeSharingInitTokens={};const containerShareScope=(__webpack_require___initializeExposesData=__webpack_require__.initializeExposesData)===null||__webpack_require___initializeExposesData===void 0?void 0:__webpack_require___initializeExposesData.shareScope;for(const key in __module_federation_bundler_runtime__){__webpack_require__.federation[key]=__module_federation_bundler_runtime__[key]}early(__webpack_require__.federation,"consumesLoadingModuleToHandlerMapping",()=>{const consumesLoadingModuleToHandlerMapping={};for(let[moduleId,data]of Object.entries(consumesLoadingModuleToConsumeDataMapping)){consumesLoadingModuleToHandlerMapping[moduleId]={getter:data.fallback,shareInfo:{shareConfig:{fixedDependencies:false,requiredVersion:data.requiredVersion,strictVersion:data.strictVersion,singleton:data.singleton,eager:data.eager},scope:[data.shareScope]},shareKey:data.shareKey}}return consumesLoadingModuleToHandlerMapping});early(__webpack_require__.federation,"initOptions",()=>({}));early(__webpack_require__.federation.initOptions,"name",()=>__module_federation_container_name__);early(__webpack_require__.federation.initOptions,"shareStrategy",()=>__module_federation_share_strategy__);early(__webpack_require__.federation.initOptions,"shared",()=>{const shared={};for(let[scope,stages]of Object.entries(initializeSharingScopeToInitDataMapping)){for(let stage of stages){if(typeof stage==="object"&&stage!==null){const{name,version,factory,eager,singleton,requiredVersion,strictVersion}=stage;const shareConfig={};const isValidValue=function(val){return typeof val!=="undefined"};if(isValidValue(singleton)){shareConfig.singleton=singleton}if(isValidValue(requiredVersion)){shareConfig.requiredVersion=requiredVersion}if(isValidValue(eager)){shareConfig.eager=eager}if(isValidValue(strictVersion)){shareConfig.strictVersion=strictVersion}const options={version,scope:[scope],shareConfig,get:factory};if(shared[name]){shared[name].push(options)}else{shared[name]=[options]}}}}return shared});merge(__webpack_require__.federation.initOptions,"remotes",()=>Object.values(__module_federation_remote_infos__).flat().filter(remote=>remote.externalType==="script"));merge(__webpack_require__.federation.initOptions,"plugins",()=>__module_federation_runtime_plugins__);early(__webpack_require__.federation,"bundlerRuntimeOptions",()=>({}));early(__webpack_require__.federation.bundlerRuntimeOptions,"remotes",()=>({}));early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,"chunkMapping",()=>remotesLoadingChunkMapping);early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,"idToExternalAndNameMapping",()=>{const remotesLoadingIdToExternalAndNameMappingMapping={};for(let[moduleId,data]of Object.entries(remotesLoadingModuleIdToRemoteDataMapping)){remotesLoadingIdToExternalAndNameMappingMapping[moduleId]=[data.shareScope,data.name,data.externalModuleId,data.remoteName]}return remotesLoadingIdToExternalAndNameMappingMapping});early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,"webpackRequire",()=>__webpack_require__);merge(__webpack_require__.federation.bundlerRuntimeOptions.remotes,"idToRemoteMap",()=>{const idToRemoteMap={};for(let[id,remoteData]of Object.entries(remotesLoadingModuleIdToRemoteDataMapping)){const info=__module_federation_remote_infos__[remoteData.remoteName];if(info)idToRemoteMap[id]=info}return idToRemoteMap});override(__webpack_require__,"S",__webpack_require__.federation.bundlerRuntime.S);if(__webpack_require__.federation.attachShareScopeMap){__webpack_require__.federation.attachShareScopeMap(__webpack_require__)}override(__webpack_require__.f,"remotes",(chunkId,promises)=>__webpack_require__.federation.bundlerRuntime.remotes({chunkId,promises,chunkMapping:remotesLoadingChunkMapping,idToExternalAndNameMapping:__webpack_require__.federation.bundlerRuntimeOptions.remotes.idToExternalAndNameMapping,idToRemoteMap:__webpack_require__.federation.bundlerRuntimeOptions.remotes.idToRemoteMap,webpackRequire:__webpack_require__}));override(__webpack_require__.f,"consumes",(chunkId,promises)=>__webpack_require__.federation.bundlerRuntime.consumes({chunkId,promises,chunkMapping:consumesLoadingChunkMapping,moduleToHandlerMapping:__webpack_require__.federation.consumesLoadingModuleToHandlerMapping,installedModules:consumesLoadinginstalledModules,webpackRequire:__webpack_require__}));override(__webpack_require__,"I",(name,initScope)=>__webpack_require__.federation.bundlerRuntime.I({shareScopeName:name,initScope,initPromises:initializeSharingInitPromises,initTokens:initializeSharingInitTokens,webpackRequire:__webpack_require__}));override(__webpack_require__,"initContainer",(shareScope,initScope,remoteEntryInitOptions)=>__webpack_require__.federation.bundlerRuntime.initContainerEntry({shareScope,initScope,remoteEntryInitOptions,shareScopeKey:containerShareScope,webpackRequire:__webpack_require__}));override(__webpack_require__,"getContainer",(module1,getScope)=>{var moduleMap=__webpack_require__.initializeExposesData.moduleMap;__webpack_require__.R=getScope;getScope=Object.prototype.hasOwnProperty.call(moduleMap,module1)?moduleMap[module1]():Promise.resolve().then(()=>{throw new Error('Module "'+module1+'" does not exist in container.')});__webpack_require__.R=undefined;return getScope});__webpack_require__.federation.instance=__webpack_require__.federation.runtime.init(__webpack_require__.federation.initOptions);if((__webpack_require___consumesLoadingData2=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData2===void 0?void 0:__webpack_require___consumesLoadingData2.initialConsumes){__webpack_require__.federation.bundlerRuntime.installInitialConsumes({webpackRequire:__webpack_require__,installedModules:consumesLoadinginstalledModules,initialConsumes:__webpack_require__.consumesLoadingData.initialConsumes,moduleToHandlerMapping:__webpack_require__.federation.consumesLoadingModuleToHandlerMapping})}} ***!
+  !*** @module-federation/runtime/rspack.js!=!data:text/javascript,import __module_federation_bundler_runtime__ from "/Users/bytedance/dev/swc_macro_sys/node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.17.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs";const __module_federation_runtime_plugins__ = [];const __module_federation_remote_infos__ = {};const __module_federation_container_name__ = "remote";const __module_federation_share_strategy__ = "version-first";if((__webpack_require__.initializeSharingData||__webpack_require__.initializeExposesData)&&__webpack_require__.federation){var __webpack_require___remotesLoadingData,__webpack_require___remotesLoadingData1,__webpack_require___initializeSharingData,__webpack_require___consumesLoadingData,__webpack_require___consumesLoadingData1,__webpack_require___initializeExposesData,__webpack_require___consumesLoadingData2;const override=(obj,key,value)=>{if(!obj)return;if(obj[key])obj[key]=value};const merge=(obj,key,fn)=>{const value=fn();if(Array.isArray(value)){var _obj,_key;var _;(_=(_obj=obj)[_key=key])!==null&&_!==void 0?_:_obj[_key]=[];obj[key].push(...value)}else if(typeof value==="object"&&value!==null){var _obj1,_key1;var _1;(_1=(_obj1=obj)[_key1=key])!==null&&_1!==void 0?_1:_obj1[_key1]={};Object.assign(obj[key],value)}};const early=(obj,key,initial)=>{var _obj,_key;var _;(_=(_obj=obj)[_key=key])!==null&&_!==void 0?_:_obj[_key]=initial()};var __webpack_require___remotesLoadingData_chunkMapping;const remotesLoadingChunkMapping=(__webpack_require___remotesLoadingData_chunkMapping=(__webpack_require___remotesLoadingData=__webpack_require__.remotesLoadingData)===null||__webpack_require___remotesLoadingData===void 0?void 0:__webpack_require___remotesLoadingData.chunkMapping)!==null&&__webpack_require___remotesLoadingData_chunkMapping!==void 0?__webpack_require___remotesLoadingData_chunkMapping:{};var __webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping;const remotesLoadingModuleIdToRemoteDataMapping=(__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping=(__webpack_require___remotesLoadingData1=__webpack_require__.remotesLoadingData)===null||__webpack_require___remotesLoadingData1===void 0?void 0:__webpack_require___remotesLoadingData1.moduleIdToRemoteDataMapping)!==null&&__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping!==void 0?__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping:{};var __webpack_require___initializeSharingData_scopeToSharingDataMapping;const initializeSharingScopeToInitDataMapping=(__webpack_require___initializeSharingData_scopeToSharingDataMapping=(__webpack_require___initializeSharingData=__webpack_require__.initializeSharingData)===null||__webpack_require___initializeSharingData===void 0?void 0:__webpack_require___initializeSharingData.scopeToSharingDataMapping)!==null&&__webpack_require___initializeSharingData_scopeToSharingDataMapping!==void 0?__webpack_require___initializeSharingData_scopeToSharingDataMapping:{};var __webpack_require___consumesLoadingData_chunkMapping;const consumesLoadingChunkMapping=(__webpack_require___consumesLoadingData_chunkMapping=(__webpack_require___consumesLoadingData=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData===void 0?void 0:__webpack_require___consumesLoadingData.chunkMapping)!==null&&__webpack_require___consumesLoadingData_chunkMapping!==void 0?__webpack_require___consumesLoadingData_chunkMapping:{};var __webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping;const consumesLoadingModuleToConsumeDataMapping=(__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping=(__webpack_require___consumesLoadingData1=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData1===void 0?void 0:__webpack_require___consumesLoadingData1.moduleIdToConsumeDataMapping)!==null&&__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping!==void 0?__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping:{};const consumesLoadinginstalledModules={};const initializeSharingInitPromises=[];const initializeSharingInitTokens={};const containerShareScope=(__webpack_require___initializeExposesData=__webpack_require__.initializeExposesData)===null||__webpack_require___initializeExposesData===void 0?void 0:__webpack_require___initializeExposesData.shareScope;for(const key in __module_federation_bundler_runtime__){__webpack_require__.federation[key]=__module_federation_bundler_runtime__[key]}early(__webpack_require__.federation,"consumesLoadingModuleToHandlerMapping",()=>{const consumesLoadingModuleToHandlerMapping={};for(let[moduleId,data]of Object.entries(consumesLoadingModuleToConsumeDataMapping)){consumesLoadingModuleToHandlerMapping[moduleId]={getter:data.fallback,shareInfo:{shareConfig:{fixedDependencies:false,requiredVersion:data.requiredVersion,strictVersion:data.strictVersion,singleton:data.singleton,eager:data.eager},scope:[data.shareScope]},shareKey:data.shareKey}}return consumesLoadingModuleToHandlerMapping});early(__webpack_require__.federation,"initOptions",()=>({}));early(__webpack_require__.federation.initOptions,"name",()=>__module_federation_container_name__);early(__webpack_require__.federation.initOptions,"shareStrategy",()=>__module_federation_share_strategy__);early(__webpack_require__.federation.initOptions,"shared",()=>{const shared={};for(let[scope,stages]of Object.entries(initializeSharingScopeToInitDataMapping)){for(let stage of stages){if(typeof stage==="object"&&stage!==null){const{name,version,factory,eager,singleton,requiredVersion,strictVersion}=stage;const shareConfig={};const isValidValue=function(val){return typeof val!=="undefined"};if(isValidValue(singleton)){shareConfig.singleton=singleton}if(isValidValue(requiredVersion)){shareConfig.requiredVersion=requiredVersion}if(isValidValue(eager)){shareConfig.eager=eager}if(isValidValue(strictVersion)){shareConfig.strictVersion=strictVersion}const options={version,scope:[scope],shareConfig,get:factory};if(shared[name]){shared[name].push(options)}else{shared[name]=[options]}}}}return shared});merge(__webpack_require__.federation.initOptions,"remotes",()=>Object.values(__module_federation_remote_infos__).flat().filter(remote=>remote.externalType==="script"));merge(__webpack_require__.federation.initOptions,"plugins",()=>__module_federation_runtime_plugins__);early(__webpack_require__.federation,"bundlerRuntimeOptions",()=>({}));early(__webpack_require__.federation.bundlerRuntimeOptions,"remotes",()=>({}));early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,"chunkMapping",()=>remotesLoadingChunkMapping);early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,"idToExternalAndNameMapping",()=>{const remotesLoadingIdToExternalAndNameMappingMapping={};for(let[moduleId,data]of Object.entries(remotesLoadingModuleIdToRemoteDataMapping)){remotesLoadingIdToExternalAndNameMappingMapping[moduleId]=[data.shareScope,data.name,data.externalModuleId,data.remoteName]}return remotesLoadingIdToExternalAndNameMappingMapping});early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,"webpackRequire",()=>__webpack_require__);merge(__webpack_require__.federation.bundlerRuntimeOptions.remotes,"idToRemoteMap",()=>{const idToRemoteMap={};for(let[id,remoteData]of Object.entries(remotesLoadingModuleIdToRemoteDataMapping)){const info=__module_federation_remote_infos__[remoteData.remoteName];if(info)idToRemoteMap[id]=info}return idToRemoteMap});override(__webpack_require__,"S",__webpack_require__.federation.bundlerRuntime.S);if(__webpack_require__.federation.attachShareScopeMap){__webpack_require__.federation.attachShareScopeMap(__webpack_require__)}override(__webpack_require__.f,"remotes",(chunkId,promises)=>__webpack_require__.federation.bundlerRuntime.remotes({chunkId,promises,chunkMapping:remotesLoadingChunkMapping,idToExternalAndNameMapping:__webpack_require__.federation.bundlerRuntimeOptions.remotes.idToExternalAndNameMapping,idToRemoteMap:__webpack_require__.federation.bundlerRuntimeOptions.remotes.idToRemoteMap,webpackRequire:__webpack_require__}));override(__webpack_require__.f,"consumes",(chunkId,promises)=>__webpack_require__.federation.bundlerRuntime.consumes({chunkId,promises,chunkMapping:consumesLoadingChunkMapping,moduleToHandlerMapping:__webpack_require__.federation.consumesLoadingModuleToHandlerMapping,installedModules:consumesLoadinginstalledModules,webpackRequire:__webpack_require__}));override(__webpack_require__,"I",(name,initScope)=>__webpack_require__.federation.bundlerRuntime.I({shareScopeName:name,initScope,initPromises:initializeSharingInitPromises,initTokens:initializeSharingInitTokens,webpackRequire:__webpack_require__}));override(__webpack_require__,"initContainer",(shareScope,initScope,remoteEntryInitOptions)=>__webpack_require__.federation.bundlerRuntime.initContainerEntry({shareScope,initScope,remoteEntryInitOptions,shareScopeKey:containerShareScope,webpackRequire:__webpack_require__}));override(__webpack_require__,"getContainer",(module1,getScope)=>{var moduleMap=__webpack_require__.initializeExposesData.moduleMap;__webpack_require__.R=getScope;getScope=Object.prototype.hasOwnProperty.call(moduleMap,module1)?moduleMap[module1]():Promise.resolve().then(()=>{throw new Error('Module "'+module1+'" does not exist in container.')});__webpack_require__.R=undefined;return getScope});__webpack_require__.federation.instance=__webpack_require__.federation.runtime.init(__webpack_require__.federation.initOptions);if((__webpack_require___consumesLoadingData2=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData2===void 0?void 0:__webpack_require___consumesLoadingData2.initialConsumes){__webpack_require__.federation.bundlerRuntime.installInitialConsumes({webpackRequire:__webpack_require__,installedModules:consumesLoadinginstalledModules,initialConsumes:__webpack_require__.consumesLoadingData.initialConsumes,moduleToHandlerMapping:__webpack_require__.federation.consumesLoadingModuleToHandlerMapping})}} ***!
   \***********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
 (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
-/* ESM import */var _Users_bytedance_dev_swc_macro_sys_node_modules_pnpm_module_federation_webpack_bundler_runtime_0_16_0_node_modules_module_federation_webpack_bundler_runtime_dist_index_cjs_cjs__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.16.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs */ "../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.16.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs");
-/* ESM import */var _Users_bytedance_dev_swc_macro_sys_node_modules_pnpm_module_federation_webpack_bundler_runtime_0_16_0_node_modules_module_federation_webpack_bundler_runtime_dist_index_cjs_cjs__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_Users_bytedance_dev_swc_macro_sys_node_modules_pnpm_module_federation_webpack_bundler_runtime_0_16_0_node_modules_module_federation_webpack_bundler_runtime_dist_index_cjs_cjs__WEBPACK_IMPORTED_MODULE_0__);
+/* ESM import */var _Users_bytedance_dev_swc_macro_sys_node_modules_pnpm_module_federation_webpack_bundler_runtime_0_17_0_node_modules_module_federation_webpack_bundler_runtime_dist_index_cjs_cjs__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.17.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs */ "../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.17.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs");
+/* ESM import */var _Users_bytedance_dev_swc_macro_sys_node_modules_pnpm_module_federation_webpack_bundler_runtime_0_17_0_node_modules_module_federation_webpack_bundler_runtime_dist_index_cjs_cjs__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_Users_bytedance_dev_swc_macro_sys_node_modules_pnpm_module_federation_webpack_bundler_runtime_0_17_0_node_modules_module_federation_webpack_bundler_runtime_dist_index_cjs_cjs__WEBPACK_IMPORTED_MODULE_0__);
 
 const __module_federation_runtime_plugins__ = [];
 const __module_federation_remote_infos__ = {};
@@ -329,8 +332,8 @@ if ((__webpack_require__.initializeSharingData || __webpack_require__.initialize
     const initializeSharingInitPromises = [];
     const initializeSharingInitTokens = {};
     const containerShareScope = (__webpack_require___initializeExposesData = __webpack_require__.initializeExposesData) === null || __webpack_require___initializeExposesData === void 0 ? void 0 : __webpack_require___initializeExposesData.shareScope;
-    for(const key in (_Users_bytedance_dev_swc_macro_sys_node_modules_pnpm_module_federation_webpack_bundler_runtime_0_16_0_node_modules_module_federation_webpack_bundler_runtime_dist_index_cjs_cjs__WEBPACK_IMPORTED_MODULE_0___default())){
-        __webpack_require__.federation[key] = (_Users_bytedance_dev_swc_macro_sys_node_modules_pnpm_module_federation_webpack_bundler_runtime_0_16_0_node_modules_module_federation_webpack_bundler_runtime_dist_index_cjs_cjs__WEBPACK_IMPORTED_MODULE_0___default())[key];
+    for(const key in (_Users_bytedance_dev_swc_macro_sys_node_modules_pnpm_module_federation_webpack_bundler_runtime_0_17_0_node_modules_module_federation_webpack_bundler_runtime_dist_index_cjs_cjs__WEBPACK_IMPORTED_MODULE_0___default())){
+        __webpack_require__.federation[key] = (_Users_bytedance_dev_swc_macro_sys_node_modules_pnpm_module_federation_webpack_bundler_runtime_0_17_0_node_modules_module_federation_webpack_bundler_runtime_dist_index_cjs_cjs__WEBPACK_IMPORTED_MODULE_0___default())[key];
     }
     early(__webpack_require__.federation, "consumesLoadingModuleToHandlerMapping", ()=>{
         const consumesLoadingModuleToHandlerMapping = {};
@@ -481,16 +484,16 @@ if ((__webpack_require__.initializeSharingData || __webpack_require__.initialize
 
 
 }),
-"../../node_modules/.pnpm/@module-federation+runtime-core@0.16.0/node_modules/@module-federation/runtime-core/dist/index.cjs.cjs": 
+"../../node_modules/.pnpm/@module-federation+runtime-core@0.17.0/node_modules/@module-federation/runtime-core/dist/index.cjs.cjs": 
 /*!***************************************************************************************************************************************!*\
-  !*** ../../node_modules/.pnpm/@module-federation+runtime-core@0.16.0/node_modules/@module-federation/runtime-core/dist/index.cjs.cjs ***!
+  !*** ../../node_modules/.pnpm/@module-federation+runtime-core@0.17.0/node_modules/@module-federation/runtime-core/dist/index.cjs.cjs ***!
   \***************************************************************************************************************************************/
 (function (__unused_webpack_module, exports, __webpack_require__) {
 
 
-var polyfills = __webpack_require__(/*! ./polyfills.cjs.cjs */ "../../node_modules/.pnpm/@module-federation+runtime-core@0.16.0/node_modules/@module-federation/runtime-core/dist/polyfills.cjs.cjs");
-var sdk = __webpack_require__(/*! @module-federation/sdk */ "../../node_modules/.pnpm/@module-federation+sdk@0.16.0/node_modules/@module-federation/sdk/dist/index.cjs.cjs");
-var errorCodes = __webpack_require__(/*! @module-federation/error-codes */ "../../node_modules/.pnpm/@module-federation+error-codes@0.16.0/node_modules/@module-federation/error-codes/dist/index.cjs.js");
+var polyfills = __webpack_require__(/*! ./polyfills.cjs.cjs */ "../../node_modules/.pnpm/@module-federation+runtime-core@0.17.0/node_modules/@module-federation/runtime-core/dist/polyfills.cjs.cjs");
+var sdk = __webpack_require__(/*! @module-federation/sdk */ "../../node_modules/.pnpm/@module-federation+sdk@0.17.0/node_modules/@module-federation/sdk/dist/index.cjs.cjs");
+var errorCodes = __webpack_require__(/*! @module-federation/error-codes */ "../../node_modules/.pnpm/@module-federation+error-codes@0.17.0/node_modules/@module-federation/error-codes/dist/index.cjs.js");
 
 const LOG_CATEGORY = '[ Federation Runtime ]';
 // FIXME: pre-bundle ?
@@ -684,7 +687,7 @@ function getGlobalFederationConstructor() {
 function setGlobalFederationConstructor(FederationConstructor, isDebug = sdk.isDebugMode()) {
     if (isDebug) {
         CurrentGlobal.__FEDERATION__.__DEBUG_CONSTRUCTOR__ = FederationConstructor;
-        CurrentGlobal.__FEDERATION__.__DEBUG_CONSTRUCTOR_VERSION__ = "0.16.0";
+        CurrentGlobal.__FEDERATION__.__DEBUG_CONSTRUCTOR_VERSION__ = "0.17.0";
     }
 }
 // eslint-disable-next-line @typescript-eslint/ban-types
@@ -1431,34 +1434,6 @@ function getTargetSharedOptions(options) {
     return Object.assign({}, resolver(shareInfos[pkgName]), extraOptions == null ? void 0 : extraOptions.customShareInfo);
 }
 
-const ShareUtils = {
-    getRegisteredShare,
-    getGlobalShareScope
-};
-const GlobalUtils = {
-    Global,
-    nativeGlobal,
-    resetFederationGlobalInfo,
-    setGlobalFederationInstance,
-    getGlobalFederationConstructor,
-    setGlobalFederationConstructor,
-    getInfoWithoutType,
-    getGlobalSnapshot,
-    getTargetSnapshotInfoByModuleInfo,
-    getGlobalSnapshotInfoByModuleInfo,
-    setGlobalSnapshotInfoByModuleInfo,
-    addGlobalSnapshot,
-    getRemoteEntryExports,
-    registerGlobalPlugins,
-    getGlobalHostPlugins,
-    getPreloaded,
-    setPreloaded
-};
-var helpers = {
-    global: GlobalUtils,
-    share: ShareUtils
-};
-
 function getBuilderId() {
     //@ts-ignore
     return typeof FEDERATION_BUILD_IDENTIFIER !== 'undefined' ? FEDERATION_BUILD_IDENTIFIER : '';
@@ -1528,8 +1503,16 @@ function matchRemote(remotes, nameOrAlias) {
     return;
 }
 
-function registerPlugins(plugins, hookInstances) {
+function registerPlugins(plugins, instance) {
     const globalPlugins = getGlobalHostPlugins();
+    const hookInstances = [
+        instance.hooks,
+        instance.remoteHandler.hooks,
+        instance.sharedHandler.hooks,
+        instance.snapshotHandler.hooks,
+        instance.loaderHook,
+        instance.bridgeHook
+    ];
     // Incorporate global plugins
     if (globalPlugins.length > 0) {
         globalPlugins.forEach((plugin)=>{
@@ -1541,7 +1524,7 @@ function registerPlugins(plugins, hookInstances) {
     if (plugins && plugins.length > 0) {
         plugins.forEach((plugin)=>{
             hookInstances.forEach((hookInstance)=>{
-                hookInstance.applyPlugin(plugin);
+                hookInstance.applyPlugin(plugin, instance);
             });
         });
     }
@@ -1724,6 +1707,202 @@ function getRemoteInfo(remote) {
         shareScope: remote.shareScope || DEFAULT_SCOPE
     });
 }
+
+function defaultPreloadArgs(preloadConfig) {
+    return polyfills._extends({
+        resourceCategory: 'sync',
+        share: true,
+        depsRemote: true,
+        prefetchInterface: false
+    }, preloadConfig);
+}
+function formatPreloadArgs(remotes, preloadArgs) {
+    return preloadArgs.map((args)=>{
+        const remoteInfo = matchRemote(remotes, args.nameOrAlias);
+        assert(remoteInfo, `Unable to preload ${args.nameOrAlias} as it is not included in ${!remoteInfo && sdk.safeToString({
+            remoteInfo,
+            remotes
+        })}`);
+        return {
+            remote: remoteInfo,
+            preloadConfig: defaultPreloadArgs(args)
+        };
+    });
+}
+function normalizePreloadExposes(exposes) {
+    if (!exposes) {
+        return [];
+    }
+    return exposes.map((expose)=>{
+        if (expose === '.') {
+            return expose;
+        }
+        if (expose.startsWith('./')) {
+            return expose.replace('./', '');
+        }
+        return expose;
+    });
+}
+function preloadAssets(remoteInfo, host, assets, // It is used to distinguish preload from load remote parallel loading
+useLinkPreload = true) {
+    const { cssAssets, jsAssetsWithoutEntry, entryAssets } = assets;
+    if (host.options.inBrowser) {
+        entryAssets.forEach((asset)=>{
+            const { moduleInfo } = asset;
+            const module = host.moduleCache.get(remoteInfo.name);
+            if (module) {
+                getRemoteEntry({
+                    origin: host,
+                    remoteInfo: moduleInfo,
+                    remoteEntryExports: module.remoteEntryExports
+                });
+            } else {
+                getRemoteEntry({
+                    origin: host,
+                    remoteInfo: moduleInfo,
+                    remoteEntryExports: undefined
+                });
+            }
+        });
+        if (useLinkPreload) {
+            const defaultAttrs = {
+                rel: 'preload',
+                as: 'style'
+            };
+            cssAssets.forEach((cssUrl)=>{
+                const { link: cssEl, needAttach } = sdk.createLink({
+                    url: cssUrl,
+                    cb: ()=>{
+                    // noop
+                    },
+                    attrs: defaultAttrs,
+                    createLinkHook: (url, attrs)=>{
+                        const res = host.loaderHook.lifecycle.createLink.emit({
+                            url,
+                            attrs
+                        });
+                        if (res instanceof HTMLLinkElement) {
+                            return res;
+                        }
+                        return;
+                    }
+                });
+                needAttach && document.head.appendChild(cssEl);
+            });
+        } else {
+            const defaultAttrs = {
+                rel: 'stylesheet',
+                type: 'text/css'
+            };
+            cssAssets.forEach((cssUrl)=>{
+                const { link: cssEl, needAttach } = sdk.createLink({
+                    url: cssUrl,
+                    cb: ()=>{
+                    // noop
+                    },
+                    attrs: defaultAttrs,
+                    createLinkHook: (url, attrs)=>{
+                        const res = host.loaderHook.lifecycle.createLink.emit({
+                            url,
+                            attrs
+                        });
+                        if (res instanceof HTMLLinkElement) {
+                            return res;
+                        }
+                        return;
+                    },
+                    needDeleteLink: false
+                });
+                needAttach && document.head.appendChild(cssEl);
+            });
+        }
+        if (useLinkPreload) {
+            const defaultAttrs = {
+                rel: 'preload',
+                as: 'script'
+            };
+            jsAssetsWithoutEntry.forEach((jsUrl)=>{
+                const { link: linkEl, needAttach } = sdk.createLink({
+                    url: jsUrl,
+                    cb: ()=>{
+                    // noop
+                    },
+                    attrs: defaultAttrs,
+                    createLinkHook: (url, attrs)=>{
+                        const res = host.loaderHook.lifecycle.createLink.emit({
+                            url,
+                            attrs
+                        });
+                        if (res instanceof HTMLLinkElement) {
+                            return res;
+                        }
+                        return;
+                    }
+                });
+                needAttach && document.head.appendChild(linkEl);
+            });
+        } else {
+            const defaultAttrs = {
+                fetchpriority: 'high',
+                type: (remoteInfo == null ? void 0 : remoteInfo.type) === 'module' ? 'module' : 'text/javascript'
+            };
+            jsAssetsWithoutEntry.forEach((jsUrl)=>{
+                const { script: scriptEl, needAttach } = sdk.createScript({
+                    url: jsUrl,
+                    cb: ()=>{
+                    // noop
+                    },
+                    attrs: defaultAttrs,
+                    createScriptHook: (url, attrs)=>{
+                        const res = host.loaderHook.lifecycle.createScript.emit({
+                            url,
+                            attrs
+                        });
+                        if (res instanceof HTMLScriptElement) {
+                            return res;
+                        }
+                        return;
+                    },
+                    needDeleteScript: true
+                });
+                needAttach && document.head.appendChild(scriptEl);
+            });
+        }
+    }
+}
+
+const ShareUtils = {
+    getRegisteredShare,
+    getGlobalShareScope
+};
+const GlobalUtils = {
+    Global,
+    nativeGlobal,
+    resetFederationGlobalInfo,
+    setGlobalFederationInstance,
+    getGlobalFederationConstructor,
+    setGlobalFederationConstructor,
+    getInfoWithoutType,
+    getGlobalSnapshot,
+    getTargetSnapshotInfoByModuleInfo,
+    getGlobalSnapshotInfoByModuleInfo,
+    setGlobalSnapshotInfoByModuleInfo,
+    addGlobalSnapshot,
+    getRemoteEntryExports,
+    registerGlobalPlugins,
+    getGlobalHostPlugins,
+    getPreloaded,
+    setPreloaded
+};
+var helpers = {
+    global: GlobalUtils,
+    share: ShareUtils,
+    utils: {
+        matchRemoteWithNameAndExpose,
+        preloadAssets,
+        getRemoteInfo
+    }
+};
 
 let Module = class Module {
     async getEntry() {
@@ -2005,13 +2184,14 @@ class AsyncWaterfallHook extends SyncHook {
 }
 
 class PluginSystem {
-    applyPlugin(plugin) {
+    applyPlugin(plugin, instance) {
         assert(isPlainObject(plugin), 'Plugin configuration is invalid.');
         // The plugin's name is mandatory and must be unique
         const pluginName = plugin.name;
         assert(pluginName, 'A name must be provided by the plugin.');
         if (!this.registerPlugins[pluginName]) {
             this.registerPlugins[pluginName] = plugin;
+            plugin.apply == null ? void 0 : plugin.apply.call(plugin, instance);
             Object.keys(this.lifecycle).forEach((key)=>{
                 const pluginLife = plugin[key];
                 if (pluginLife) {
@@ -2030,184 +2210,10 @@ class PluginSystem {
             }
         });
     }
-    // eslint-disable-next-line @typescript-eslint/no-shadow
-    inherit({ lifecycle, registerPlugins }) {
-        Object.keys(lifecycle).forEach((hookName)=>{
-            assert(!this.lifecycle[hookName], `The hook "${hookName}" has a conflict and cannot be inherited.`);
-            this.lifecycle[hookName] = lifecycle[hookName];
-        });
-        Object.keys(registerPlugins).forEach((pluginName)=>{
-            assert(!this.registerPlugins[pluginName], `The plugin "${pluginName}" has a conflict and cannot be inherited.`);
-            this.applyPlugin(registerPlugins[pluginName]);
-        });
-    }
     constructor(lifecycle){
         this.registerPlugins = {};
         this.lifecycle = lifecycle;
         this.lifecycleKeys = Object.keys(lifecycle);
-    }
-}
-
-function defaultPreloadArgs(preloadConfig) {
-    return polyfills._extends({
-        resourceCategory: 'sync',
-        share: true,
-        depsRemote: true,
-        prefetchInterface: false
-    }, preloadConfig);
-}
-function formatPreloadArgs(remotes, preloadArgs) {
-    return preloadArgs.map((args)=>{
-        const remoteInfo = matchRemote(remotes, args.nameOrAlias);
-        assert(remoteInfo, `Unable to preload ${args.nameOrAlias} as it is not included in ${!remoteInfo && sdk.safeToString({
-            remoteInfo,
-            remotes
-        })}`);
-        return {
-            remote: remoteInfo,
-            preloadConfig: defaultPreloadArgs(args)
-        };
-    });
-}
-function normalizePreloadExposes(exposes) {
-    if (!exposes) {
-        return [];
-    }
-    return exposes.map((expose)=>{
-        if (expose === '.') {
-            return expose;
-        }
-        if (expose.startsWith('./')) {
-            return expose.replace('./', '');
-        }
-        return expose;
-    });
-}
-function preloadAssets(remoteInfo, host, assets, // It is used to distinguish preload from load remote parallel loading
-useLinkPreload = true) {
-    const { cssAssets, jsAssetsWithoutEntry, entryAssets } = assets;
-    if (host.options.inBrowser) {
-        entryAssets.forEach((asset)=>{
-            const { moduleInfo } = asset;
-            const module = host.moduleCache.get(remoteInfo.name);
-            if (module) {
-                getRemoteEntry({
-                    origin: host,
-                    remoteInfo: moduleInfo,
-                    remoteEntryExports: module.remoteEntryExports
-                });
-            } else {
-                getRemoteEntry({
-                    origin: host,
-                    remoteInfo: moduleInfo,
-                    remoteEntryExports: undefined
-                });
-            }
-        });
-        if (useLinkPreload) {
-            const defaultAttrs = {
-                rel: 'preload',
-                as: 'style'
-            };
-            cssAssets.forEach((cssUrl)=>{
-                const { link: cssEl, needAttach } = sdk.createLink({
-                    url: cssUrl,
-                    cb: ()=>{
-                    // noop
-                    },
-                    attrs: defaultAttrs,
-                    createLinkHook: (url, attrs)=>{
-                        const res = host.loaderHook.lifecycle.createLink.emit({
-                            url,
-                            attrs
-                        });
-                        if (res instanceof HTMLLinkElement) {
-                            return res;
-                        }
-                        return;
-                    }
-                });
-                needAttach && document.head.appendChild(cssEl);
-            });
-        } else {
-            const defaultAttrs = {
-                rel: 'stylesheet',
-                type: 'text/css'
-            };
-            cssAssets.forEach((cssUrl)=>{
-                const { link: cssEl, needAttach } = sdk.createLink({
-                    url: cssUrl,
-                    cb: ()=>{
-                    // noop
-                    },
-                    attrs: defaultAttrs,
-                    createLinkHook: (url, attrs)=>{
-                        const res = host.loaderHook.lifecycle.createLink.emit({
-                            url,
-                            attrs
-                        });
-                        if (res instanceof HTMLLinkElement) {
-                            return res;
-                        }
-                        return;
-                    },
-                    needDeleteLink: false
-                });
-                needAttach && document.head.appendChild(cssEl);
-            });
-        }
-        if (useLinkPreload) {
-            const defaultAttrs = {
-                rel: 'preload',
-                as: 'script'
-            };
-            jsAssetsWithoutEntry.forEach((jsUrl)=>{
-                const { link: linkEl, needAttach } = sdk.createLink({
-                    url: jsUrl,
-                    cb: ()=>{
-                    // noop
-                    },
-                    attrs: defaultAttrs,
-                    createLinkHook: (url, attrs)=>{
-                        const res = host.loaderHook.lifecycle.createLink.emit({
-                            url,
-                            attrs
-                        });
-                        if (res instanceof HTMLLinkElement) {
-                            return res;
-                        }
-                        return;
-                    }
-                });
-                needAttach && document.head.appendChild(linkEl);
-            });
-        } else {
-            const defaultAttrs = {
-                fetchpriority: 'high',
-                type: (remoteInfo == null ? void 0 : remoteInfo.type) === 'module' ? 'module' : 'text/javascript'
-            };
-            jsAssetsWithoutEntry.forEach((jsUrl)=>{
-                const { script: scriptEl, needAttach } = sdk.createScript({
-                    url: jsUrl,
-                    cb: ()=>{
-                    // noop
-                    },
-                    attrs: defaultAttrs,
-                    createScriptHook: (url, attrs)=>{
-                        const res = host.loaderHook.lifecycle.createScript.emit({
-                            url,
-                            attrs
-                        });
-                        if (res instanceof HTMLScriptElement) {
-                            return res;
-                        }
-                        return;
-                    },
-                    needDeleteScript: true
-                });
-                needAttach && document.head.appendChild(scriptEl);
-            });
-        }
     }
 }
 
@@ -2416,7 +2422,7 @@ function generatePreloadAssets(origin, preloadOptions, remote, globalSnapshot, r
             }
         }
     }, true, memo, remoteSnapshot);
-    if (remoteSnapshot.shared) {
+    if (remoteSnapshot.shared && remoteSnapshot.shared.length > 0) {
         const collectSharedAssets = (shareInfo, snapshotShared)=>{
             const registeredShared = getRegisteredShare(origin.shareScopeMap, snapshotShared.sharedName, shareInfo, origin.sharedHandler.hooks.lifecycle.resolveShare);
             // If the global share does not exist, or the lib function does not exist, it means that the shared has not been loaded yet and can be preloaded.
@@ -3403,7 +3409,7 @@ class RemoteHandler {
 }
 
 const USE_SNAPSHOT = typeof FEDERATION_OPTIMIZE_NO_SNAPSHOT_PLUGIN === 'boolean' ? !FEDERATION_OPTIMIZE_NO_SNAPSHOT_PLUGIN : true; // Default to true (use snapshot) when not explicitly defined
-class FederationHost {
+class ModuleFederation {
     initOptions(userOptions) {
         this.registerPlugins(userOptions.plugins);
         const options = this.formatOptions(this.options, userOptions);
@@ -3480,14 +3486,7 @@ class FederationHost {
         return optionsRes;
     }
     registerPlugins(plugins) {
-        const pluginRes = registerPlugins(plugins, [
-            this.hooks,
-            this.remoteHandler.hooks,
-            this.sharedHandler.hooks,
-            this.snapshotHandler.hooks,
-            this.loaderHook,
-            this.bridgeHook
-        ]);
+        const pluginRes = registerPlugins(plugins, this);
         // Merge plugin
         this.options.plugins = this.options.plugins.reduce((res, plugin)=>{
             if (!plugin) return res;
@@ -3500,6 +3499,11 @@ class FederationHost {
     registerRemotes(remotes, options) {
         return this.remoteHandler.registerRemotes(remotes, options);
     }
+    registerShared(shared) {
+        this.sharedHandler.registerShared(this.options, polyfills._extends({}, this.options, {
+            shared
+        }));
+    }
     constructor(userOptions){
         this.hooks = new PluginSystem({
             beforeInit: new SyncWaterfallHook('beforeInit'),
@@ -3509,7 +3513,7 @@ class FederationHost {
             // maybe will change, temporarily for internal use only
             initContainer: new AsyncWaterfallHook('initContainer')
         });
-        this.version = "0.16.0";
+        this.version = "0.17.0";
         this.moduleCache = new Map();
         this.loaderHook = new PluginSystem({
             // FIXME: may not be suitable , not open to the public yet
@@ -3561,9 +3565,9 @@ var index = /*#__PURE__*/Object.freeze({
 exports.loadScript = sdk.loadScript;
 exports.loadScriptNode = sdk.loadScriptNode;
 exports.CurrentGlobal = CurrentGlobal;
-exports.FederationHost = FederationHost;
 exports.Global = Global;
 exports.Module = Module;
+exports.ModuleFederation = ModuleFederation;
 exports.addGlobalSnapshot = addGlobalSnapshot;
 exports.assert = assert;
 exports.getGlobalFederationConstructor = getGlobalFederationConstructor;
@@ -3585,9 +3589,9 @@ exports.types = index;
 
 
 }),
-"../../node_modules/.pnpm/@module-federation+runtime-core@0.16.0/node_modules/@module-federation/runtime-core/dist/polyfills.cjs.cjs": 
+"../../node_modules/.pnpm/@module-federation+runtime-core@0.17.0/node_modules/@module-federation/runtime-core/dist/polyfills.cjs.cjs": 
 /*!*******************************************************************************************************************************************!*\
-  !*** ../../node_modules/.pnpm/@module-federation+runtime-core@0.16.0/node_modules/@module-federation/runtime-core/dist/polyfills.cjs.cjs ***!
+  !*** ../../node_modules/.pnpm/@module-federation+runtime-core@0.17.0/node_modules/@module-federation/runtime-core/dist/polyfills.cjs.cjs ***!
   \*******************************************************************************************************************************************/
 (function (__unused_webpack_module, exports) {
 
@@ -3621,24 +3625,30 @@ exports._object_without_properties_loose = _object_without_properties_loose;
 
 
 }),
-"../../node_modules/.pnpm/@module-federation+runtime@0.16.0/node_modules/@module-federation/runtime/dist/index.cjs.cjs": 
+"../../node_modules/.pnpm/@module-federation+runtime@0.17.0/node_modules/@module-federation/runtime/dist/index.cjs.cjs": 
 /*!*****************************************************************************************************************************!*\
-  !*** ../../node_modules/.pnpm/@module-federation+runtime@0.16.0/node_modules/@module-federation/runtime/dist/index.cjs.cjs ***!
+  !*** ../../node_modules/.pnpm/@module-federation+runtime@0.17.0/node_modules/@module-federation/runtime/dist/index.cjs.cjs ***!
   \*****************************************************************************************************************************/
 (function (__unused_webpack_module, exports, __webpack_require__) {
 
 
-var runtimeCore = __webpack_require__(/*! @module-federation/runtime-core */ "../../node_modules/.pnpm/@module-federation+runtime-core@0.16.0/node_modules/@module-federation/runtime-core/dist/index.cjs.cjs");
-var utils = __webpack_require__(/*! ./utils.cjs.cjs */ "../../node_modules/.pnpm/@module-federation+runtime@0.16.0/node_modules/@module-federation/runtime/dist/utils.cjs.cjs");
+var runtimeCore = __webpack_require__(/*! @module-federation/runtime-core */ "../../node_modules/.pnpm/@module-federation+runtime-core@0.17.0/node_modules/@module-federation/runtime-core/dist/index.cjs.cjs");
+var errorCodes = __webpack_require__(/*! @module-federation/error-codes */ "../../node_modules/.pnpm/@module-federation+error-codes@0.17.0/node_modules/@module-federation/error-codes/dist/index.cjs.js");
+var utils = __webpack_require__(/*! ./utils.cjs.cjs */ "../../node_modules/.pnpm/@module-federation+runtime@0.17.0/node_modules/@module-federation/runtime/dist/utils.cjs.cjs");
 
+function createInstance(options) {
+    // Retrieve debug constructor
+    const ModuleFederationConstructor = runtimeCore.getGlobalFederationConstructor() || runtimeCore.ModuleFederation;
+    return new ModuleFederationConstructor(options);
+}
 let FederationInstance = null;
-function init(options) {
+/**
+ * @deprecated Use createInstance or getInstance instead
+ */ function init(options) {
     // Retrieve the same instance with the same name
     const instance = utils.getGlobalFederationInstance(options.name, options.version);
     if (!instance) {
-        // Retrieve debug constructor
-        const FederationConstructor = runtimeCore.getGlobalFederationConstructor() || runtimeCore.FederationHost;
-        FederationInstance = new FederationConstructor(options);
+        FederationInstance = createInstance(options);
         runtimeCore.setGlobalFederationInstance(FederationInstance);
         return FederationInstance;
     } else {
@@ -3651,51 +3661,57 @@ function init(options) {
     }
 }
 function loadRemote(...args) {
-    runtimeCore.assert(FederationInstance, 'Please call init first');
+    runtimeCore.assert(FederationInstance, errorCodes.getShortErrorMsg(errorCodes.RUNTIME_009, errorCodes.runtimeDescMap));
     const loadRemote1 = FederationInstance.loadRemote;
     // eslint-disable-next-line prefer-spread
     return loadRemote1.apply(FederationInstance, args);
 }
 function loadShare(...args) {
-    runtimeCore.assert(FederationInstance, 'Please call init first');
+    runtimeCore.assert(FederationInstance, errorCodes.getShortErrorMsg(errorCodes.RUNTIME_009, errorCodes.runtimeDescMap));
     // eslint-disable-next-line prefer-spread
     const loadShare1 = FederationInstance.loadShare;
     return loadShare1.apply(FederationInstance, args);
 }
 function loadShareSync(...args) {
-    runtimeCore.assert(FederationInstance, 'Please call init first');
+    runtimeCore.assert(FederationInstance, errorCodes.getShortErrorMsg(errorCodes.RUNTIME_009, errorCodes.runtimeDescMap));
     const loadShareSync1 = FederationInstance.loadShareSync;
     // eslint-disable-next-line prefer-spread
     return loadShareSync1.apply(FederationInstance, args);
 }
 function preloadRemote(...args) {
-    runtimeCore.assert(FederationInstance, 'Please call init first');
+    runtimeCore.assert(FederationInstance, errorCodes.getShortErrorMsg(errorCodes.RUNTIME_009, errorCodes.runtimeDescMap));
     // eslint-disable-next-line prefer-spread
     return FederationInstance.preloadRemote.apply(FederationInstance, args);
 }
 function registerRemotes(...args) {
-    runtimeCore.assert(FederationInstance, 'Please call init first');
+    runtimeCore.assert(FederationInstance, errorCodes.getShortErrorMsg(errorCodes.RUNTIME_009, errorCodes.runtimeDescMap));
     // eslint-disable-next-line prefer-spread
     return FederationInstance.registerRemotes.apply(FederationInstance, args);
 }
 function registerPlugins(...args) {
-    runtimeCore.assert(FederationInstance, 'Please call init first');
+    runtimeCore.assert(FederationInstance, errorCodes.getShortErrorMsg(errorCodes.RUNTIME_009, errorCodes.runtimeDescMap));
     // eslint-disable-next-line prefer-spread
     return FederationInstance.registerPlugins.apply(FederationInstance, args);
 }
 function getInstance() {
     return FederationInstance;
 }
+function registerShared(...args) {
+    runtimeCore.assert(FederationInstance, errorCodes.getShortErrorMsg(errorCodes.RUNTIME_009, errorCodes.runtimeDescMap));
+    // eslint-disable-next-line prefer-spread
+    return FederationInstance.registerShared.apply(FederationInstance, args);
+}
 // Inject for debug
-runtimeCore.setGlobalFederationConstructor(runtimeCore.FederationHost);
+runtimeCore.setGlobalFederationConstructor(runtimeCore.ModuleFederation);
 
-exports.FederationHost = runtimeCore.FederationHost;
 exports.Module = runtimeCore.Module;
+exports.ModuleFederation = runtimeCore.ModuleFederation;
 exports.getRemoteEntry = runtimeCore.getRemoteEntry;
 exports.getRemoteInfo = runtimeCore.getRemoteInfo;
 exports.loadScript = runtimeCore.loadScript;
 exports.loadScriptNode = runtimeCore.loadScriptNode;
 exports.registerGlobalPlugins = runtimeCore.registerGlobalPlugins;
+exports.createInstance = createInstance;
 exports.getInstance = getInstance;
 exports.init = init;
 exports.loadRemote = loadRemote;
@@ -3704,17 +3720,18 @@ exports.loadShareSync = loadShareSync;
 exports.preloadRemote = preloadRemote;
 exports.registerPlugins = registerPlugins;
 exports.registerRemotes = registerRemotes;
+exports.registerShared = registerShared;
 
 
 }),
-"../../node_modules/.pnpm/@module-federation+runtime@0.16.0/node_modules/@module-federation/runtime/dist/utils.cjs.cjs": 
+"../../node_modules/.pnpm/@module-federation+runtime@0.17.0/node_modules/@module-federation/runtime/dist/utils.cjs.cjs": 
 /*!*****************************************************************************************************************************!*\
-  !*** ../../node_modules/.pnpm/@module-federation+runtime@0.16.0/node_modules/@module-federation/runtime/dist/utils.cjs.cjs ***!
+  !*** ../../node_modules/.pnpm/@module-federation+runtime@0.17.0/node_modules/@module-federation/runtime/dist/utils.cjs.cjs ***!
   \*****************************************************************************************************************************/
 (function (__unused_webpack_module, exports, __webpack_require__) {
 
 
-var runtimeCore = __webpack_require__(/*! @module-federation/runtime-core */ "../../node_modules/.pnpm/@module-federation+runtime-core@0.16.0/node_modules/@module-federation/runtime-core/dist/index.cjs.cjs");
+var runtimeCore = __webpack_require__(/*! @module-federation/runtime-core */ "../../node_modules/.pnpm/@module-federation+runtime-core@0.17.0/node_modules/@module-federation/runtime-core/dist/index.cjs.cjs");
 
 // injected by bundler, so it can not use runtime-core stuff
 function getBuilderId() {
@@ -3724,7 +3741,7 @@ function getBuilderId() {
 function getGlobalFederationInstance(name, version) {
     const buildId = getBuilderId();
     return runtimeCore.CurrentGlobal.__FEDERATION__.__INSTANCES__.find((GMInstance)=>{
-        if (buildId && GMInstance.options.id === getBuilderId()) {
+        if (buildId && GMInstance.options.id === buildId) {
             return true;
         }
         if (GMInstance.options.name === name && !GMInstance.options.version && !version) {
@@ -3741,14 +3758,14 @@ exports.getGlobalFederationInstance = getGlobalFederationInstance;
 
 
 }),
-"../../node_modules/.pnpm/@module-federation+sdk@0.16.0/node_modules/@module-federation/sdk/dist/index.cjs.cjs": 
+"../../node_modules/.pnpm/@module-federation+sdk@0.17.0/node_modules/@module-federation/sdk/dist/index.cjs.cjs": 
 /*!*********************************************************************************************************************!*\
-  !*** ../../node_modules/.pnpm/@module-federation+sdk@0.16.0/node_modules/@module-federation/sdk/dist/index.cjs.cjs ***!
+  !*** ../../node_modules/.pnpm/@module-federation+sdk@0.17.0/node_modules/@module-federation/sdk/dist/index.cjs.cjs ***!
   \*********************************************************************************************************************/
 (function (__unused_webpack_module, exports, __webpack_require__) {
 
 
-var polyfills = __webpack_require__(/*! ./polyfills.cjs.cjs */ "../../node_modules/.pnpm/@module-federation+sdk@0.16.0/node_modules/@module-federation/sdk/dist/polyfills.cjs.cjs");
+var polyfills = __webpack_require__(/*! ./polyfills.cjs.cjs */ "../../node_modules/.pnpm/@module-federation+sdk@0.17.0/node_modules/@module-federation/sdk/dist/polyfills.cjs.cjs");
 
 const FederationModuleManifest = 'federation-manifest.json';
 const MANIFEST_EXT = '.json';
@@ -4570,9 +4587,9 @@ exports.warn = warn;
 
 
 }),
-"../../node_modules/.pnpm/@module-federation+sdk@0.16.0/node_modules/@module-federation/sdk/dist/polyfills.cjs.cjs": 
+"../../node_modules/.pnpm/@module-federation+sdk@0.17.0/node_modules/@module-federation/sdk/dist/polyfills.cjs.cjs": 
 /*!*************************************************************************************************************************!*\
-  !*** ../../node_modules/.pnpm/@module-federation+sdk@0.16.0/node_modules/@module-federation/sdk/dist/polyfills.cjs.cjs ***!
+  !*** ../../node_modules/.pnpm/@module-federation+sdk@0.17.0/node_modules/@module-federation/sdk/dist/polyfills.cjs.cjs ***!
   \*************************************************************************************************************************/
 (function (__unused_webpack_module, exports) {
 
@@ -4592,9 +4609,9 @@ exports._ = _extends;
 
 
 }),
-"../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.16.0/node_modules/@module-federation/webpack-bundler-runtime/dist/constant.cjs.cjs": 
+"../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.17.0/node_modules/@module-federation/webpack-bundler-runtime/dist/constant.cjs.cjs": 
 /*!****************************************************************************************************************************************************************!*\
-  !*** ../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.16.0/node_modules/@module-federation/webpack-bundler-runtime/dist/constant.cjs.cjs ***!
+  !*** ../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.17.0/node_modules/@module-federation/webpack-bundler-runtime/dist/constant.cjs.cjs ***!
   \****************************************************************************************************************************************************************/
 (function (__unused_webpack_module, exports) {
 
@@ -4607,16 +4624,16 @@ exports.FEDERATION_SUPPORTED_TYPES = FEDERATION_SUPPORTED_TYPES;
 
 
 }),
-"../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.16.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs": 
+"../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.17.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs": 
 /*!*************************************************************************************************************************************************************!*\
-  !*** ../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.16.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs ***!
+  !*** ../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.17.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs ***!
   \*************************************************************************************************************************************************************/
 (function (module, __unused_webpack_exports, __webpack_require__) {
 
 
-var runtime = __webpack_require__(/*! @module-federation/runtime */ "../../node_modules/.pnpm/@module-federation+runtime@0.16.0/node_modules/@module-federation/runtime/dist/index.cjs.cjs");
-var constant = __webpack_require__(/*! ./constant.cjs.cjs */ "../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.16.0/node_modules/@module-federation/webpack-bundler-runtime/dist/constant.cjs.cjs");
-var sdk = __webpack_require__(/*! @module-federation/sdk */ "../../node_modules/.pnpm/@module-federation+sdk@0.16.0/node_modules/@module-federation/sdk/dist/index.cjs.cjs");
+var runtime = __webpack_require__(/*! @module-federation/runtime */ "../../node_modules/.pnpm/@module-federation+runtime@0.17.0/node_modules/@module-federation/runtime/dist/index.cjs.cjs");
+var constant = __webpack_require__(/*! ./constant.cjs.cjs */ "../../node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.17.0/node_modules/@module-federation/webpack-bundler-runtime/dist/constant.cjs.cjs");
+var sdk = __webpack_require__(/*! @module-federation/sdk */ "../../node_modules/.pnpm/@module-federation+sdk@0.17.0/node_modules/@module-federation/sdk/dist/index.cjs.cjs");
 
 function _interopNamespaceDefault(e) {
   var n = Object.create(null);
@@ -5169,7 +5186,7 @@ if (installedChunkData !== 0) {  // 0 means "already installed".
 // module cache are used so entry inlining is disabled
 // startup
 // Load entry module and return exports
-__webpack_require__("@module-federation/runtime/rspack.js!=!data:text/javascript,import __module_federation_bundler_runtime__ from \"/Users/bytedance/dev/swc_macro_sys/node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.16.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs\";const __module_federation_runtime_plugins__ = [];const __module_federation_remote_infos__ = {};const __module_federation_container_name__ = \"remote\";const __module_federation_share_strategy__ = \"version-first\";if((__webpack_require__.initializeSharingData||__webpack_require__.initializeExposesData)&&__webpack_require__.federation){var __webpack_require___remotesLoadingData,__webpack_require___remotesLoadingData1,__webpack_require___initializeSharingData,__webpack_require___consumesLoadingData,__webpack_require___consumesLoadingData1,__webpack_require___initializeExposesData,__webpack_require___consumesLoadingData2;const override=(obj,key,value)=>{if(!obj)return;if(obj[key])obj[key]=value};const merge=(obj,key,fn)=>{const value=fn();if(Array.isArray(value)){var _obj,_key;var _;(_=(_obj=obj)[_key=key])!==null&&_!==void 0?_:_obj[_key]=[];obj[key].push(...value)}else if(typeof value===\"object\"&&value!==null){var _obj1,_key1;var _1;(_1=(_obj1=obj)[_key1=key])!==null&&_1!==void 0?_1:_obj1[_key1]={};Object.assign(obj[key],value)}};const early=(obj,key,initial)=>{var _obj,_key;var _;(_=(_obj=obj)[_key=key])!==null&&_!==void 0?_:_obj[_key]=initial()};var __webpack_require___remotesLoadingData_chunkMapping;const remotesLoadingChunkMapping=(__webpack_require___remotesLoadingData_chunkMapping=(__webpack_require___remotesLoadingData=__webpack_require__.remotesLoadingData)===null||__webpack_require___remotesLoadingData===void 0?void 0:__webpack_require___remotesLoadingData.chunkMapping)!==null&&__webpack_require___remotesLoadingData_chunkMapping!==void 0?__webpack_require___remotesLoadingData_chunkMapping:{};var __webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping;const remotesLoadingModuleIdToRemoteDataMapping=(__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping=(__webpack_require___remotesLoadingData1=__webpack_require__.remotesLoadingData)===null||__webpack_require___remotesLoadingData1===void 0?void 0:__webpack_require___remotesLoadingData1.moduleIdToRemoteDataMapping)!==null&&__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping!==void 0?__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping:{};var __webpack_require___initializeSharingData_scopeToSharingDataMapping;const initializeSharingScopeToInitDataMapping=(__webpack_require___initializeSharingData_scopeToSharingDataMapping=(__webpack_require___initializeSharingData=__webpack_require__.initializeSharingData)===null||__webpack_require___initializeSharingData===void 0?void 0:__webpack_require___initializeSharingData.scopeToSharingDataMapping)!==null&&__webpack_require___initializeSharingData_scopeToSharingDataMapping!==void 0?__webpack_require___initializeSharingData_scopeToSharingDataMapping:{};var __webpack_require___consumesLoadingData_chunkMapping;const consumesLoadingChunkMapping=(__webpack_require___consumesLoadingData_chunkMapping=(__webpack_require___consumesLoadingData=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData===void 0?void 0:__webpack_require___consumesLoadingData.chunkMapping)!==null&&__webpack_require___consumesLoadingData_chunkMapping!==void 0?__webpack_require___consumesLoadingData_chunkMapping:{};var __webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping;const consumesLoadingModuleToConsumeDataMapping=(__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping=(__webpack_require___consumesLoadingData1=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData1===void 0?void 0:__webpack_require___consumesLoadingData1.moduleIdToConsumeDataMapping)!==null&&__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping!==void 0?__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping:{};const consumesLoadinginstalledModules={};const initializeSharingInitPromises=[];const initializeSharingInitTokens={};const containerShareScope=(__webpack_require___initializeExposesData=__webpack_require__.initializeExposesData)===null||__webpack_require___initializeExposesData===void 0?void 0:__webpack_require___initializeExposesData.shareScope;for(const key in __module_federation_bundler_runtime__){__webpack_require__.federation[key]=__module_federation_bundler_runtime__[key]}early(__webpack_require__.federation,\"consumesLoadingModuleToHandlerMapping\",()=>{const consumesLoadingModuleToHandlerMapping={};for(let[moduleId,data]of Object.entries(consumesLoadingModuleToConsumeDataMapping)){consumesLoadingModuleToHandlerMapping[moduleId]={getter:data.fallback,shareInfo:{shareConfig:{fixedDependencies:false,requiredVersion:data.requiredVersion,strictVersion:data.strictVersion,singleton:data.singleton,eager:data.eager},scope:[data.shareScope]},shareKey:data.shareKey}}return consumesLoadingModuleToHandlerMapping});early(__webpack_require__.federation,\"initOptions\",()=>({}));early(__webpack_require__.federation.initOptions,\"name\",()=>__module_federation_container_name__);early(__webpack_require__.federation.initOptions,\"shareStrategy\",()=>__module_federation_share_strategy__);early(__webpack_require__.federation.initOptions,\"shared\",()=>{const shared={};for(let[scope,stages]of Object.entries(initializeSharingScopeToInitDataMapping)){for(let stage of stages){if(typeof stage===\"object\"&&stage!==null){const{name,version,factory,eager,singleton,requiredVersion,strictVersion}=stage;const shareConfig={};const isValidValue=function(val){return typeof val!==\"undefined\"};if(isValidValue(singleton)){shareConfig.singleton=singleton}if(isValidValue(requiredVersion)){shareConfig.requiredVersion=requiredVersion}if(isValidValue(eager)){shareConfig.eager=eager}if(isValidValue(strictVersion)){shareConfig.strictVersion=strictVersion}const options={version,scope:[scope],shareConfig,get:factory};if(shared[name]){shared[name].push(options)}else{shared[name]=[options]}}}}return shared});merge(__webpack_require__.federation.initOptions,\"remotes\",()=>Object.values(__module_federation_remote_infos__).flat().filter(remote=>remote.externalType===\"script\"));merge(__webpack_require__.federation.initOptions,\"plugins\",()=>__module_federation_runtime_plugins__);early(__webpack_require__.federation,\"bundlerRuntimeOptions\",()=>({}));early(__webpack_require__.federation.bundlerRuntimeOptions,\"remotes\",()=>({}));early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"chunkMapping\",()=>remotesLoadingChunkMapping);early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"idToExternalAndNameMapping\",()=>{const remotesLoadingIdToExternalAndNameMappingMapping={};for(let[moduleId,data]of Object.entries(remotesLoadingModuleIdToRemoteDataMapping)){remotesLoadingIdToExternalAndNameMappingMapping[moduleId]=[data.shareScope,data.name,data.externalModuleId,data.remoteName]}return remotesLoadingIdToExternalAndNameMappingMapping});early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"webpackRequire\",()=>__webpack_require__);merge(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"idToRemoteMap\",()=>{const idToRemoteMap={};for(let[id,remoteData]of Object.entries(remotesLoadingModuleIdToRemoteDataMapping)){const info=__module_federation_remote_infos__[remoteData.remoteName];if(info)idToRemoteMap[id]=info}return idToRemoteMap});override(__webpack_require__,\"S\",__webpack_require__.federation.bundlerRuntime.S);if(__webpack_require__.federation.attachShareScopeMap){__webpack_require__.federation.attachShareScopeMap(__webpack_require__)}override(__webpack_require__.f,\"remotes\",(chunkId,promises)=>__webpack_require__.federation.bundlerRuntime.remotes({chunkId,promises,chunkMapping:remotesLoadingChunkMapping,idToExternalAndNameMapping:__webpack_require__.federation.bundlerRuntimeOptions.remotes.idToExternalAndNameMapping,idToRemoteMap:__webpack_require__.federation.bundlerRuntimeOptions.remotes.idToRemoteMap,webpackRequire:__webpack_require__}));override(__webpack_require__.f,\"consumes\",(chunkId,promises)=>__webpack_require__.federation.bundlerRuntime.consumes({chunkId,promises,chunkMapping:consumesLoadingChunkMapping,moduleToHandlerMapping:__webpack_require__.federation.consumesLoadingModuleToHandlerMapping,installedModules:consumesLoadinginstalledModules,webpackRequire:__webpack_require__}));override(__webpack_require__,\"I\",(name,initScope)=>__webpack_require__.federation.bundlerRuntime.I({shareScopeName:name,initScope,initPromises:initializeSharingInitPromises,initTokens:initializeSharingInitTokens,webpackRequire:__webpack_require__}));override(__webpack_require__,\"initContainer\",(shareScope,initScope,remoteEntryInitOptions)=>__webpack_require__.federation.bundlerRuntime.initContainerEntry({shareScope,initScope,remoteEntryInitOptions,shareScopeKey:containerShareScope,webpackRequire:__webpack_require__}));override(__webpack_require__,\"getContainer\",(module1,getScope)=>{var moduleMap=__webpack_require__.initializeExposesData.moduleMap;__webpack_require__.R=getScope;getScope=Object.prototype.hasOwnProperty.call(moduleMap,module1)?moduleMap[module1]():Promise.resolve().then(()=>{throw new Error('Module \"'+module1+'\" does not exist in container.')});__webpack_require__.R=undefined;return getScope});__webpack_require__.federation.instance=__webpack_require__.federation.runtime.init(__webpack_require__.federation.initOptions);if((__webpack_require___consumesLoadingData2=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData2===void 0?void 0:__webpack_require___consumesLoadingData2.initialConsumes){__webpack_require__.federation.bundlerRuntime.installInitialConsumes({webpackRequire:__webpack_require__,installedModules:consumesLoadinginstalledModules,initialConsumes:__webpack_require__.consumesLoadingData.initialConsumes,moduleToHandlerMapping:__webpack_require__.federation.consumesLoadingModuleToHandlerMapping})}}");
+__webpack_require__("@module-federation/runtime/rspack.js!=!data:text/javascript,import __module_federation_bundler_runtime__ from \"/Users/bytedance/dev/swc_macro_sys/node_modules/.pnpm/@module-federation+webpack-bundler-runtime@0.17.0/node_modules/@module-federation/webpack-bundler-runtime/dist/index.cjs.cjs\";const __module_federation_runtime_plugins__ = [];const __module_federation_remote_infos__ = {};const __module_federation_container_name__ = \"remote\";const __module_federation_share_strategy__ = \"version-first\";if((__webpack_require__.initializeSharingData||__webpack_require__.initializeExposesData)&&__webpack_require__.federation){var __webpack_require___remotesLoadingData,__webpack_require___remotesLoadingData1,__webpack_require___initializeSharingData,__webpack_require___consumesLoadingData,__webpack_require___consumesLoadingData1,__webpack_require___initializeExposesData,__webpack_require___consumesLoadingData2;const override=(obj,key,value)=>{if(!obj)return;if(obj[key])obj[key]=value};const merge=(obj,key,fn)=>{const value=fn();if(Array.isArray(value)){var _obj,_key;var _;(_=(_obj=obj)[_key=key])!==null&&_!==void 0?_:_obj[_key]=[];obj[key].push(...value)}else if(typeof value===\"object\"&&value!==null){var _obj1,_key1;var _1;(_1=(_obj1=obj)[_key1=key])!==null&&_1!==void 0?_1:_obj1[_key1]={};Object.assign(obj[key],value)}};const early=(obj,key,initial)=>{var _obj,_key;var _;(_=(_obj=obj)[_key=key])!==null&&_!==void 0?_:_obj[_key]=initial()};var __webpack_require___remotesLoadingData_chunkMapping;const remotesLoadingChunkMapping=(__webpack_require___remotesLoadingData_chunkMapping=(__webpack_require___remotesLoadingData=__webpack_require__.remotesLoadingData)===null||__webpack_require___remotesLoadingData===void 0?void 0:__webpack_require___remotesLoadingData.chunkMapping)!==null&&__webpack_require___remotesLoadingData_chunkMapping!==void 0?__webpack_require___remotesLoadingData_chunkMapping:{};var __webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping;const remotesLoadingModuleIdToRemoteDataMapping=(__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping=(__webpack_require___remotesLoadingData1=__webpack_require__.remotesLoadingData)===null||__webpack_require___remotesLoadingData1===void 0?void 0:__webpack_require___remotesLoadingData1.moduleIdToRemoteDataMapping)!==null&&__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping!==void 0?__webpack_require___remotesLoadingData_moduleIdToRemoteDataMapping:{};var __webpack_require___initializeSharingData_scopeToSharingDataMapping;const initializeSharingScopeToInitDataMapping=(__webpack_require___initializeSharingData_scopeToSharingDataMapping=(__webpack_require___initializeSharingData=__webpack_require__.initializeSharingData)===null||__webpack_require___initializeSharingData===void 0?void 0:__webpack_require___initializeSharingData.scopeToSharingDataMapping)!==null&&__webpack_require___initializeSharingData_scopeToSharingDataMapping!==void 0?__webpack_require___initializeSharingData_scopeToSharingDataMapping:{};var __webpack_require___consumesLoadingData_chunkMapping;const consumesLoadingChunkMapping=(__webpack_require___consumesLoadingData_chunkMapping=(__webpack_require___consumesLoadingData=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData===void 0?void 0:__webpack_require___consumesLoadingData.chunkMapping)!==null&&__webpack_require___consumesLoadingData_chunkMapping!==void 0?__webpack_require___consumesLoadingData_chunkMapping:{};var __webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping;const consumesLoadingModuleToConsumeDataMapping=(__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping=(__webpack_require___consumesLoadingData1=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData1===void 0?void 0:__webpack_require___consumesLoadingData1.moduleIdToConsumeDataMapping)!==null&&__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping!==void 0?__webpack_require___consumesLoadingData_moduleIdToConsumeDataMapping:{};const consumesLoadinginstalledModules={};const initializeSharingInitPromises=[];const initializeSharingInitTokens={};const containerShareScope=(__webpack_require___initializeExposesData=__webpack_require__.initializeExposesData)===null||__webpack_require___initializeExposesData===void 0?void 0:__webpack_require___initializeExposesData.shareScope;for(const key in __module_federation_bundler_runtime__){__webpack_require__.federation[key]=__module_federation_bundler_runtime__[key]}early(__webpack_require__.federation,\"consumesLoadingModuleToHandlerMapping\",()=>{const consumesLoadingModuleToHandlerMapping={};for(let[moduleId,data]of Object.entries(consumesLoadingModuleToConsumeDataMapping)){consumesLoadingModuleToHandlerMapping[moduleId]={getter:data.fallback,shareInfo:{shareConfig:{fixedDependencies:false,requiredVersion:data.requiredVersion,strictVersion:data.strictVersion,singleton:data.singleton,eager:data.eager},scope:[data.shareScope]},shareKey:data.shareKey}}return consumesLoadingModuleToHandlerMapping});early(__webpack_require__.federation,\"initOptions\",()=>({}));early(__webpack_require__.federation.initOptions,\"name\",()=>__module_federation_container_name__);early(__webpack_require__.federation.initOptions,\"shareStrategy\",()=>__module_federation_share_strategy__);early(__webpack_require__.federation.initOptions,\"shared\",()=>{const shared={};for(let[scope,stages]of Object.entries(initializeSharingScopeToInitDataMapping)){for(let stage of stages){if(typeof stage===\"object\"&&stage!==null){const{name,version,factory,eager,singleton,requiredVersion,strictVersion}=stage;const shareConfig={};const isValidValue=function(val){return typeof val!==\"undefined\"};if(isValidValue(singleton)){shareConfig.singleton=singleton}if(isValidValue(requiredVersion)){shareConfig.requiredVersion=requiredVersion}if(isValidValue(eager)){shareConfig.eager=eager}if(isValidValue(strictVersion)){shareConfig.strictVersion=strictVersion}const options={version,scope:[scope],shareConfig,get:factory};if(shared[name]){shared[name].push(options)}else{shared[name]=[options]}}}}return shared});merge(__webpack_require__.federation.initOptions,\"remotes\",()=>Object.values(__module_federation_remote_infos__).flat().filter(remote=>remote.externalType===\"script\"));merge(__webpack_require__.federation.initOptions,\"plugins\",()=>__module_federation_runtime_plugins__);early(__webpack_require__.federation,\"bundlerRuntimeOptions\",()=>({}));early(__webpack_require__.federation.bundlerRuntimeOptions,\"remotes\",()=>({}));early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"chunkMapping\",()=>remotesLoadingChunkMapping);early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"idToExternalAndNameMapping\",()=>{const remotesLoadingIdToExternalAndNameMappingMapping={};for(let[moduleId,data]of Object.entries(remotesLoadingModuleIdToRemoteDataMapping)){remotesLoadingIdToExternalAndNameMappingMapping[moduleId]=[data.shareScope,data.name,data.externalModuleId,data.remoteName]}return remotesLoadingIdToExternalAndNameMappingMapping});early(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"webpackRequire\",()=>__webpack_require__);merge(__webpack_require__.federation.bundlerRuntimeOptions.remotes,\"idToRemoteMap\",()=>{const idToRemoteMap={};for(let[id,remoteData]of Object.entries(remotesLoadingModuleIdToRemoteDataMapping)){const info=__module_federation_remote_infos__[remoteData.remoteName];if(info)idToRemoteMap[id]=info}return idToRemoteMap});override(__webpack_require__,\"S\",__webpack_require__.federation.bundlerRuntime.S);if(__webpack_require__.federation.attachShareScopeMap){__webpack_require__.federation.attachShareScopeMap(__webpack_require__)}override(__webpack_require__.f,\"remotes\",(chunkId,promises)=>__webpack_require__.federation.bundlerRuntime.remotes({chunkId,promises,chunkMapping:remotesLoadingChunkMapping,idToExternalAndNameMapping:__webpack_require__.federation.bundlerRuntimeOptions.remotes.idToExternalAndNameMapping,idToRemoteMap:__webpack_require__.federation.bundlerRuntimeOptions.remotes.idToRemoteMap,webpackRequire:__webpack_require__}));override(__webpack_require__.f,\"consumes\",(chunkId,promises)=>__webpack_require__.federation.bundlerRuntime.consumes({chunkId,promises,chunkMapping:consumesLoadingChunkMapping,moduleToHandlerMapping:__webpack_require__.federation.consumesLoadingModuleToHandlerMapping,installedModules:consumesLoadinginstalledModules,webpackRequire:__webpack_require__}));override(__webpack_require__,\"I\",(name,initScope)=>__webpack_require__.federation.bundlerRuntime.I({shareScopeName:name,initScope,initPromises:initializeSharingInitPromises,initTokens:initializeSharingInitTokens,webpackRequire:__webpack_require__}));override(__webpack_require__,\"initContainer\",(shareScope,initScope,remoteEntryInitOptions)=>__webpack_require__.federation.bundlerRuntime.initContainerEntry({shareScope,initScope,remoteEntryInitOptions,shareScopeKey:containerShareScope,webpackRequire:__webpack_require__}));override(__webpack_require__,\"getContainer\",(module1,getScope)=>{var moduleMap=__webpack_require__.initializeExposesData.moduleMap;__webpack_require__.R=getScope;getScope=Object.prototype.hasOwnProperty.call(moduleMap,module1)?moduleMap[module1]():Promise.resolve().then(()=>{throw new Error('Module \"'+module1+'\" does not exist in container.')});__webpack_require__.R=undefined;return getScope});__webpack_require__.federation.instance=__webpack_require__.federation.runtime.init(__webpack_require__.federation.initOptions);if((__webpack_require___consumesLoadingData2=__webpack_require__.consumesLoadingData)===null||__webpack_require___consumesLoadingData2===void 0?void 0:__webpack_require___consumesLoadingData2.initialConsumes){__webpack_require__.federation.bundlerRuntime.installInitialConsumes({webpackRequire:__webpack_require__,installedModules:consumesLoadinginstalledModules,initialConsumes:__webpack_require__.consumesLoadingData.initialConsumes,moduleToHandlerMapping:__webpack_require__.federation.consumesLoadingModuleToHandlerMapping})}}");
 var __webpack_exports__ = __webpack_require__("./src/index.js");
 module.exports = __webpack_exports__;
 })()

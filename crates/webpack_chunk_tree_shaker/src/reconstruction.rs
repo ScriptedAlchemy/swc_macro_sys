@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use rustc_hash::FxHashMap;
 use webpack_analyzer_v2::*;
 use crate::{Result, TreeShakingError};
@@ -6,7 +5,7 @@ use crate::{Result, TreeShakingError};
 /// Handles reconstruction of webpack chunks after tree shaking
 pub struct ChunkReconstructor {
     /// Whether to preserve original formatting
-    preserve_formatting: bool,
+    _preserve_formatting: bool,
     /// Whether to minify the output
     minify: bool,
 }
@@ -15,7 +14,7 @@ impl ChunkReconstructor {
     /// Create a new chunk reconstructor with default settings
     pub fn new() -> Self {
         Self {
-            preserve_formatting: true,
+            _preserve_formatting: true,
             minify: false,
         }
     }
@@ -23,7 +22,7 @@ impl ChunkReconstructor {
     /// Create a reconstructor with custom settings
     pub fn with_options(preserve_formatting: bool, minify: bool) -> Self {
         Self {
-            preserve_formatting,
+            _preserve_formatting: preserve_formatting,
             minify,
         }
     }

@@ -2,12 +2,12 @@
   "consume_shared_modules": {
     "lodash-es": {
       "used_exports": [
-        "throttle",
-        "capitalize",
-        "debounce",
-        "groupBy",
         "omit",
+        "debounce",
         "pick",
+        "capitalize",
+        "groupBy",
+        "throttle",
         "default"
       ],
       "unused_exports": [
@@ -327,7 +327,8 @@
         "zipObjectDeep",
         "zipWith"
       ],
-      "possibly_unused_exports": []
+      "possibly_unused_exports": [],
+      "entry_module_id": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
     }
   },
   "metadata": {

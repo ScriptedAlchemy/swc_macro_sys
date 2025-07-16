@@ -254,7 +254,7 @@ fn test_enhanced_parser_performance() {
     println!("\n=== ENHANCED PARSER: PERFORMANCE TEST ===");
     
     // Test with a simpler approach to avoid lifetime issues
-    let mut chunk = r#""use strict";
+    let chunk = r#""use strict";
     (self["webpackChunk"] = self["webpackChunk"] || []).push([["test"], {
         "main.js": function(module, __webpack_exports__, __webpack_require__) {
             __webpack_require__.r(__webpack_exports__);

@@ -7,7 +7,6 @@ use rustc_hash::FxHashMap;
 use crate::{
     chunk::{ChunkType, WebpackChunk},
     module::{ModuleId, WebpackModule},
-    dependency_graph::DependencyGraph,
     Result,
 };
 
@@ -123,7 +122,7 @@ impl WebpackAnalyzer {
 
     /// Build dependency graph by analyzing webpack_require calls
     fn build_dependency_graph(&self, chunk: &mut WebpackChunk) -> Result<()> {
-        for (module_id, module) in chunk.modules.iter_mut() {
+        for (_module_id, module) in chunk.modules.iter_mut() {
             let dependencies = self.extract_webpack_require_calls(&module.source)?;
             for dep in dependencies {
                 module.add_dependency(dep);
@@ -156,6 +155,8 @@ impl WebpackAnalyzer {
             return Ok(dependencies);
         }
         
+        eprintln!("[WebpackAnalyzer] Extracting dependencies from source: {}", source);
+        
         // Parse the module source to find webpack_require calls
         let fm = self.source_map.new_source_file(FileName::Custom("module.js".to_string()).into(), source.to_string());
         let mut parser = Parser::new(
@@ -169,6 +170,7 @@ impl WebpackAnalyzer {
                 let mut visitor = RequireVisitor::new();
                 program.visit_with(&mut visitor);
                 dependencies = visitor.dependencies;
+                eprintln!("[WebpackAnalyzer] Found {} dependencies: {:?}", dependencies.len(), dependencies);
             }
             Err(_) => {
                 // If parsing fails, we'll return empty dependencies
@@ -491,6 +493,7 @@ impl Visit for RequireVisitor {
                     // Found webpack_require call
                     if let Some(ExprOrSpread { expr, .. }) = node.args.first() {
                         if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
+                            eprintln!("[RequireVisitor] Found __webpack_require__ call: {}", s.value);
                             self.dependencies.push(s.value.to_string());
                         }
                     }

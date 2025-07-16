@@ -134,10 +134,18 @@ impl WebpackBundleParser {
     fn extract_dependencies_from_source(&self, source: &str) -> Vec<String> {
         let mut dependencies = Vec::new();
         
+        if source.contains("featureC") {
+            eprintln!("[webpack_graph] Extracting dependencies from source (contains featureC): {}", source);
+        }
+        if source.contains("__webpack_require__.d") {
+            eprintln!("[webpack_graph] Extracting dependencies from source (contains __webpack_require__.d): {}", source);
+        }
+        
         // Match numeric module IDs: __webpack_require__(123)
         let numeric_re = regex::Regex::new(r"__webpack_require__\((\d+)\)").unwrap();
         for cap in numeric_re.captures_iter(source) {
             if let Some(m) = cap.get(1) {
+                // eprintln!("[webpack_graph] Found numeric dependency: {}", m.as_str());
                 dependencies.push(m.as_str().to_string());
             }
         }
@@ -147,10 +155,22 @@ impl WebpackBundleParser {
         let string_re = regex::Regex::new(r#"__webpack_require__\s*\(\s*(?:/\*[^*]*\*/\s*)?"([^"]+)""#).unwrap();
         for cap in string_re.captures_iter(source) {
             if let Some(m) = cap.get(1) {
+                if source.contains("featureC") {
+                    eprintln!("[webpack_graph] Found string dependency: {}", m.as_str());
+                }
                 dependencies.push(m.as_str().to_string());
             }
         }
         
+        // Debug: Test the regex pattern specifically with the known string
+        if source.contains("featureC") {
+            eprintln!("[webpack_graph] Testing direct regex on featureC source...");
+            let test_string = r#"__webpack_require__("featureC.js")"#;
+            let test_matches: Vec<_> = string_re.captures_iter(test_string).collect();
+            eprintln!("[webpack_graph] Direct regex test matches: {}", test_matches.len());
+        }
+        
+        // eprintln!("[webpack_graph] Total dependencies found: {}", dependencies.len());
         dependencies
     }
     
@@ -380,16 +400,183 @@ impl WebpackVisitor {
 
     /// Extract source code from a function expression in the module value
     fn extract_function_source(&self, expr: &Expr) -> Option<String> {
-        // For accurate dependency analysis, we need to preserve the actual source code
-        // instead of just extracting dependencies. This is because the tree shaker
-        // needs to analyze the code AFTER macro processing, not before.
-        
-        // Return a placeholder that will be replaced by actual source code
-        // The actual dependency extraction will happen on the processed code
+        // Extract the actual source code from the AST for dependency analysis
         match expr {
-            Expr::Fn(_) => Some("function() { /* function body */ }".to_string()),
-            Expr::Arrow(_) => Some("() => { /* arrow function body */ }".to_string()),
+            Expr::Fn(func) => {
+                // Extract the function body as source code
+                self.extract_function_body_source(&func.function)
+            }
+            Expr::Arrow(arrow) => {
+                // Extract arrow function body as source code  
+                self.extract_arrow_body_source(arrow)
+            }
+            Expr::Paren(paren) => {
+                // Handle parenthesized expressions
+                self.extract_function_source(&paren.expr)
+            }
             _ => Some("/* module content */".to_string()),
+        }
+    }
+    
+    /// Extract function body source code for dependency analysis
+    fn extract_function_body_source(&self, func: &swc_core::ecma::ast::Function) -> Option<String> {
+        if let Some(body) = &func.body {
+            // Convert the function body to source code
+            let mut source_parts = Vec::new();
+            
+            for stmt in &body.stmts {
+                if let Some(stmt_source) = self.extract_stmt_source(stmt) {
+                    source_parts.push(stmt_source);
+                }
+            }
+            
+            Some(source_parts.join("\n"))
+        } else {
+            Some("/* no function body */".to_string())
+        }
+    }
+    
+    /// Extract arrow function body source code
+    fn extract_arrow_body_source(&self, arrow: &swc_core::ecma::ast::ArrowExpr) -> Option<String> {
+        match arrow.body.as_ref() {
+            swc_core::ecma::ast::BlockStmtOrExpr::BlockStmt(block) => {
+                let mut source_parts = Vec::new();
+                for stmt in &block.stmts {
+                    if let Some(stmt_source) = self.extract_stmt_source(stmt) {
+                        source_parts.push(stmt_source);
+                    }
+                }
+                Some(source_parts.join("\n"))
+            }
+            swc_core::ecma::ast::BlockStmtOrExpr::Expr(expr) => {
+                self.extract_expr_source(expr)
+            }
+        }
+    }
+    
+    /// Extract source code from a statement
+    fn extract_stmt_source(&self, stmt: &swc_core::ecma::ast::Stmt) -> Option<String> {
+        match stmt {
+            swc_core::ecma::ast::Stmt::Expr(expr_stmt) => {
+                self.extract_expr_source(&expr_stmt.expr)
+            }
+            swc_core::ecma::ast::Stmt::Decl(decl) => {
+                match decl {
+                    swc_core::ecma::ast::Decl::Var(var_decl) => {
+                        let mut parts = Vec::new();
+                        for declarator in &var_decl.decls {
+                            if let Some(init) = &declarator.init {
+                                if let Some(init_source) = self.extract_expr_source(init) {
+                                    parts.push(init_source);
+                                }
+                            }
+                        }
+                        Some(parts.join(", "))
+                    }
+                    _ => Some("/* other declaration */".to_string()),
+                }
+            }
+            _ => Some("/* statement */".to_string()),
+        }
+    }
+    
+    /// Extract source code from an expression
+    fn extract_expr_source(&self, expr: &swc_core::ecma::ast::Expr) -> Option<String> {
+        match expr {
+            swc_core::ecma::ast::Expr::Call(call) => {
+                // Check if this is a webpack_require call
+                if let swc_core::ecma::ast::Callee::Expr(callee) = &call.callee {
+                    if let swc_core::ecma::ast::Expr::Ident(ident) = callee.as_ref() {
+                        if ident.sym == "__webpack_require__" {
+                            // Extract the module ID from the call
+                            if let Some(first_arg) = call.args.first() {
+                                if let swc_core::ecma::ast::Expr::Lit(swc_core::ecma::ast::Lit::Num(num)) = first_arg.expr.as_ref() {
+                                    return Some(format!("__webpack_require__({})", num.value));
+                                }
+                                if let swc_core::ecma::ast::Expr::Lit(swc_core::ecma::ast::Lit::Str(s)) = first_arg.expr.as_ref() {
+                                    return Some(format!("__webpack_require__(\"{}\")", s.value));
+                                }
+                            }
+                        }
+                    }
+                    // Check if this is a __webpack_require__.d() call
+                    if let swc_core::ecma::ast::Expr::Member(member) = callee.as_ref() {
+                        if let swc_core::ecma::ast::Expr::Ident(ident) = member.obj.as_ref() {
+                            if ident.sym == "__webpack_require__" {
+                                if let swc_core::ecma::ast::MemberProp::Ident(prop) = &member.prop {
+                                    if prop.sym == "d" {
+                                        // This is a __webpack_require__.d() call
+                                        // Extract dependencies from the second argument (object literal)
+                                        if call.args.len() >= 2 {
+                                            let mut deps = Vec::new();
+                                            if let swc_core::ecma::ast::Expr::Object(obj) = call.args[1].expr.as_ref() {
+                                                for prop in &obj.props {
+                                                    if let swc_core::ecma::ast::PropOrSpread::Prop(prop) = prop {
+                                                        if let swc_core::ecma::ast::Prop::KeyValue(kv) = prop.as_ref() {
+                                                            if let Some(dep) = self.extract_expr_source(&kv.value) {
+                                                                if dep.contains("__webpack_require__") {
+                                                                    deps.push(dep);
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            return Some(deps.join("; "));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Some("/* call expression */".to_string())
+            }
+            swc_core::ecma::ast::Expr::Member(member) => {
+                // Handle member expressions which might contain webpack_require calls
+                if let Some(obj_source) = self.extract_expr_source(&member.obj) {
+                    if obj_source.contains("__webpack_require__") {
+                        return Some(obj_source);
+                    }
+                }
+                Some("/* member expression */".to_string())
+            }
+            swc_core::ecma::ast::Expr::Assign(assign) => {
+                // Handle assignment expressions
+                if let Some(right_source) = self.extract_expr_source(&assign.right) {
+                    if right_source.contains("__webpack_require__") {
+                        return Some(right_source);
+                    }
+                }
+                Some("/* assignment */".to_string())
+            }
+            swc_core::ecma::ast::Expr::Arrow(arrow) => {
+                // Handle arrow functions that might contain webpack_require calls
+                match arrow.body.as_ref() {
+                    swc_core::ecma::ast::BlockStmtOrExpr::BlockStmt(block) => {
+                        let mut deps = Vec::new();
+                        for stmt in &block.stmts {
+                            if let Some(stmt_source) = self.extract_stmt_source(stmt) {
+                                if stmt_source.contains("__webpack_require__") {
+                                    deps.push(stmt_source);
+                                }
+                            }
+                        }
+                        if !deps.is_empty() {
+                            return Some(deps.join("; "));
+                        }
+                    }
+                    swc_core::ecma::ast::BlockStmtOrExpr::Expr(expr) => {
+                        if let Some(expr_source) = self.extract_expr_source(expr) {
+                            if expr_source.contains("__webpack_require__") {
+                                return Some(expr_source);
+                            }
+                        }
+                    }
+                }
+                Some("/* arrow function */".to_string())
+            }
+            _ => Some("/* expression */".to_string()),
         }
     }
 
@@ -622,6 +809,8 @@ impl WebpackVisitor {
         }
     }
 }
+
+// Removed unused RequireExtractor and ExtractionContext - dead code
 
 /// Enhanced require extractor that comprehensively finds all __webpack_require__ calls
 struct RequireExtractor {
@@ -865,10 +1054,12 @@ impl RequireExtractor {
         // The second argument contains the export definitions
         if call.args.len() >= 2 {
             if let Expr::Object(obj) = call.args[1].expr.as_ref() {
+                eprintln!("[RequireExtractor] Processing __webpack_require__.d() with {} properties", obj.props.len());
                 for prop in &obj.props {
                     if let PropOrSpread::Prop(prop) = prop {
                         if let Prop::KeyValue(kv) = prop.as_ref() {
                             // The value often contains arrow functions with requires
+                            eprintln!("[RequireExtractor] Processing property value: {:?}", kv.value);
                             self.extract_from_expr(&kv.value);
                         }
                     }
@@ -941,6 +1132,7 @@ impl RequireExtractor {
     /// Add a dependency if not already present
     fn add_dependency(&mut self, module_id: String) {
         if !self.dependencies.contains(&module_id) {
+            eprintln!("[RequireExtractor] Adding dependency: {}", module_id);
             self.dependencies.push(module_id);
         }
     }

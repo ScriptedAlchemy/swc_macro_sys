@@ -1,5 +1,4 @@
-use std::collections::{HashSet, HashMap};
-use rustc_hash::FxHashMap;
+use std::collections::HashSet;
 use webpack_analyzer_v2::*;
 use crate::{Result, TreeShakingError};
 

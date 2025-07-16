@@ -1,6 +1,5 @@
 use swc_macro_wasm::optimize;
 use serde_json::json;
-use std::collections::HashSet;
 
 #[test]
 fn test_rspack_lodash_tree_shake_based_on_usage() {
@@ -372,7 +371,7 @@ fn test_rspack_lodash_macro_condition_validation() {
     assert!(conditions_processed > 0, "Should process some macro conditions");
     
     // Test that enabled exports still have their conditions (or are processed correctly)
-    let enabled_exports = ["map", "filter"];
+    let _enabled_exports = ["map", "filter"];
     let disabled_exports = ["reduce", "forEach", "find", "debounce", "throttle", "merge"];
     
     println!("\\nCondition processing validation:");

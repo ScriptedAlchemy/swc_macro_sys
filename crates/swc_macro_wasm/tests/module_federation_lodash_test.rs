@@ -79,6 +79,9 @@ fn test_module_federation_lodash_optimization() {
     let config = serde_json::json!({
         "treeShake": {
             "lodash-es": tree_shake_config
+        },
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
         }
     });
 
@@ -172,6 +175,9 @@ fn test_module_federation_vs_standard_lodash() {
                 "filter": true,
                 "default": true
             }
+        },
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
         }
     });
 

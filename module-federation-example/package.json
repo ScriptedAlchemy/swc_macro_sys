@@ -2,6 +2,7 @@
   "name": "module-federation-example",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "workspaces": [
     "host",
     "remote"
@@ -11,13 +12,27 @@
     "build": "pnpm run --recursive build",
     "build:optimized": "pnpm run build && node --experimental-wasm-modules scripts/optimize-shared-chunks.js",
     "optimize": "node --experimental-wasm-modules scripts/optimize-shared-chunks.js",
-    "test:pipeline": "node --experimental-wasm-modules scripts/build-optimize-test.js",
-    "test:optimized": "node scripts/test-optimized-apps.js",
-    "test:full": "pnpm run build:optimized && pnpm run test:optimized"
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "test:unit": "vitest run test/unit",
+    "test:integration": "vitest run test/integration",
+    "test:e2e": "vitest run test/e2e",
+    "test:watch": "vitest",
+    "test:legacy": "node --experimental-wasm-modules scripts/build-optimize-test.js",
+    "test:all": "pnpm run build:optimized && pnpm run test",
+    "clean": "rimraf dist coverage host/dist remote/dist node_modules/.cache",
+    "lint": "eslint . --ext .js,.jsx"
   },
   "devDependencies": {
     "@rspack/cli": "^1.0.0",
     "@rspack/core": "^1.0.0",
-    "swc_macro_wasm": "workspace:*"
+    "@vitest/coverage-v8": "^1.2.0",
+    "@vitest/ui": "^1.2.0",
+    "jsdom": "^24.0.0",
+    "puppeteer": "^22.0.0",
+    "swc_macro_wasm": "workspace:*",
+    "vite": "^5.0.0",
+    "vitest": "^1.2.0"
   }
 }
