@@ -223,34 +223,34 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                 }
                 
                 if entry_points.is_empty() {
-                    eprintln!("[webpack_tree_shaking] ERROR: No entry modules specified in config");
-                    eprintln!("[webpack_tree_shaking] Tree shaking requires explicit entry modules to know what to preserve");
-                    eprintln!("[webpack_tree_shaking] Please provide entryModules in your config like:");
+                    eprintln!("[webpack_tree_shaking] WARNING: No entry modules specified in config - skipping tree shaking");
+                    eprintln!("[webpack_tree_shaking] To enable tree shaking, provide entryModules in your config like:");
                     eprintln!("[webpack_tree_shaking]   \"entryModules\": {{ \"main\": \"main.js\" }}");
-                    panic!("Tree shaking failed: entryModules configuration is required but not provided");
-                }
-                
-                // For split chunks with macro processing:
-                // - First iteration: Process macros to reveal dependencies
-                // - Second iteration: Perform tree shaking based on revealed dependencies
-                if iteration == 1 {
-                    eprintln!("[webpack_tree_shaking] First iteration: processing macros to reveal dependencies");
-                    // We return an empty list but will force a second iteration by checking if macros changed anything
+                    // Skip tree shaking but continue with other optimizations
                     Vec::new()
                 } else {
-                    // Proceed with tree shaking on subsequent iterations
-                    eprintln!("[webpack_tree_shaking] Subsequent iteration: proceeding with tree shaking");
-                    
-                    // Perform tree shaking from the specified entry points
-                    match shaker.shake_tree(&chunk, &entry_points) {
-                        Ok(result) => {
-                            eprintln!("[webpack_tree_shaking] Split chunk tree shaking: {} modules, {} unreachable", 
-                                     chunk.module_count(), result.removed_modules.len());
-                            result.removed_modules
-                        }
-                        Err(e) => {
-                            eprintln!("[webpack_tree_shaking] Tree shaking failed: {:?}", e);
-                            Vec::new()
+                    // For split chunks with macro processing:
+                    // - First iteration: Process macros to reveal dependencies
+                    // - Second iteration: Perform tree shaking based on revealed dependencies
+                    if iteration == 1 {
+                        eprintln!("[webpack_tree_shaking] First iteration: processing macros to reveal dependencies");
+                        // We return an empty list but will force a second iteration by checking if macros changed anything
+                        Vec::new()
+                    } else {
+                        // Proceed with tree shaking on subsequent iterations
+                        eprintln!("[webpack_tree_shaking] Subsequent iteration: proceeding with tree shaking");
+                        
+                        // Perform tree shaking from the specified entry points
+                        match shaker.shake_tree(&chunk, &entry_points) {
+                            Ok(result) => {
+                                eprintln!("[webpack_tree_shaking] Split chunk tree shaking: {} modules, {} unreachable", 
+                                         chunk.module_count(), result.removed_modules.len());
+                                result.removed_modules
+                            }
+                            Err(e) => {
+                                eprintln!("[webpack_tree_shaking] Tree shaking failed: {:?}", e);
+                                Vec::new()
+                            }
                         }
                     }
                 }

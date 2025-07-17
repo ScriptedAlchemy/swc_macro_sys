@@ -68,6 +68,9 @@ fn test_real_module_federation_chunk_optimization() {
     let config = serde_json::json!({
         "treeShake": {
             "lodash-es": tree_shake_config
+        },
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
         }
     });
     
@@ -147,6 +150,9 @@ fn test_real_standard_webpack_chunk_optimization() {
     let config = serde_json::json!({
         "treeShake": {
             "lodash-es": tree_shake_config
+        },
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
         }
     });
     
@@ -191,6 +197,9 @@ fn test_chunk_format_comparison_with_real_data() {
             "lodash-es": {
                 "default": true
             }
+        },
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
         }
     });
     let config_str = serde_json::to_string(&minimal_config).unwrap();
@@ -310,17 +319,30 @@ fn test_debug_tree_shaker_on_real_chunk() {
     
     // Test with progressively aggressive configurations
     let configs = vec![
-        ("No tree shaking", serde_json::json!({})),
+        ("No tree shaking", serde_json::json!({
+            "entryModules": {
+                "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
+            }
+        })),
         ("Minimal (default only)", serde_json::json!({
-            "treeShake": { "lodash-es": { "default": true } }
+            "treeShake": { "lodash-es": { "default": true } },
+            "entryModules": {
+                "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
+            }
         })),
         ("Conservative (4 exports)", serde_json::json!({
             "treeShake": { "lodash-es": {
                 "map": true, "filter": true, "VERSION": true, "default": true
-            }}
+            }},
+            "entryModules": {
+                "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
+            }
         })),
         ("Aggressive (1 export)", serde_json::json!({
-            "treeShake": { "lodash-es": { "map": true } }
+            "treeShake": { "lodash-es": { "map": true } },
+            "entryModules": {
+                "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
+            }
         }))
     ];
     

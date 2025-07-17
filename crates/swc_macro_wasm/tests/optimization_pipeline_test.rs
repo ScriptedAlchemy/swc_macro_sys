@@ -64,6 +64,9 @@ fn test_optimization_pipeline_on_real_chunk() {
     let config1 = serde_json::json!({
         "treeShake": {
             "lodash-es": tree_shake_config
+        },
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
         }
     });
     
@@ -109,6 +112,9 @@ fn test_optimization_pipeline_on_real_chunk() {
             "lodash-es": {
                 "default": true
             }
+        },
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
         }
     });
     
@@ -119,7 +125,11 @@ fn test_optimization_pipeline_on_real_chunk() {
         minimal_reduction, minimal_result.len() as f64 / 1024.0);
     
     // Test with no tree shaking (pure DCE)
-    let no_treeshake_config = serde_json::json!({});
+    let no_treeshake_config = serde_json::json!({
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
+        }
+    });
     let no_treeshake_result = optimize(original_code.clone(), &serde_json::to_string(&no_treeshake_config).unwrap());
     let no_treeshake_reduction = ((original_size - no_treeshake_result.len()) as f64 / original_size as f64) * 100.0;
     
@@ -142,6 +152,9 @@ fn test_optimization_pipeline_on_real_chunk() {
             "enableDebugging": false,
             "enableLogging": false,
             "enableWebpackHMR": false
+        },
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
         },
         "build": {
             "target": "production",
@@ -267,6 +280,9 @@ fn test_javascript_integration_simulation() {
             "enableBabelTransforms": false,
             "enableMinification": false
         },
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
+        },
         "build": {
             "target": "production",
             "mode": "aggressive",
@@ -364,6 +380,9 @@ fn test_compare_with_scripts_behavior() {
                 "throttle": true,
                 "debounce": true
             }
+        },
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
         }
     });
     

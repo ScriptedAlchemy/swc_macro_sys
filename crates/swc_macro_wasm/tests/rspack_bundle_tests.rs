@@ -12,7 +12,11 @@ fn test_rspack_lodash_chunk_tree_shaking() {
     // This is a split chunk with no entry points
     // Split chunks are loaded on-demand and modules are preserved for runtime loading
     // Tree shaking is not applied to split chunks
-    let config = json!({});
+    let config = json!({
+        "entryModules": {
+            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
+        }
+    });
     
     let result = optimize(lodash_chunk.to_string(), &config.to_string());
     
@@ -66,12 +70,7 @@ fn test_rspack_main_bundle_optimization() {
     }
     
     let config = json!({
-        "treeShake": tree_shake_config,
-        "entryModules": {
-            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js",
-            "react": "../../node_modules/.pnpm/react@19.1.0/node_modules/react/index.js",
-            "react-dom": "../../node_modules/.pnpm/react-dom@19.1.0_react@19.1.0/node_modules/react-dom/index.js"
-        }
+        "treeShake": tree_shake_config
     });
     
     let result = optimize(main_bundle.to_string(), &config.to_string());
@@ -202,6 +201,9 @@ fn test_rspack_split_chunk_with_no_entry_points() {
     let config = json!({
         "features": {
             "enableReact": false
+        },
+        "entryModules": {
+            "react": "../../node_modules/.pnpm/react@19.1.0/node_modules/react/index.js"
         }
     });
     

@@ -84,6 +84,9 @@ exports.modules = {
         "features": {
             "enableHelper1": true,
             "enableHelper2": false
+        },
+        "entryModules": {
+            "utils": "utils/index.js"
         }
     });
     
