@@ -5,27 +5,24 @@ import { performance } from 'perf_hooks';
 import { optimizeChunk, analyzeChunk, compareChunks } from '../utils/optimization.js';
 
 describe('Performance Benchmarks', () => {
+  // Pre-populate chunks to test
+  const hostDist = path.resolve(__dirname, '../../host/dist');
+  const remoteDist = path.resolve(__dirname, '../../remote/dist');
   const chunksToTest = [];
   
-  beforeAll(() => {
-    // Find all lodash chunks in dist directories
-    const hostDist = path.resolve(__dirname, '../../host/dist');
-    const remoteDist = path.resolve(__dirname, '../../remote/dist');
-    
-    [hostDist, remoteDist].forEach(distPath => {
-      if (fs.existsSync(distPath)) {
-        const lodashChunk = fs.readdirSync(distPath)
-          .find(file => file.includes('lodash-es') && file.endsWith('.original'));
-        
-        if (lodashChunk) {
-          chunksToTest.push({
-            name: path.basename(distPath) === 'host' ? 'Host' : 'Remote',
-            path: path.join(distPath, lodashChunk),
-            distPath
-          });
-        }
+  [hostDist, remoteDist].forEach(distPath => {
+    if (fs.existsSync(distPath)) {
+      const lodashChunk = fs.readdirSync(distPath)
+        .find(file => file.includes('lodash-es') && file.endsWith('.original'));
+      
+      if (lodashChunk) {
+        chunksToTest.push({
+          name: path.basename(distPath) === 'host' ? 'Host' : 'Remote',
+          path: path.join(distPath, lodashChunk),
+          distPath
+        });
       }
-    });
+    }
   });
   
   describe('Optimization Speed', () => {
@@ -159,7 +156,7 @@ describe('Performance Benchmarks', () => {
       // Basic syntax checks
       expect(optimized).toContain('exports.modules');
       expect(optimized).toMatch(/function\s*\(/);
-      expect(optimized).toMatch(/}\s*$/);
+      expect(optimized).toMatch(/};\s*$/);
       
       // Check balanced braces
       const openBraces = (optimized.match(/{/g) || []).length;

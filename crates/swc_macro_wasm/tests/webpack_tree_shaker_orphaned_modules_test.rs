@@ -54,6 +54,9 @@ fn test_orphaned_modules_after_macro_processing() {
             "featureA": false,
             "featureB": false,
             "featureC": true
+        },
+        "entryModules": {
+            "main": "main.js"
         }
     });
     
@@ -184,6 +187,9 @@ fn test_deep_orphaned_module_chains() {
         "api": {
             "enableUserService": false,
             "enableProductService": false
+        },
+        "entryModules": {
+            "entry": "entry.js"
         }
     });
     
@@ -340,6 +346,9 @@ fn test_lodash_specific_orphaned_modules() {
                 "sortBy": true,
                 "groupBy": false
             }
+        },
+        "entryModules": {
+            "lodash": "lodash-es/lodash.js"
         }
     });
     

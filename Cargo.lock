@@ -1498,7 +1498,8 @@ dependencies = [
  "swc_macro_parser",
  "tracing",
  "wasm-bindgen",
- "webpack_graph",
+ "webpack_analyzer_v2",
+ "webpack_chunk_tree_shaker",
 ]
 
 [[package]]

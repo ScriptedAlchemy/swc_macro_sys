@@ -3,11 +3,11 @@
     "lodash-es": {
       "used_exports": [
         "omit",
-        "debounce",
-        "pick",
         "capitalize",
+        "pick",
         "groupBy",
         "throttle",
+        "debounce",
         "default"
       ],
       "unused_exports": [

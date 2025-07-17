@@ -12,8 +12,10 @@ use swc_ecma_transforms_base::fixer::fixer;
 use swc_ecma_transforms_base::resolver;
 use swc_macro_condition_transform::condition_transform;
 use swc_macro_parser::MacroParser;
-use webpack_graph::{WebpackBundleParser, TreeShaker};
+use webpack_analyzer_v2::{WebpackAnalyzer, ChunkType};
+use webpack_chunk_tree_shaker::WebpackTreeShaker;
 use rustc_hash::FxHashSet;
+use regex::Regex;
 
 pub fn optimize(source: String, config: serde_json::Value) -> String {
     let cm: Lrc<SourceMap> = Default::default();
@@ -117,17 +119,9 @@ fn has_macro_processing_config(config: &serde_json::Value) -> bool {
 /// Performs iterative webpack module tree shaking after DCE
 fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comments: &SingleThreadedComments, config: &serde_json::Value) {
     eprintln!("[webpack_tree_shaking] Starting webpack tree shaking");
-    let parser = match WebpackBundleParser::new() {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("[webpack_tree_shaking] Failed to create parser: {:?}", e);
-            return; // Skip tree shaking if parser creation fails
-        }
-    };
+    let analyzer = WebpackAnalyzer::new();
+    let shaker = WebpackTreeShaker::new();
     
-    // For split chunks with no entry points, we need special handling
-    // If this is a split chunk, we'll remove ALL modules since there are no entry points
-
     let mut total_removed = 0;
     let max_iterations = 5; // Prevent infinite loops
     
@@ -154,124 +148,111 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
             }
         };
 
-        // Step 2: Parse with webpack_graph to analyze module dependencies
-        let mut graph = match parser.parse_bundle(&current_code) {
-            Ok(g) => g,
+        // Step 2: Analyze the chunk using webpack_analyzer_v2
+        let mut chunk = match analyzer.analyze_chunk(&current_code) {
+            Ok(c) => c,
             Err(e) => {
                 if iteration == 1 {
-                    eprintln!("[webpack_tree_shaking] Failed to parse bundle: {:?}", e);
-                    return; // Skip tree shaking entirely if first parse fails - maybe it's not a webpack bundle
+                    eprintln!("[webpack_tree_shaking] Failed to analyze chunk: {:?}", e);
+                    return; // Skip tree shaking entirely if first analysis fails - maybe it's not a webpack bundle
                 } else {
-                    eprintln!("[webpack_tree_shaking] Failed to parse bundle on iteration {}: {:?}", iteration, e);
-                    break; // Stop iterations if parsing fails on subsequent attempts
+                    eprintln!("[webpack_tree_shaking] Failed to analyze chunk on iteration {}: {:?}", iteration, e);
+                    break; // Stop iterations if analysis fails on subsequent attempts
                 }
             }
         };
+
+        // Step 2.5: Update the chunk's source to reflect the current code
+        chunk.source = current_code.clone();
+        
+        // Step 2.6: Rebuild dependency graph after macro processing changes
+        if iteration > 1 {
+            if let Err(e) = analyzer.rebuild_dependency_graph(&mut chunk) {
+                eprintln!("[webpack_tree_shaking] Failed to rebuild dependency graph on iteration {}: {:?}", iteration, e);
+            }
+        }
         
         // Debug: Log dependency graph details
         if iteration == 1 {
-            eprintln!("[webpack_tree_shaking] Dependency graph for iteration {}:", iteration);
-            for (module_id, module) in &graph.modules {
+            eprintln!("[webpack_tree_shaking] Chunk analysis for iteration {}:", iteration);
+            eprintln!("  Chunk type: {:?}", chunk.chunk_type);
+            eprintln!("  Module count: {}", chunk.module_count());
+            for (module_id, module) in &chunk.modules {
                 eprintln!("  Module '{}' depends on: {:?}", module_id, module.dependencies);
             }
         }
 
         // Step 3: Check if this is a split chunk before tree shaking
-        let is_split_chunk = graph.entry_points.is_empty() && !graph.modules.is_empty();
+        // For webpack chunks, we assume it's a split chunk if it has modules but no clear entry points
+        // Check if this is a split chunk (no direct entry point calls) vs a bundle with entry points
+        let has_entry_point_calls = current_code.contains("__webpack_require__(") && 
+            !current_code.contains("__webpack_require__.d(") && 
+            !current_code.contains("__webpack_require__.r(");
+            
+        let is_split_chunk = match chunk.chunk_type {
+            ChunkType::CommonJS => true,  // CommonJS exports.modules are always split chunks
+            ChunkType::JSONP => true,     // JSONP chunks are always split chunks
+            ChunkType::WebpackModules => {
+                // WebpackModules support removed - treat as non-split chunk
+                false
+            }
+        };
         
         let unreachable_modules = if is_split_chunk {
-            eprintln!("[webpack_tree_shaking] Split chunk detected with {} modules and no entry points", graph.modules.len());
+            eprintln!("[webpack_tree_shaking] Split chunk detected with {} modules and no entry points", chunk.module_count());
             
             // Check if there are macro processing directives that might create orphaned modules
             let has_macro_config = has_macro_processing_config(config);
             
             if has_macro_config {
-                eprintln!("[webpack_tree_shaking] Split chunk with macro processing config - attempting orphaned module detection");
+                eprintln!("[webpack_tree_shaking] Split chunk with macro processing config - attempting tree shaking");
                 
-                // For split chunks with macro processing, we can perform orphaned module detection
-                // by finding a reasonable entry point (like a main export module) and shaking from there
-                if !graph.modules.is_empty() {
-                    // Check if there are explicit entry modules defined in the config
-                    let mut entry_points_from_config = Vec::new();
-                    if let Some(entry_modules) = config.get("entryModules") {
-                        if let Some(entry_obj) = entry_modules.as_object() {
-                            for (_, entry_module) in entry_obj {
-                                if let Some(entry_str) = entry_module.as_str() {
-                                    if graph.modules.contains_key(entry_str) {
-                                        entry_points_from_config.push(entry_str.to_string());
-                                        eprintln!("[webpack_tree_shaking] Using explicit entry point from config: '{}'", entry_str);
-                                    }
+                // Get explicit entry modules from config (required for tree shaking)
+                let mut entry_points = Vec::new();
+                if let Some(entry_modules) = config.get("entryModules") {
+                    if let Some(entry_obj) = entry_modules.as_object() {
+                        for (_, entry_module) in entry_obj {
+                            if let Some(entry_str) = entry_module.as_str() {
+                                if chunk.modules.contains_key(entry_str) {
+                                    entry_points.push(entry_str);
+                                    eprintln!("[webpack_tree_shaking] Using entry point from config: '{}'", entry_str);
                                 }
                             }
                         }
                     }
-                    
-                    // If no explicit entries from config, find potential entry points by looking for modules that might be main exports
-                    let mut potential_entries: Vec<String> = if entry_points_from_config.is_empty() {
-                        graph.modules.keys()
-                            .filter(|module_id| {
-                                // Look for modules that might be main exports
-                                module_id.contains("main") || 
-                                module_id.contains("index") || 
-                                module_id.contains("entry") ||
-                                (module_id.ends_with(".js") && !module_id.contains("/")) ||
-                                // Special case for lodash: prioritize the main lodash.js file
-                                module_id.ends_with("lodash-es/lodash.js") ||
-                                module_id.ends_with("lodash/lodash.js")
-                            })
-                            .cloned()
-                            .collect()
-                    } else {
-                        entry_points_from_config
-                    };
-                    
-                    // Sort to prioritize main.js, then index.js, then entry.js (only if not from config)
-                    if config.get("entryModules").is_none() {
-                        potential_entries.sort_by(|a, b| {
-                            // Special scoring for lodash main files
-                            let a_score = if a.ends_with("lodash-es/lodash.js") || a.ends_with("lodash/lodash.js") { -1 } 
-                                         else if a.contains("main") { 0 } 
-                                         else if a.contains("index") { 1 } 
-                                         else if a.contains("entry") { 2 } 
-                                         else { 3 };
-                            let b_score = if b.ends_with("lodash-es/lodash.js") || b.ends_with("lodash/lodash.js") { -1 } 
-                                         else if b.contains("main") { 0 } 
-                                         else if b.contains("index") { 1 } 
-                                         else if b.contains("entry") { 2 } 
-                                         else { 3 };
-                            a_score.cmp(&b_score)
-                        });
-                    }
-                    
-                    if !potential_entries.is_empty() {
-                        // For split chunks, we may have multiple potential entry points
-                        // If we have multiple entries that look like entry points, add them all
-                        if potential_entries.len() > 1 && potential_entries.iter().any(|e| e.contains("entry")) {
-                            // Multiple entry points detected - add all of them
-                            eprintln!("[webpack_tree_shaking] Multiple entry points detected: {:?}", potential_entries);
-                            for entry in &potential_entries {
-                                if entry.contains("entry") {
-                                    graph.entry_points.push(entry.clone());
-                                }
-                            }
-                        } else {
-                            // Use the first potential entry as our starting point
-                            let entry_point = potential_entries[0].clone();
-                            eprintln!("[webpack_tree_shaking] Using '{}' as entry point for orphaned module detection", entry_point);
-                            graph.entry_points.push(entry_point);
-                        }
-                        
-                        // Now perform tree shaking from the pseudo-entry point(s)
-                        let unreachable = TreeShaker::new(&mut graph).shake();
-                        eprintln!("[webpack_tree_shaking] Split chunk orphaned module detection: {} modules, {} unreachable", 
-                                 graph.modules.len(), unreachable.len());
-                        unreachable
-                    } else {
-                        eprintln!("[webpack_tree_shaking] No suitable entry point found for orphaned module detection");
-                        Vec::new()
-                    }
-                } else {
+                }
+                
+                if entry_points.is_empty() {
+                    eprintln!("[webpack_tree_shaking] ERROR: No entry modules specified in config");
+                    eprintln!("[webpack_tree_shaking] Tree shaking requires explicit entry modules to know what to preserve");
+                    eprintln!("[webpack_tree_shaking] Please provide entryModules in your config like:");
+                    eprintln!("[webpack_tree_shaking]   \"entryModules\": {{ \"main\": \"main.js\" }}");
+                    panic!("Tree shaking failed: entryModules configuration is required but not provided");
+                }
+                
+                // For split chunks with macro processing:
+                // - First iteration: Process macros to reveal dependencies
+                // - Second iteration: Perform tree shaking based on revealed dependencies
+                if iteration == 1 {
+                    eprintln!("[webpack_tree_shaking] First iteration: processing macros to reveal dependencies");
+                    // We return an empty list but will force a second iteration by checking if macros changed anything
                     Vec::new()
+                } else {
+                    // Proceed with tree shaking on subsequent iterations
+                    eprintln!("[webpack_tree_shaking] Subsequent iteration: proceeding with tree shaking");
+                    
+                    // Perform tree shaking from the specified entry points
+                    match shaker.shake_tree(&chunk, &entry_points) {
+                        Ok(result) => {
+                            eprintln!("[webpack_tree_shaking] Split chunk tree shaking: {} modules, {} unreachable", 
+                                     chunk.module_count(), result.removed_modules.len());
+                            result.removed_modules
+                        }
+                        Err(e) => {
+                            eprintln!("[webpack_tree_shaking] Tree shaking failed: {:?}", e);
+                            Vec::new()
+                        }
+                    }
                 }
             } else {
                 eprintln!("[webpack_tree_shaking] Split chunk with no macro processing config - preserving all modules");
@@ -279,25 +260,53 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
             }
         } else {
             // Standard bundle with entry points - perform tree shaking
-            let unreachable = TreeShaker::new(&mut graph).shake();
-            eprintln!("[webpack_tree_shaking] Standard chunk with {} entry points, {} modules, {} unreachable", 
-                     graph.entry_points.len(), graph.modules.len(), unreachable.len());
-            unreachable
+            // Extract entry points from webpack require calls in the source
+            let entry_points = extract_entry_points_from_source(&current_code);
+            let entry_module_refs: Vec<&str> = if entry_points.is_empty() {
+                // Fallback: assume all modules are entry points if we can't determine entry points
+                chunk.modules.keys().map(|s| s.as_str()).collect()
+            } else {
+                entry_points.iter().map(|s| s.as_str()).collect()
+            };
+            
+            eprintln!("[webpack_tree_shaking] Using entry points: {:?}", entry_module_refs);
+            match shaker.shake_tree(&chunk, &entry_module_refs) {
+                Ok(result) => {
+                    eprintln!("[webpack_tree_shaking] Standard chunk with {} modules, {} unreachable", 
+                             chunk.module_count(), result.removed_modules.len());
+                    result.removed_modules
+                }
+                Err(e) => {
+                    eprintln!("[webpack_tree_shaking] Tree shaking failed: {:?}", e);
+                    Vec::new()
+                }
+            }
         };
         
         if unreachable_modules.is_empty() {
-            // No more modules to remove - convergence reached
-            if iteration == 1 {
-                if is_split_chunk {
-                    println!("Tree shaking: Split chunk detected - preserving all modules (no tree shaking)");
-                } else {
-                    println!("Tree shaking: No unreachable modules found on first pass");
-                }
+            // Check if this is the first iteration of a macro-enabled split chunk
+            // In this case, we need to force a second iteration to perform tree shaking
+            let should_continue_for_macros = iteration == 1 && 
+                is_split_chunk && 
+                has_macro_processing_config(config);
+                
+            if should_continue_for_macros {
+                eprintln!("[webpack_tree_shaking] First iteration complete, forcing second iteration for tree shaking");
+                // Continue to next iteration
             } else {
-                println!("Tree shaking: Converged after {} iterations, removed {} total modules", 
-                         iteration - 1, total_removed);
+                // No more modules to remove - convergence reached
+                if iteration == 1 {
+                    if is_split_chunk {
+                        println!("Tree shaking: Split chunk detected - preserving all modules (no tree shaking)");
+                    } else {
+                        println!("Tree shaking: No unreachable modules found on first pass");
+                    }
+                } else {
+                    println!("Tree shaking: Converged after {} iterations, removed {} total modules", 
+                             iteration - 1, total_removed);
+                }
+                break;
             }
-            break;
         }
 
         // Only remove modules if we have any to remove
@@ -589,4 +598,37 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
     } else {
         eprintln!("[simple_orphan_removal] No modules were actually removed");
     }
+}
+
+/// Extract entry points from webpack require calls outside of module definitions
+fn extract_entry_points_from_source(source: &str) -> Vec<String> {
+    let mut entry_points = Vec::new();
+    
+    // Look for __webpack_require__ calls that are not inside module definitions
+    // These are typically entry point calls like __webpack_require__(100);
+    let require_regex = Regex::new(r"__webpack_require__\(([^)]+)\);").unwrap();
+    
+    for cap in require_regex.captures_iter(source) {
+        if let Some(module_id) = cap.get(1) {
+            let id_str = module_id.as_str().trim();
+            // Remove quotes if it's a string literal
+            let clean_id = if (id_str.starts_with('"') && id_str.ends_with('"')) || 
+                             (id_str.starts_with('\'') && id_str.ends_with('\'')) {
+                &id_str[1..id_str.len()-1]
+            } else {
+                id_str
+            };
+            
+            // Skip __webpack_require__.d and __webpack_require__.r calls
+            if let Some(full_match) = cap.get(0) {
+                if !source[..full_match.start()].ends_with("__webpack_require__.d(") &&
+                   !source[..full_match.start()].ends_with("__webpack_require__.r(") {
+                    eprintln!("[extract_entry_points] Found entry point: {}", clean_id);
+                    entry_points.push(clean_id.to_string());
+                }
+            }
+        }
+    }
+    
+    entry_points
 }

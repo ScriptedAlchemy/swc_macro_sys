@@ -4,12 +4,12 @@
       "uniq": true,
       "sortBy": true,
       "default": true,
-      "throttle": true,
-      "capitalize": true,
       "omit": true,
-      "debounce": true,
+      "capitalize": true,
       "pick": true,
       "groupBy": true,
+      "throttle": true,
+      "debounce": true,
       "add": false,
       "after": false,
       "ary": false,
@@ -325,8 +325,11 @@
       "zipWith": false
     }
   },
+  "entryModules": {
+    "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
+  },
   "metadata": {
-    "timestamp": "2025-07-15T04:31:18.827Z",
+    "timestamp": "2025-07-17T00:00:45.108Z",
     "apps": [
       "host",
       "remote"

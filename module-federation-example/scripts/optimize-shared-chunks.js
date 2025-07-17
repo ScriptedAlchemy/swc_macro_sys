@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Import the SWC macro WASM optimizer
 async function loadOptimizer() {
@@ -50,6 +54,7 @@ function readShareUsageFiles() {
  */
 function mergeUsageData(files) {
   const combined = {};
+  const entryModules = {};
   
   files.forEach(({ name, data }) => {
     if (!data.consume_shared_modules) return;
@@ -68,6 +73,11 @@ function mergeUsageData(files) {
         combined[moduleKey].used_exports.add(exportName);
         combined[moduleKey].unused_exports.delete(exportName);
       });
+      
+      // Store entry module ID if present
+      if (moduleData.entry_module_id) {
+        entryModules[moduleKey] = moduleData.entry_module_id;
+      }
       
       combined[moduleKey].apps.push(name);
     });
@@ -91,6 +101,7 @@ function mergeUsageData(files) {
   
   return {
     treeShake: treeShakeConfig,
+    entryModules: entryModules,
     metadata: {
       timestamp: new Date().toISOString(),
       apps: files.map(f => f.name),
@@ -129,7 +140,7 @@ function findLodashChunks() {
 /**
  * Optimize a lodash chunk using SWC macro with tree-shake flags
  */
-async function optimizeChunk(chunkPath, treeShakeConfig, optimizer) {
+async function optimizeChunk(chunkPath, treeShakeConfig, entryModules, optimizer) {
   console.log(`Optimizing chunk: ${path.basename(chunkPath)}`);
   
   try {
@@ -139,11 +150,13 @@ async function optimizeChunk(chunkPath, treeShakeConfig, optimizer) {
     const config = {
       treeShake: {
         'lodash-es': treeShakeConfig['lodash-es'] || {}
-      }
+      },
+      entryModules: entryModules || {}
     };
     
     const configJson = JSON.stringify(config);
     console.log(`Tree-shake config for lodash-es:`, Object.keys(config.treeShake['lodash-es']).length, 'exports configured');
+    console.log(`Entry modules:`, JSON.stringify(config.entryModules, null, 2));
     console.log('Config JSON preview:', configJson.substring(0, 200) + '...');
     console.log('Sample flags:', JSON.stringify(Object.fromEntries(Object.entries(config.treeShake['lodash-es']).slice(0, 5)), null, 2));
     
@@ -222,7 +235,7 @@ async function main() {
     const results = [];
     
     for (const chunk of chunks) {
-      const result = await optimizeChunk(chunk.path, mergedConfig.treeShake, optimizer);
+      const result = await optimizeChunk(chunk.path, mergedConfig.treeShake, mergedConfig.entryModules, optimizer);
       if (result) {
         results.push({
           app: chunk.app,
@@ -261,8 +274,8 @@ async function main() {
 }
 
 // Run if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch(console.error);
 }
 
-module.exports = { main, mergeUsageData, readShareUsageFiles };
+export { main, mergeUsageData, readShareUsageFiles };

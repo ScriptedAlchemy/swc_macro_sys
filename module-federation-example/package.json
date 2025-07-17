@@ -12,13 +12,13 @@
     "build": "pnpm run --recursive build",
     "build:optimized": "pnpm run build && node --experimental-wasm-modules scripts/optimize-shared-chunks.js",
     "optimize": "node --experimental-wasm-modules scripts/optimize-shared-chunks.js",
-    "test": "vitest",
+    "test": "vitest run",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run test/unit",
     "test:integration": "vitest run test/integration",
     "test:e2e": "vitest run test/e2e",
-    "test:watch": "vitest",
+    "test:watch": "vitest --watch",
     "test:legacy": "node --experimental-wasm-modules scripts/build-optimize-test.js",
     "test:all": "pnpm run build:optimized && pnpm run test",
     "clean": "rimraf dist coverage host/dist remote/dist node_modules/.cache",
@@ -33,6 +33,8 @@
     "puppeteer": "^22.0.0",
     "swc_macro_wasm": "workspace:*",
     "vite": "^5.0.0",
+    "vite-plugin-top-level-await": "^1.5.0",
+    "vite-plugin-wasm": "^3.4.1",
     "vitest": "^1.2.0"
   }
 }

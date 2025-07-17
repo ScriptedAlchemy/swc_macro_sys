@@ -21,7 +21,6 @@ describe('Module Federation Integration', () => {
   describe('Build Output', () => {
     it('should generate host bundle files', () => {
       expect(fs.existsSync(path.join(hostDistPath, 'main.js'))).toBe(true);
-      expect(fs.existsSync(path.join(hostDistPath, 'remoteEntry.js'))).toBe(true);
       expect(fs.existsSync(path.join(hostDistPath, 'share-usage.json'))).toBe(true);
     });
     

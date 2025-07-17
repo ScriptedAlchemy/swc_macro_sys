@@ -43,6 +43,21 @@ impl WebpackAnalyzer {
         Ok(chunk)
     }
 
+    /// Rebuild the dependency graph for an existing chunk
+    /// This is useful when the source code has changed and dependencies need to be re-analyzed
+    pub fn rebuild_dependency_graph(&self, chunk: &mut WebpackChunk) -> Result<()> {
+        // Clear existing dependencies
+        for (_module_id, module) in chunk.modules.iter_mut() {
+            module.dependencies.clear();
+            module.dependents.clear();
+        }
+
+        // Rebuild dependency graph
+        self.build_dependency_graph(chunk)?;
+
+        Ok(())
+    }
+
     /// Detect the type of webpack chunk
     pub fn detect_chunk_type(&self, source: &str) -> Result<ChunkType> {
         if source.contains("exports.modules") {
@@ -122,10 +137,35 @@ impl WebpackAnalyzer {
 
     /// Build dependency graph by analyzing webpack_require calls
     fn build_dependency_graph(&self, chunk: &mut WebpackChunk) -> Result<()> {
-        for (_module_id, module) in chunk.modules.iter_mut() {
-            let dependencies = self.extract_webpack_require_calls(&module.source)?;
-            for dep in dependencies {
-                module.add_dependency(dep);
+        // Re-extract module sources from the current chunk source (which may have been transformed)
+        let updated_modules = match chunk.chunk_type {
+            ChunkType::JSONP => self.extract_jsonp_modules_from_source(&chunk.source)?,
+            ChunkType::CommonJS => self.extract_commonjs_modules_from_source(&chunk.source)?,
+            ChunkType::WebpackModules => {
+                // WebpackModules support removed - use original sources as fallback
+                FxHashMap::default()
+            },
+        };
+        
+        // Update module sources with transformed versions and extract dependencies
+        for (module_id, module) in chunk.modules.iter_mut() {
+            if let Some(updated_source) = updated_modules.get(module_id) {
+                // Use the updated/transformed source for dependency extraction
+                eprintln!("[build_dependency_graph] Extracting dependencies for module '{}' from updated source", module_id);
+                eprintln!("[build_dependency_graph] Updated source for '{}': {}", module_id, updated_source);
+                let dependencies = self.extract_webpack_require_calls(updated_source)?;
+                eprintln!("[build_dependency_graph] Module '{}' has dependencies: {:?}", module_id, dependencies);
+                for dep in dependencies {
+                    module.add_dependency(dep);
+                }
+            } else {
+                // Fallback to original source if not found in updated modules
+                eprintln!("[build_dependency_graph] Extracting dependencies for module '{}' from original source", module_id);
+                let dependencies = self.extract_webpack_require_calls(&module.source)?;
+                eprintln!("[build_dependency_graph] Module '{}' has dependencies: {:?}", module_id, dependencies);
+                for dep in dependencies {
+                    module.add_dependency(dep);
+                }
             }
         }
 
@@ -152,6 +192,7 @@ impl WebpackAnalyzer {
         
         // If the source is empty, return empty dependencies
         if source.trim().is_empty() {
+            eprintln!("[WebpackAnalyzer] Source is empty, returning no dependencies");
             return Ok(dependencies);
         }
         
@@ -172,13 +213,35 @@ impl WebpackAnalyzer {
                 dependencies = visitor.dependencies;
                 eprintln!("[WebpackAnalyzer] Found {} dependencies: {:?}", dependencies.len(), dependencies);
             }
-            Err(_) => {
+            Err(e) => {
                 // If parsing fails, we'll return empty dependencies
                 // This can happen with malformed or incomplete source
+                eprintln!("[WebpackAnalyzer] Failed to parse module source: {:?}", e);
+                eprintln!("[WebpackAnalyzer] Source was: {}", source);
             }
         }
 
         Ok(dependencies)
+    }
+
+    /// Extract modules from JSONP format source string
+    fn extract_jsonp_modules_from_source(&self, source: &str) -> Result<FxHashMap<ModuleId, String>> {
+        let program = self.parse_source(source)?;
+        let mut visitor = JSONPVisitor::new();
+        program.visit_with(&mut visitor);
+        eprintln!("[extract_jsonp_modules_from_source] Found {} modules in source", visitor.modules.len());
+        for (module_id, _) in &visitor.modules {
+            eprintln!("[extract_jsonp_modules_from_source] Module: {}", module_id);
+        }
+        Ok(visitor.modules)
+    }
+
+    /// Extract modules from CommonJS format source string  
+    fn extract_commonjs_modules_from_source(&self, source: &str) -> Result<FxHashMap<ModuleId, String>> {
+        let program = self.parse_source(source)?;
+        let mut visitor = CommonJSVisitor::new();
+        program.visit_with(&mut visitor);
+        Ok(visitor.modules)
     }
 }
 
@@ -232,6 +295,8 @@ impl CommonJSVisitor {
                     // Extract module source from the function expression
                     let module_source = self.extract_function_source(&kv.value);
                     
+                    eprintln!("[CommonJSVisitor] Module '{}' extracted source: {}", module_id, module_source);
+                    
                     self.modules.insert(module_id, module_source);
                 }
             }
@@ -243,7 +308,9 @@ impl CommonJSVisitor {
         match expr {
             // Pattern 1: Direct function expressions
             Expr::Fn(func) => {
-                self.extract_webpack_requires_from_function_body(&func.function.body)
+                let result = self.extract_webpack_requires_from_function_body(&func.function.body);
+                eprintln!("[extract_function_source] Function result: '{}'", result);
+                result
             }
             // Pattern 2: Function expressions wrapped in call expressions (real-world case)
             Expr::Call(call) => {
@@ -269,16 +336,22 @@ impl CommonJSVisitor {
         let mut source = String::new();
         
         if let Some(body) = body {
-            for stmt in &body.stmts {
+            eprintln!("[extract_webpack_requires_from_function_body] Function body has {} statements", body.stmts.len());
+            for (i, stmt) in body.stmts.iter().enumerate() {
+                eprintln!("[extract_webpack_requires_from_function_body] Processing statement {}", i);
                 // Extract webpack_require calls from various statement types
                 self.extract_webpack_requires_from_stmt(stmt, &mut source);
             }
+        } else {
+            eprintln!("[extract_webpack_requires_from_function_body] Function body is None");
         }
         
+        eprintln!("[extract_webpack_requires_from_function_body] Extracted source: '{}'", source);
         source
     }
 
     fn extract_webpack_requires_from_stmt(&self, stmt: &Stmt, source: &mut String) {
+        eprintln!("[extract_webpack_requires_from_stmt] Processing statement");
         match stmt {
             Stmt::Expr(expr_stmt) => {
                 self.extract_webpack_requires_from_expr(&expr_stmt.expr, source);
@@ -310,7 +383,28 @@ impl CommonJSVisitor {
                             }
                         }
                     }
+                    // Check for member expressions like __webpack_require__("...").helper1
+                    if let Expr::Member(member) = callee_expr.as_ref() {
+                        if let Expr::Call(inner_call) = member.obj.as_ref() {
+                            if let Callee::Expr(inner_callee) = &inner_call.callee {
+                                if let Expr::Ident(ident) = inner_callee.as_ref() {
+                                    if ident.sym == "__webpack_require__" {
+                                        // This is __webpack_require__("...").property
+                                        if let Some(ExprOrSpread { expr, .. }) = inner_call.args.first() {
+                                            if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
+                                                source.push_str(&format!("__webpack_require__(\"{}\");\n", s.value));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+            }
+            Expr::Member(member) => {
+                // Handle member expressions that might contain __webpack_require__
+                self.extract_webpack_requires_from_expr(&member.obj, source);
             }
             // Handle other expression types that might contain webpack_require
             Expr::Assign(assign) => {
@@ -347,15 +441,14 @@ impl Visit for JSONPVisitor {
                 if let MemberProp::Ident(prop) = &member.prop {
                     if prop.sym == "push" {
                         // Found a .push() call, check if it's on a webpackChunk array
-                        if node.args.len() >= 1 {
-                            if let ExprOrSpread { expr, .. } = &node.args[0] {
-                                if let Expr::Array(arr) = expr.as_ref() {
-                                    // Look for the modules object (usually second element)
-                                    if arr.elems.len() >= 2 {
-                                        if let Some(Some(ExprOrSpread { expr, .. })) = arr.elems.get(1) {
-                                            if let Expr::Object(obj) = expr.as_ref() {
-                                                self.extract_modules_from_object(obj);
-                                            }
+                        if !node.args.is_empty() {
+                            let ExprOrSpread { expr, .. } = &node.args[0];
+                            if let Expr::Array(arr) = expr.as_ref() {
+                                // Look for the modules object (usually second element)
+                                if arr.elems.len() >= 2 {
+                                    if let Some(Some(ExprOrSpread { expr, .. })) = arr.elems.get(1) {
+                                        if let Expr::Object(obj) = expr.as_ref() {
+                                            self.extract_modules_from_object(obj);
                                         }
                                     }
                                 }
@@ -383,12 +476,231 @@ impl JSONPVisitor {
                         _ => continue,
                     };
 
-                    // Extract module source (simplified)
-                    let module_source = format!("/* Module: {} */", module_id);
+                    // Extract complete module source from the function expression
+                    let module_source = self.extract_complete_function_source(&kv.value);
                     
                     self.modules.insert(module_id, module_source);
                 }
             }
+        }
+    }
+
+    fn extract_complete_function_source(&self, expr: &Expr) -> String {
+        // For now, fall back to the existing extraction method
+        // TODO: Implement proper AST-to-source conversion when API is available
+        self.extract_function_source(expr)
+    }
+
+    fn extract_function_source(&self, expr: &Expr) -> String {
+        // Handle different patterns found in webpack chunks
+        match expr {
+            // Pattern 1: Direct function expressions
+            Expr::Fn(func) => {
+                let result = self.extract_webpack_requires_from_function_body(&func.function.body);
+                eprintln!("[extract_function_source] Function result: '{}'", result);
+                result
+            }
+            // Pattern 2: Function expressions wrapped in call expressions (real-world case)
+            Expr::Call(call) => {
+                if let Callee::Expr(callee_expr) = &call.callee {
+                    if let Expr::Paren(paren) = callee_expr.as_ref() {
+                        if let Expr::Fn(func) = paren.expr.as_ref() {
+                            // This is a (function expression) being called
+                            return self.extract_webpack_requires_from_function_body(&func.function.body);
+                        }
+                    }
+                }
+                "/* Non-function call */".to_string()
+            }
+            // Pattern 3: Paren expressions wrapping function expressions
+            Expr::Paren(paren) => {
+                self.extract_function_source(&paren.expr)
+            }
+            _ => "/* Non-function module */".to_string(),
+        }
+    }
+
+    fn extract_webpack_requires_from_function_body(&self, body: &Option<BlockStmt>) -> String {
+        let mut source = String::new();
+        
+        if let Some(body) = body {
+            eprintln!("[extract_webpack_requires_from_function_body] Function body has {} statements", body.stmts.len());
+            for (i, stmt) in body.stmts.iter().enumerate() {
+                eprintln!("[extract_webpack_requires_from_function_body] Processing statement {}", i);
+                // Extract webpack_require calls from various statement types
+                self.extract_webpack_requires_from_stmt(stmt, &mut source);
+            }
+        } else {
+            eprintln!("[extract_webpack_requires_from_function_body] Function body is None");
+        }
+        
+        eprintln!("[extract_webpack_requires_from_function_body] Extracted source: '{}'", source);
+        source
+    }
+
+    fn extract_webpack_requires_from_stmt(&self, stmt: &Stmt, source: &mut String) {
+        eprintln!("[extract_webpack_requires_from_stmt] Processing statement");
+        match stmt {
+            Stmt::Expr(expr_stmt) => {
+                self.extract_webpack_requires_from_expr(&expr_stmt.expr, source);
+            }
+            Stmt::Decl(decl) => {
+                if let Decl::Var(var_decl) = decl {
+                    for decl in &var_decl.decls {
+                        if let Some(init) = &decl.init {
+                            self.extract_webpack_requires_from_expr(init, source);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn extract_webpack_requires_from_expr(&self, expr: &Expr, source: &mut String) {
+        match expr {
+            Expr::Call(call) => {
+                // Handle __webpack_require__ calls
+                if let Callee::Expr(callee_expr) = &call.callee {
+                    if let Expr::Ident(ident) = callee_expr.as_ref() {
+                        if ident.sym == "__webpack_require__" {
+                            // Found a webpack_require call
+                            if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
+                                if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
+                                    source.push_str(&format!("__webpack_require__(\"{}\");\n", s.value));
+                                }
+                            }
+                        }
+                    }
+                    // Check if this is a __webpack_require__.d() call
+                    if let Expr::Member(member) = callee_expr.as_ref() {
+                        if let Expr::Ident(ident) = member.obj.as_ref() {
+                            if ident.sym == "__webpack_require__" {
+                                if let MemberProp::Ident(prop) = &member.prop {
+                                    if prop.sym == "d" {
+                                        // This is a __webpack_require__.d() call
+                                        // Preserve the entire call structure for dependency analysis
+                                        source.push_str("__webpack_require__.d(exports, {\n");
+                                        
+                                        // Extract dependencies from the second argument (object literal)
+                                        if call.args.len() >= 2 {
+                                            let ExprOrSpread { expr, .. } = &call.args[1];
+                                            if let Expr::Object(obj) = expr.as_ref() {
+                                                for prop in &obj.props {
+                                                    if let PropOrSpread::Prop(prop) = prop {
+                                                        if let Prop::KeyValue(kv) = prop.as_ref() {
+                                                            // Extract the property name
+                                                            let prop_name = match &kv.key {
+                                                                PropName::Str(s) => s.value.to_string(),
+                                                                PropName::Ident(ident) => ident.sym.to_string(),
+                                                                _ => "unknown".to_string(),
+                                                            };
+                                                            
+                                                            if let Expr::Arrow(arrow) = kv.value.as_ref() {
+                                                                eprintln!("[JSONP extract] Found arrow function property value - preserving structure");
+                                                                // Extract the module ID from the arrow function
+                                                                let module_id = self.extract_module_id_from_arrow_function(arrow);
+                                                                if let Some(module_id) = module_id {
+                                                                    // Preserve arrow functions that contain __webpack_require__ calls
+                                                                    source.push_str(&format!("  {}: () => __webpack_require__(\"{}\").default,\n", prop_name, module_id));
+                                                                } else {
+                                                                    source.push_str(&format!("  {}: () => __webpack_require__(\"unknown\").default,\n", prop_name));
+                                                                }
+                                                                // Also extract individual calls for tracking
+                                                                self.extract_webpack_requires_from_expr(&kv.value, source);
+                                                            } else {
+                                                                // For non-arrow function values, process normally
+                                                                self.extract_webpack_requires_from_expr(&kv.value, source);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        
+                                        source.push_str("});\n");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Handle other expression types that might contain webpack_require
+            Expr::Assign(assign) => {
+                self.extract_webpack_requires_from_expr(&assign.right, source);
+            }
+            Expr::Seq(seq) => {
+                for expr in &seq.exprs {
+                    self.extract_webpack_requires_from_expr(expr, source);
+                }
+            }
+            Expr::Arrow(arrow) => {
+                match arrow.body.as_ref() {
+                    BlockStmtOrExpr::BlockStmt(block) => {
+                        for stmt in &block.stmts {
+                            self.extract_webpack_requires_from_stmt(stmt, source);
+                        }
+                    }
+                    BlockStmtOrExpr::Expr(expr) => {
+                        self.extract_webpack_requires_from_expr(expr, source);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Extract module ID from arrow function expressions like () => __webpack_require__("module.js").default
+    fn extract_module_id_from_arrow_function(&self, arrow: &ArrowExpr) -> Option<String> {
+        match arrow.body.as_ref() {
+            BlockStmtOrExpr::Expr(expr) => {
+                // Handle expressions like __webpack_require__("module.js").default
+                self.extract_module_id_from_expr(expr)
+            }
+            BlockStmtOrExpr::BlockStmt(_) => {
+                // For block statements, we'd need more complex analysis
+                None
+            }
+        }
+    }
+
+    /// Extract module ID from expressions that may contain __webpack_require__ calls
+    fn extract_module_id_from_expr(&self, expr: &Expr) -> Option<String> {
+        match expr {
+            Expr::Member(member) => {
+                // Handle __webpack_require__("module.js").default
+                if let Expr::Call(call) = member.obj.as_ref() {
+                    if let Callee::Expr(callee_expr) = &call.callee {
+                        if let Expr::Ident(ident) = callee_expr.as_ref() {
+                            if ident.sym == "__webpack_require__" {
+                                if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
+                                    if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
+                                        return Some(s.value.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                None
+            }
+            Expr::Call(call) => {
+                // Handle direct __webpack_require__("module.js") calls
+                if let Callee::Expr(callee_expr) = &call.callee {
+                    if let Expr::Ident(ident) = callee_expr.as_ref() {
+                        if ident.sym == "__webpack_require__" {
+                            if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
+                                if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
+                                    return Some(s.value.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+                None
+            }
+            _ => None
         }
     }
 }
@@ -454,19 +766,108 @@ impl WebpackModulesVisitor {
     fn extract_function_source(&self, expr: &Expr) -> String {
         match expr {
             Expr::Paren(paren) => {
-                if let Expr::Fn(func) = paren.expr.as_ref() {
-                    // For now, return a simplified representation
-                    format!("function({}) {{ /* function body */ }}", 
-                           func.function.params.len())
-                } else {
-                    "/* unknown function format */".to_string()
-                }
+                self.extract_function_source(&paren.expr)
             }
             Expr::Fn(func) => {
-                format!("function({}) {{ /* function body */ }}", 
-                       func.function.params.len())
+                self.extract_webpack_requires_from_function_body(&func.function.body)
             }
             _ => "/* non-function module */".to_string(),
+        }
+    }
+    
+    fn extract_webpack_requires_from_function_body(&self, body: &Option<BlockStmt>) -> String {
+        let mut source = String::new();
+        
+        if let Some(body) = body {
+            eprintln!("[extract_webpack_requires_from_function_body] Function body has {} statements", body.stmts.len());
+            for (i, stmt) in body.stmts.iter().enumerate() {
+                eprintln!("[extract_webpack_requires_from_function_body] Processing statement {}", i);
+                // Extract webpack_require calls from various statement types
+                self.extract_webpack_requires_from_stmt(stmt, &mut source);
+            }
+        } else {
+            eprintln!("[extract_webpack_requires_from_function_body] Function body is None");
+        }
+        
+        eprintln!("[extract_webpack_requires_from_function_body] Extracted source: '{}'", source);
+        source
+    }
+
+    fn extract_webpack_requires_from_stmt(&self, stmt: &Stmt, source: &mut String) {
+        eprintln!("[extract_webpack_requires_from_stmt] Processing statement");
+        match stmt {
+            Stmt::Expr(expr_stmt) => {
+                self.extract_webpack_requires_from_expr(&expr_stmt.expr, source);
+            }
+            Stmt::Decl(decl) => {
+                if let Decl::Var(var_decl) = decl {
+                    for decl in &var_decl.decls {
+                        if let Some(init) = &decl.init {
+                            self.extract_webpack_requires_from_expr(init, source);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn extract_webpack_requires_from_expr(&self, expr: &Expr, source: &mut String) {
+        match expr {
+            Expr::Call(call) => {
+                // Handle __webpack_require__ calls
+                if let Callee::Expr(callee_expr) = &call.callee {
+                    if let Expr::Ident(ident) = callee_expr.as_ref() {
+                        if ident.sym == "__webpack_require__" {
+                            // Found a webpack_require call
+                            if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
+                                if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
+                                    source.push_str(&format!("__webpack_require__(\"{}\");\n", s.value));
+                                } else if let Expr::Lit(Lit::Num(n)) = expr.as_ref() {
+                                    source.push_str(&format!("__webpack_require__({});\n", n.value));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Handle other expression types that might contain webpack_require
+            Expr::Assign(assign) => {
+                self.extract_webpack_requires_from_expr(&assign.right, source);
+            }
+            Expr::Seq(seq) => {
+                for expr in &seq.exprs {
+                    self.extract_webpack_requires_from_expr(expr, source);
+                }
+            }
+            Expr::Arrow(arrow) => {
+                eprintln!("[JSONP extract] Processing arrow function");
+                match arrow.body.as_ref() {
+                    BlockStmtOrExpr::BlockStmt(block) => {
+                        eprintln!("[JSONP extract] Arrow function has block body with {} statements", block.stmts.len());
+                        for stmt in &block.stmts {
+                            match stmt {
+                                Stmt::Expr(expr_stmt) => {
+                                    eprintln!("[JSONP extract] Processing expression statement in arrow function");
+                                    self.extract_webpack_requires_from_expr(&expr_stmt.expr, source);
+                                }
+                                Stmt::Return(ret_stmt) => {
+                                    if let Some(arg) = &ret_stmt.arg {
+                                        eprintln!("[JSONP extract] Processing return statement in arrow function");
+                                        self.extract_webpack_requires_from_expr(arg, source);
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    BlockStmtOrExpr::Expr(expr) => {
+                        eprintln!("[JSONP extract] Arrow function has expression body - recursing");
+                        self.extract_webpack_requires_from_expr(expr, source);
+                    }
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -492,9 +893,16 @@ impl Visit for RequireVisitor {
                 if ident.sym == "__webpack_require__" {
                     // Found webpack_require call
                     if let Some(ExprOrSpread { expr, .. }) = node.args.first() {
-                        if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
-                            eprintln!("[RequireVisitor] Found __webpack_require__ call: {}", s.value);
-                            self.dependencies.push(s.value.to_string());
+                        match expr.as_ref() {
+                            Expr::Lit(Lit::Str(s)) => {
+                                eprintln!("[RequireVisitor] Found __webpack_require__ call: {}", s.value);
+                                self.dependencies.push(s.value.to_string());
+                            }
+                            Expr::Lit(Lit::Num(n)) => {
+                                eprintln!("[RequireVisitor] Found __webpack_require__ call: {}", n.value);
+                                self.dependencies.push(n.value.to_string());
+                            }
+                            _ => {}
                         }
                     }
                 }
