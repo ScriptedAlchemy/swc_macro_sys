@@ -255,7 +255,7 @@ impl ChunkOptimizer {
     }
 
     /// Find potential entry points in the chunk
-    fn find_entry_points(&self, chunk: &WebpackChunk) -> Vec<String> {
+    fn find_entry_points(&self, chunk: &WebpackChunk) -> Vec<ModuleId> {
         let mut entry_points = Vec::new();
         
         // Build dependency graph
@@ -290,7 +290,7 @@ impl ChunkOptimizer {
             );
             
             if let Some((module_id, _)) = modules_with_dependents.first() {
-                entry_points.push(module_id.to_string());
+                entry_points.push((*module_id).clone());
             }
         }
         
@@ -329,13 +329,14 @@ impl ChunkOptimizer {
     }
 
     /// Check if a module ID matches common entry point patterns
-    fn matches_entry_point_pattern(&self, module_id: &str) -> bool {
-        module_id.contains("index") ||
-        module_id.contains("main") ||
-        module_id.contains("entry") ||
-        module_id.contains("bootstrap") ||
-        module_id.ends_with("/index.js") ||
-        module_id.ends_with("/main.js")
+    fn matches_entry_point_pattern(&self, module_id: &ModuleId) -> bool {
+        let id_str = module_id.as_str();
+        id_str.contains("index") ||
+        id_str.contains("main") ||
+        id_str.contains("entry") ||
+        id_str.contains("bootstrap") ||
+        id_str.ends_with("/index.js") ||
+        id_str.ends_with("/main.js")
     }
 
     /// Calculate optimization statistics

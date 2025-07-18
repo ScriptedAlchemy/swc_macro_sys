@@ -89,7 +89,7 @@ impl WebpackTreeShaker {
     ) -> Result<TreeShakingResult> {
         let module_ids: Vec<ModuleId> = modules_to_remove
             .iter()
-            .map(|m| m.as_ref().to_string())
+            .map(|m| ModuleId::from(m.as_ref()))
             .collect();
 
         // Build dependency graph
@@ -116,7 +116,7 @@ impl WebpackTreeShaker {
     ) -> Result<TreeShakingResult> {
         let entry_ids: Vec<ModuleId> = entry_modules
             .iter()
-            .map(|m| m.as_ref().to_string())
+            .map(|m| ModuleId::from(m.as_ref()))
             .collect();
 
         // Build dependency graph
@@ -160,7 +160,7 @@ impl WebpackTreeShaker {
     ) -> Result<Vec<ModuleId>> {
         let entry_ids: Vec<ModuleId> = entry_modules
             .iter()
-            .map(|m| m.as_ref().to_string())
+            .map(|m| ModuleId::from(m.as_ref()))
             .collect();
 
         // Build dependency graph
@@ -192,7 +192,7 @@ impl WebpackTreeShaker {
         for module_id in modules_to_remove {
             // Check if module exists
             if !graph.modules.contains_key(module_id) {
-                return Err(TreeShakingError::module_not_found(module_id));
+                return Err(TreeShakingError::module_not_found(module_id.clone()));
             }
 
             // Check if it's an entry module and we should preserve it
@@ -210,7 +210,7 @@ impl WebpackTreeShaker {
             let impact = graph.simulate_module_removal(module_id);
             if !impact.broken_modules.is_empty() && !self.options.aggressive_mode {
                 return Err(TreeShakingError::unsafe_removal(
-                    module_id,
+                    module_id.clone(),
                     impact.broken_modules.len(),
                 ));
             }
@@ -275,7 +275,7 @@ impl WebpackTreeShaker {
         let impact = if let Some(first_removed) = removed_modules.first() {
             graph.simulate_module_removal(first_removed)
         } else {
-            ModuleRemovalImpact::new("".to_string())
+            ModuleRemovalImpact::new(ModuleId::from(""))
         };
 
         // Calculate statistics

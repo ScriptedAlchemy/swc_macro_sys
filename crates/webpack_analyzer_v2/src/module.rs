@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use swc_core::atoms::Atom;
 
 /// Type alias for module identifiers
-pub type ModuleId = String;
+pub type ModuleId = Atom;
 
 /// Represents a webpack module
 #[derive(Debug, Clone, Serialize, Deserialize)]

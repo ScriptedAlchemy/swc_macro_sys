@@ -2,6 +2,7 @@ use swc_core::common::{sync::Lrc, SourceMap, FileName};
 use swc_core::ecma::parser::{Parser, StringInput, Syntax, EsSyntax};
 use swc_core::ecma::ast::*;
 use swc_core::ecma::visit::{Visit, VisitWith};
+use swc_core::atoms::Atom;
 use rustc_hash::FxHashMap;
 
 use crate::{
@@ -276,8 +277,8 @@ impl CommonJSVisitor {
                 if let Prop::KeyValue(kv) = prop.as_ref() {
                     // Extract module ID from key
                     let module_id = match &kv.key {
-                        PropName::Str(s) => s.value.to_string(),
-                        PropName::Ident(ident) => ident.sym.to_string(),
+                        PropName::Str(s) => s.value.clone(),
+                        PropName::Ident(ident) => ident.sym.clone(),
                         _ => continue,
                     };
 
@@ -452,9 +453,9 @@ impl JSONPVisitor {
                 if let Prop::KeyValue(kv) = prop.as_ref() {
                     // Extract module ID from key
                     let module_id = match &kv.key {
-                        PropName::Str(s) => s.value.to_string(),
-                        PropName::Ident(ident) => ident.sym.to_string(),
-                        PropName::Num(num) => num.value.to_string(),
+                        PropName::Str(s) => s.value.clone(),
+                        PropName::Ident(ident) => ident.sym.clone(),
+                        PropName::Num(num) => Atom::from(num.value.to_string()),
                         _ => continue,
                     };
 
@@ -627,7 +628,7 @@ impl JSONPVisitor {
     }
 
     /// Extract module ID from arrow function expressions like () => __webpack_require__("module.js").default
-    fn extract_module_id_from_arrow_function(&self, arrow: &ArrowExpr) -> Option<String> {
+    fn extract_module_id_from_arrow_function(&self, arrow: &ArrowExpr) -> Option<Atom> {
         match arrow.body.as_ref() {
             BlockStmtOrExpr::Expr(expr) => {
                 // Handle expressions like __webpack_require__("module.js").default
@@ -641,7 +642,7 @@ impl JSONPVisitor {
     }
 
     /// Extract module ID from expressions that may contain __webpack_require__ calls
-    fn extract_module_id_from_expr(&self, expr: &Expr) -> Option<String> {
+    fn extract_module_id_from_expr(&self, expr: &Expr) -> Option<Atom> {
         match expr {
             Expr::Member(member) => {
                 // Handle __webpack_require__("module.js").default
@@ -651,7 +652,7 @@ impl JSONPVisitor {
                             if ident.sym == "__webpack_require__" {
                                 if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
                                     if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
-                                        return Some(s.value.to_string());
+                                        return Some(s.value.clone());
                                     }
                                 }
                             }
@@ -667,7 +668,7 @@ impl JSONPVisitor {
                         if ident.sym == "__webpack_require__" {
                             if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
                                 if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
-                                    return Some(s.value.to_string());
+                                    return Some(s.value.clone());
                                 }
                             }
                         }
@@ -723,9 +724,9 @@ impl WebpackModulesVisitor {
                 if let Prop::KeyValue(kv) = prop.as_ref() {
                     // Extract module ID from key
                     let module_id = match &kv.key {
-                        PropName::Str(s) => s.value.to_string(),
-                        PropName::Ident(ident) => ident.sym.to_string(),
-                        PropName::Num(num) => num.value.to_string(),
+                        PropName::Str(s) => s.value.clone(),
+                        PropName::Ident(ident) => ident.sym.clone(),
+                        PropName::Num(num) => Atom::from(num.value.to_string()),
                         _ => continue,
                     };
 
@@ -860,10 +861,10 @@ impl Visit for RequireVisitor {
                     if let Some(ExprOrSpread { expr, .. }) = node.args.first() {
                         match expr.as_ref() {
                             Expr::Lit(Lit::Str(s)) => {
-                                self.dependencies.push(s.value.to_string());
+                                self.dependencies.push(s.value.clone());
                             }
                             Expr::Lit(Lit::Num(n)) => {
-                                self.dependencies.push(n.value.to_string());
+                                self.dependencies.push(Atom::from(n.value.to_string()));
                             }
                             _ => {}
                         }

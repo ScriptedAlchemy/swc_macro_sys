@@ -1,5 +1,6 @@
 use rustc_hash::FxHashMap;
 use std::collections::{HashSet, VecDeque};
+use swc_core::atoms::Atom;
 use crate::module::{ModuleId, WebpackModule};
 
 /// Represents a dependency graph for webpack modules
@@ -154,7 +155,7 @@ impl DependencyGraph {
 
     /// Simulate removing multiple modules and return cumulative impact
     pub fn simulate_multiple_module_removal(&self, modules_to_remove: &[ModuleId]) -> ModuleRemovalImpact {
-        let mut cumulative_impact = ModuleRemovalImpact::new("multiple".to_string());
+        let mut cumulative_impact = ModuleRemovalImpact::new(Atom::from("multiple"));
         
         for module_id in modules_to_remove {
             let impact = self.simulate_module_removal(module_id);

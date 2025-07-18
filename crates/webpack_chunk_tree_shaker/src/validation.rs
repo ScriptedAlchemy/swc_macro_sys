@@ -461,7 +461,7 @@ impl TreeShakingValidator {
         
         for cap in require_pattern.captures_iter(source) {
             if let Some(module_id) = cap.get(1) {
-                require_calls.push(module_id.as_str().to_string());
+                require_calls.push(ModuleId::from(module_id.as_str()));
             }
         }
         

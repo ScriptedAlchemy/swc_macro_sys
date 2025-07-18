@@ -4,6 +4,7 @@ use swc_common::sync::Lrc;
 use swc_common::{FileName, Mark, SourceMap};
 use swc_core::ecma::codegen;
 use swc_core::ecma::visit::{VisitMutWith, VisitMut};
+use swc_core::atoms::Atom;
 use swc_ecma_ast::{Program, Expr, VarDecl, Pat, ObjectLit, PropOrSpread, Prop, PropName};
 use swc_ecma_codegen::text_writer::WriteJs;
 use swc_ecma_codegen::{Emitter, text_writer};
@@ -203,8 +204,9 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                     if let Some(entry_obj) = entry_modules.as_object() {
                         for (_, entry_module) in entry_obj {
                             if let Some(entry_str) = entry_module.as_str() {
-                                if chunk.modules.contains_key(entry_str) {
-                                    entry_points.push(entry_str);
+                                let entry_atom = Atom::from(entry_str);
+                                if chunk.modules.contains_key(&entry_atom) {
+                                    entry_points.push(entry_atom);
                                 }
                             }
                         }
@@ -562,7 +564,7 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
 }
 
 /// Extract entry points from webpack require calls outside of module definitions
-fn extract_entry_points_from_source(source: &str) -> Vec<String> {
+fn extract_entry_points_from_source(source: &str) -> Vec<Atom> {
     let mut entry_points = Vec::new();
     
     // Look for __webpack_require__ calls that are not inside module definitions
@@ -584,7 +586,7 @@ fn extract_entry_points_from_source(source: &str) -> Vec<String> {
             if let Some(full_match) = cap.get(0) {
                 if !source[..full_match.start()].ends_with("__webpack_require__.d(") &&
                    !source[..full_match.start()].ends_with("__webpack_require__.r(") {
-                    entry_points.push(clean_id.to_string());
+                    entry_points.push(Atom::from(clean_id));
                 }
             }
         }
