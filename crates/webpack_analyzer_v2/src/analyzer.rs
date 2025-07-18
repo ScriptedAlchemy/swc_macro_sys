@@ -16,6 +16,12 @@ pub struct WebpackAnalyzer {
     source_map: Lrc<SourceMap>,
 }
 
+impl Default for WebpackAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WebpackAnalyzer {
     /// Create a new webpack analyzer
     pub fn new() -> Self {

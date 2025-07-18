@@ -10,6 +10,12 @@ pub struct WebpackModuleExtractor {
     pub is_split_chunk: bool,
 }
 
+impl Default for WebpackModuleExtractor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WebpackModuleExtractor {
     pub fn new() -> Self {
         Self {

@@ -1,4 +1,5 @@
 use crate::*;
+use swc_core::atoms::Atom;
 
 #[test]
 fn test_chunk_type_detection() {
@@ -57,8 +58,8 @@ fn test_commonjs_module_extraction() {
     
     assert_eq!(chunk.chunk_type, ChunkType::CommonJS);
     assert_eq!(chunk.module_count(), 2);
-    assert!(chunk.get_module(&"module1.js".to_string()).is_some());
-    assert!(chunk.get_module(&"module2.js".to_string()).is_some());
+    assert!(chunk.get_module(&Atom::from("module1.js")).is_some());
+    assert!(chunk.get_module(&Atom::from("module2.js")).is_some());
 }
 
 #[test]
@@ -81,8 +82,8 @@ fn test_jsonp_module_extraction() {
     
     assert_eq!(chunk.chunk_type, ChunkType::JSONP);
     assert_eq!(chunk.module_count(), 2);
-    assert!(chunk.get_module(&"module1.js".to_string()).is_some());
-    assert!(chunk.get_module(&"module2.js".to_string()).is_some());
+    assert!(chunk.get_module(&Atom::from("module1.js")).is_some());
+    assert!(chunk.get_module(&Atom::from("module2.js")).is_some());
 }
 
 #[test]

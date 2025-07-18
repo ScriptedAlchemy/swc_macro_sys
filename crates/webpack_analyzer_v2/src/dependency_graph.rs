@@ -10,6 +10,12 @@ pub struct DependencyGraph {
     pub modules: FxHashMap<ModuleId, WebpackModule>,
 }
 
+impl Default for DependencyGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DependencyGraph {
     /// Create a new dependency graph
     pub fn new() -> Self {
