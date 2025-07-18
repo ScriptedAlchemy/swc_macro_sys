@@ -118,7 +118,6 @@ fn has_macro_processing_config(config: &serde_json::Value) -> bool {
 
 /// Performs iterative webpack module tree shaking after DCE
 fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comments: &SingleThreadedComments, config: &serde_json::Value) {
-    eprintln!("[webpack_tree_shaking] Starting webpack tree shaking");
     let analyzer = WebpackAnalyzer::new();
     let shaker = WebpackTreeShaker::new();
     
@@ -153,10 +152,8 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
             Ok(c) => c,
             Err(e) => {
                 if iteration == 1 {
-                    eprintln!("[webpack_tree_shaking] Failed to analyze chunk: {:?}", e);
                     return; // Skip tree shaking entirely if first analysis fails - maybe it's not a webpack bundle
                 } else {
-                    eprintln!("[webpack_tree_shaking] Failed to analyze chunk on iteration {}: {:?}", iteration, e);
                     break; // Stop iterations if analysis fails on subsequent attempts
                 }
             }
@@ -168,17 +165,12 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
         // Step 2.6: Rebuild dependency graph after macro processing changes
         if iteration > 1 {
             if let Err(e) = analyzer.rebuild_dependency_graph(&mut chunk) {
-                eprintln!("[webpack_tree_shaking] Failed to rebuild dependency graph on iteration {}: {:?}", iteration, e);
             }
         }
         
         // Debug: Log dependency graph details
         if iteration == 1 {
-            eprintln!("[webpack_tree_shaking] Chunk analysis for iteration {}:", iteration);
-            eprintln!("  Chunk type: {:?}", chunk.chunk_type);
-            eprintln!("  Module count: {}", chunk.module_count());
             for (module_id, module) in &chunk.modules {
-                eprintln!("  Module '{}' depends on: {:?}", module_id, module.dependencies);
             }
         }
 
@@ -199,13 +191,11 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
         };
         
         let unreachable_modules = if is_split_chunk {
-            eprintln!("[webpack_tree_shaking] Split chunk detected with {} modules and no entry points", chunk.module_count());
             
             // Check if there are macro processing directives that might create orphaned modules
             let has_macro_config = has_macro_processing_config(config);
             
             if has_macro_config {
-                eprintln!("[webpack_tree_shaking] Split chunk with macro processing config - attempting tree shaking");
                 
                 // Get explicit entry modules from config (required for tree shaking)
                 let mut entry_points = Vec::new();
@@ -215,7 +205,6 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                             if let Some(entry_str) = entry_module.as_str() {
                                 if chunk.modules.contains_key(entry_str) {
                                     entry_points.push(entry_str);
-                                    eprintln!("[webpack_tree_shaking] Using entry point from config: '{}'", entry_str);
                                 }
                             }
                         }
@@ -223,9 +212,6 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                 }
                 
                 if entry_points.is_empty() {
-                    eprintln!("[webpack_tree_shaking] WARNING: No entry modules specified in config - skipping tree shaking");
-                    eprintln!("[webpack_tree_shaking] To enable tree shaking, provide entryModules in your config like:");
-                    eprintln!("[webpack_tree_shaking]   \"entryModules\": {{ \"main\": \"main.js\" }}");
                     // Skip tree shaking but continue with other optimizations
                     Vec::new()
                 } else {
@@ -233,29 +219,24 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                     // - First iteration: Process macros to reveal dependencies
                     // - Second iteration: Perform tree shaking based on revealed dependencies
                     if iteration == 1 {
-                        eprintln!("[webpack_tree_shaking] First iteration: processing macros to reveal dependencies");
                         // We return an empty list but will force a second iteration by checking if macros changed anything
                         Vec::new()
                     } else {
                         // Proceed with tree shaking on subsequent iterations
-                        eprintln!("[webpack_tree_shaking] Subsequent iteration: proceeding with tree shaking");
                         
                         // Perform tree shaking from the specified entry points
                         match shaker.shake_tree(&chunk, &entry_points) {
                             Ok(result) => {
-                                eprintln!("[webpack_tree_shaking] Split chunk tree shaking: {} modules, {} unreachable", 
                                          chunk.module_count(), result.removed_modules.len());
                                 result.removed_modules
                             }
                             Err(e) => {
-                                eprintln!("[webpack_tree_shaking] Tree shaking failed: {:?}", e);
                                 Vec::new()
                             }
                         }
                     }
                 }
             } else {
-                eprintln!("[webpack_tree_shaking] Split chunk with no macro processing config - preserving all modules");
                 Vec::new()
             }
         } else {
@@ -269,15 +250,12 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                 entry_points.iter().map(|s| s.as_str()).collect()
             };
             
-            eprintln!("[webpack_tree_shaking] Using entry points: {:?}", entry_module_refs);
             match shaker.shake_tree(&chunk, &entry_module_refs) {
                 Ok(result) => {
-                    eprintln!("[webpack_tree_shaking] Standard chunk with {} modules, {} unreachable", 
                              chunk.module_count(), result.removed_modules.len());
                     result.removed_modules
                 }
                 Err(e) => {
-                    eprintln!("[webpack_tree_shaking] Tree shaking failed: {:?}", e);
                     Vec::new()
                 }
             }
@@ -291,7 +269,6 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                 has_macro_processing_config(config);
                 
             if should_continue_for_macros {
-                eprintln!("[webpack_tree_shaking] First iteration complete, forcing second iteration for tree shaking");
                 // Continue to next iteration
             } else {
                 // No more modules to remove - convergence reached
@@ -311,10 +288,8 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
 
         // Only remove modules if we have any to remove
         if !unreachable_modules.is_empty() {
-            eprintln!("Tree shaking iteration {}: Removing {} unreachable webpack modules", 
                      iteration, unreachable_modules.len());
             if unreachable_modules.len() < 10 {
-                eprintln!("  Modules to remove: {:?}", unreachable_modules);
             }
             
             total_removed += unreachable_modules.len();
@@ -381,7 +356,6 @@ impl WebpackModuleRemover {
         let after_count = obj.props.len();
         let removed_count = before_count - after_count;
         if removed_count > 0 {
-            eprintln!("[WebpackModuleRemover] Removed {} modules from object literal ({} -> {})", 
                      removed_count, before_count, after_count);
         }
     }
@@ -398,7 +372,6 @@ impl WebpackModuleRemover {
                         if let Expr::Object(obj) = modules_expr.as_mut() {
                             // Remove modules from the object
                             self.remove_modules_from_object(obj);
-                            eprintln!("[WebpackModuleRemover] Removing {} modules from split chunk", 
                                      obj.props.iter().filter(|p| self.should_remove_property(p)).count());
                         }
                     }
@@ -458,7 +431,6 @@ impl VisitMut for WebpackModuleRemover {
                         // Check if this is exports.modules
                         if let Expr::Ident(obj_ident) = member.obj.as_ref() {
                             if obj_ident.sym == "exports" {
-                                eprintln!("[WebpackModuleRemover] Found exports.modules assignment, removing orphaned modules");
                                 self.remove_modules_from_expr(&mut node.right);
                             }
                         }
@@ -506,10 +478,8 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
     let has_macro_config = has_macro_processing_config(config);
     
     if has_macro_config {
-        eprintln!("[simple_orphan_removal] CommonJS split chunk detected with macro processing config - attempting orphaned module detection");
         // Continue with the orphaned module detection logic below
     } else {
-        eprintln!("[simple_orphan_removal] CommonJS split chunk detected with no macro processing config - preserving all modules");
         return;
     }
     
@@ -523,7 +493,6 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
         }
     }
     
-    eprintln!("[simple_orphan_removal] Found {} modules in exports.modules", all_modules.len());
     
     // Find all __webpack_require__ calls to see which modules are still referenced
     let require_pattern = regex::Regex::new(r#"__webpack_require__\s*\(\s*"([^"]+\.js)""#).unwrap();
@@ -535,7 +504,6 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
         }
     }
     
-    eprintln!("[simple_orphan_removal] Found {} modules still referenced by __webpack_require__", referenced_modules.len());
     
     // Find orphaned modules (modules that exist but are not referenced)
     let mut orphaned_modules: Vec<String> = Vec::new();
@@ -545,10 +513,8 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
         }
     }
     
-    eprintln!("[simple_orphan_removal] Found {} orphaned modules", orphaned_modules.len());
     
     if orphaned_modules.is_empty() {
-        eprintln!("[simple_orphan_removal] No orphaned modules found, skipping removal");
         return;
     }
     
@@ -572,12 +538,10 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
         if entry_re.is_match(&modified_code) {
             modified_code = entry_re.replace(&modified_code, "").to_string();
             removed_count += 1;
-            eprintln!("[simple_orphan_removal] Removed module: {}", module_id);
         }
     }
     
     if removed_count > 0 {
-        eprintln!("[simple_orphan_removal] Successfully removed {} orphaned modules", removed_count);
         
         // Parse the modified code back to AST
         let cm_new: Lrc<SourceMap> = Default::default();
@@ -591,12 +555,9 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
         
         if let Ok(new_program) = parser.parse_program() {
             *program = new_program;
-            eprintln!("[simple_orphan_removal] Successfully updated AST with {} modules removed", removed_count);
         } else {
-            eprintln!("[simple_orphan_removal] Failed to parse modified code back to AST");
         }
     } else {
-        eprintln!("[simple_orphan_removal] No modules were actually removed");
     }
 }
 
@@ -623,7 +584,6 @@ fn extract_entry_points_from_source(source: &str) -> Vec<String> {
             if let Some(full_match) = cap.get(0) {
                 if !source[..full_match.start()].ends_with("__webpack_require__.d(") &&
                    !source[..full_match.start()].ends_with("__webpack_require__.r(") {
-                    eprintln!("[extract_entry_points] Found entry point: {}", clean_id);
                     entry_points.push(clean_id.to_string());
                 }
             }
