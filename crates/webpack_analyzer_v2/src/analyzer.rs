@@ -194,7 +194,7 @@ impl WebpackAnalyzer {
                 program.visit_with(&mut visitor);
                 dependencies = visitor.dependencies;
             }
-            Err(e) => {
+            Err(_e) => {
                 // If parsing fails, we'll return empty dependencies
                 // This can happen with malformed or incomplete source
             }
@@ -294,7 +294,7 @@ impl CommonJSVisitor {
         let mut source = String::new();
         
         if let Some(body) = body {
-            for (i, stmt) in body.stmts.iter().enumerate() {
+            for stmt in body.stmts.iter() {
                 // Extract webpack_require calls from various statement types
                 self.extract_webpack_requires_from_stmt(stmt, &mut source);
             }
@@ -476,7 +476,7 @@ impl JSONPVisitor {
         let mut source = String::new();
         
         if let Some(body) = body {
-            for (i, stmt) in body.stmts.iter().enumerate() {
+            for stmt in body.stmts.iter() {
                 // Extract webpack_require calls from various statement types
                 self.extract_webpack_requires_from_stmt(stmt, &mut source);
             }
@@ -725,7 +725,7 @@ impl WebpackModulesVisitor {
         let mut source = String::new();
         
         if let Some(body) = body {
-            for (i, stmt) in body.stmts.iter().enumerate() {
+            for stmt in body.stmts.iter() {
                 // Extract webpack_require calls from various statement types
                 self.extract_webpack_requires_from_stmt(stmt, &mut source);
             }

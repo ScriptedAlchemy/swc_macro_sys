@@ -1,5 +1,6 @@
 use webpack_analyzer_v2::*;
 use std::fs;
+use swc_core::atoms::Atom;
 
 #[test]
 fn test_host_vendor_chunk() {

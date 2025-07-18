@@ -223,7 +223,7 @@ impl WebpackTreeShaker {
     fn perform_removal(
         &self,
         chunk: &WebpackChunk,
-        graph: &DependencyGraph,
+        _graph: &DependencyGraph,
         modules_to_remove: &[ModuleId],
     ) -> Result<Vec<ModuleId>> {
         let mut removed_modules = Vec::new();

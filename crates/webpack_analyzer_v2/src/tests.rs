@@ -112,18 +112,18 @@ fn test_dependency_graph_building() {
     let chunk = analyzer.analyze_chunk(source).unwrap();
     
     // Test module dependencies
-    let main_module = chunk.get_module(&"main.js".to_string()).unwrap();
-    assert!(main_module.depends_on(&"util.js".to_string()));
-    assert!(main_module.depends_on(&"helper.js".to_string()));
+    let main_module = chunk.get_module(&Atom::from("main.js")).unwrap();
+    assert!(main_module.depends_on(&Atom::from("util.js")));
+    assert!(main_module.depends_on(&Atom::from("helper.js")));
     
-    let util_module = chunk.get_module(&"util.js".to_string()).unwrap();
-    assert!(util_module.depends_on(&"helper.js".to_string()));
+    let util_module = chunk.get_module(&Atom::from("util.js")).unwrap();
+    assert!(util_module.depends_on(&Atom::from("helper.js")));
     
-    let helper_module = chunk.get_module(&"helper.js".to_string()).unwrap();
-    assert!(helper_module.is_depended_on_by(&"main.js".to_string()));
-    assert!(helper_module.is_depended_on_by(&"util.js".to_string()));
+    let helper_module = chunk.get_module(&Atom::from("helper.js")).unwrap();
+    assert!(helper_module.is_depended_on_by(&Atom::from("main.js")));
+    assert!(helper_module.is_depended_on_by(&Atom::from("util.js")));
     
-    let unused_module = chunk.get_module(&"unused.js".to_string()).unwrap();
+    let unused_module = chunk.get_module(&Atom::from("unused.js")).unwrap();
     assert!(!unused_module.has_dependencies());
     assert!(!unused_module.has_dependents());
 }
@@ -162,11 +162,11 @@ fn test_real_world_lodash_chunk() {
     assert_eq!(chunk.module_count(), 2);
     
     // Test dependency relationships
-    let lodash_module = chunk.get_module(&"../../node_modules/lodash-es/lodash.js".to_string()).unwrap();
-    assert!(lodash_module.depends_on(&"../../node_modules/lodash-es/map.js".to_string()));
+    let lodash_module = chunk.get_module(&Atom::from("../../node_modules/lodash-es/lodash.js")).unwrap();
+    assert!(lodash_module.depends_on(&Atom::from("../../node_modules/lodash-es/map.js")));
     
-    let map_module = chunk.get_module(&"../../node_modules/lodash-es/map.js".to_string()).unwrap();
-    assert!(map_module.is_depended_on_by(&"../../node_modules/lodash-es/lodash.js".to_string()));
+    let map_module = chunk.get_module(&Atom::from("../../node_modules/lodash-es/map.js")).unwrap();
+    assert!(map_module.is_depended_on_by(&Atom::from("../../node_modules/lodash-es/lodash.js")));
 }
 
 #[test]
@@ -174,21 +174,21 @@ fn test_dependency_graph_orphan_detection() {
     let mut graph = DependencyGraph::new();
     
     // Add modules
-    graph.add_module(WebpackModule::new("main.js".to_string(), "main source".to_string()));
-    graph.add_module(WebpackModule::new("util.js".to_string(), "util source".to_string()));
-    graph.add_module(WebpackModule::new("helper.js".to_string(), "helper source".to_string()));
-    graph.add_module(WebpackModule::new("orphan.js".to_string(), "orphan source".to_string()));
+    graph.add_module(WebpackModule::new(Atom::from("main.js"), "main source".to_string()));
+    graph.add_module(WebpackModule::new(Atom::from("util.js"), "util source".to_string()));
+    graph.add_module(WebpackModule::new(Atom::from("helper.js"), "helper source".to_string()));
+    graph.add_module(WebpackModule::new(Atom::from("orphan.js"), "orphan source".to_string()));
     
     // Add dependencies
-    graph.add_dependency(&"main.js".to_string(), &"util.js".to_string());
-    graph.add_dependency(&"util.js".to_string(), &"helper.js".to_string());
+    graph.add_dependency(&Atom::from("main.js"), &Atom::from("util.js"));
+    graph.add_dependency(&Atom::from("util.js"), &Atom::from("helper.js"));
     // orphan.js has no dependencies or dependents
     
-    let entry_points = vec!["main.js".to_string()];
+    let entry_points = vec![Atom::from("main.js")];
     let orphaned = graph.find_orphaned_modules(&entry_points);
     
     assert_eq!(orphaned.len(), 1);
-    assert!(orphaned.contains(&"orphan.js".to_string()));
+    assert!(orphaned.contains(&Atom::from("orphan.js")));
 }
 
 #[test]
@@ -196,17 +196,17 @@ fn test_reachability_analysis() {
     let mut graph = DependencyGraph::new();
     
     // Create a chain: main -> util -> helper
-    graph.add_module(WebpackModule::new("main.js".to_string(), "main source".to_string()));
-    graph.add_module(WebpackModule::new("util.js".to_string(), "util source".to_string()));
-    graph.add_module(WebpackModule::new("helper.js".to_string(), "helper source".to_string()));
+    graph.add_module(WebpackModule::new(Atom::from("main.js"), "main source".to_string()));
+    graph.add_module(WebpackModule::new(Atom::from("util.js"), "util source".to_string()));
+    graph.add_module(WebpackModule::new(Atom::from("helper.js"), "helper source".to_string()));
     
-    graph.add_dependency(&"main.js".to_string(), &"util.js".to_string());
-    graph.add_dependency(&"util.js".to_string(), &"helper.js".to_string());
+    graph.add_dependency(&Atom::from("main.js"), &Atom::from("util.js"));
+    graph.add_dependency(&Atom::from("util.js"), &Atom::from("helper.js"));
     
-    let reachable = graph.get_reachable_modules(&"main.js".to_string());
+    let reachable = graph.get_reachable_modules(&Atom::from("main.js"));
     
     assert_eq!(reachable.len(), 3);
-    assert!(reachable.contains(&"main.js".to_string()));
-    assert!(reachable.contains(&"util.js".to_string()));
-    assert!(reachable.contains(&"helper.js".to_string()));
+    assert!(reachable.contains(&Atom::from("main.js")));
+    assert!(reachable.contains(&Atom::from("util.js")));
+    assert!(reachable.contains(&Atom::from("helper.js")));
 }

@@ -1,4 +1,5 @@
 use webpack_analyzer_v2::*;
+use swc_core::atoms::Atom;
 
 #[test]
 fn test_real_world_webpack_chunk() {
@@ -88,17 +89,17 @@ fn test_real_world_webpack_chunk() {
     
     // Test main lodash module dependencies
     {
-        let lodash_module = chunk.get_module(&"../../node_modules/lodash-es/lodash.js".to_string()).unwrap();
-        assert!(lodash_module.depends_on(&"../../node_modules/lodash-es/map.js".to_string()));
-        assert!(lodash_module.depends_on(&"../../node_modules/lodash-es/filter.js".to_string()));
+        let lodash_module = chunk.get_module(&Atom::from("../../node_modules/lodash-es/lodash.js")).unwrap();
+        assert!(lodash_module.depends_on(&Atom::from("../../node_modules/lodash-es/map.js")));
+        assert!(lodash_module.depends_on(&Atom::from("../../node_modules/lodash-es/filter.js")));
         
         // Test map module dependencies
-        let map_module = chunk.get_module(&"../../node_modules/lodash-es/map.js".to_string()).unwrap();
-        assert!(map_module.depends_on(&"../../node_modules/lodash-es/_baseMap.js".to_string()));
+        let map_module = chunk.get_module(&Atom::from("../../node_modules/lodash-es/map.js")).unwrap();
+        assert!(map_module.depends_on(&Atom::from("../../node_modules/lodash-es/_baseMap.js")));
         
         // Test filter module dependencies
-        let filter_module = chunk.get_module(&"../../node_modules/lodash-es/filter.js".to_string()).unwrap();
-        assert!(filter_module.depends_on(&"../../node_modules/lodash-es/_baseFilter.js".to_string()));
+        let filter_module = chunk.get_module(&Atom::from("../../node_modules/lodash-es/filter.js")).unwrap();
+        assert!(filter_module.depends_on(&Atom::from("../../node_modules/lodash-es/_baseFilter.js")));
     }
     
     // Test orphan detection
@@ -114,15 +115,15 @@ fn test_real_world_webpack_chunk() {
     
     // reduce.js should be orphaned since it's not used by lodash.js
     assert_eq!(orphaned.len(), 1);
-    assert!(orphaned.contains(&"../../node_modules/lodash-es/reduce.js".to_string()));
+    assert!(orphaned.contains(&Atom::from("../../node_modules/lodash-es/reduce.js")));
     
     // All other modules should be reachable
     assert_eq!(reachable.len(), 5);
-    assert!(reachable.contains(&"../../node_modules/lodash-es/lodash.js".to_string()));
-    assert!(reachable.contains(&"../../node_modules/lodash-es/map.js".to_string()));
-    assert!(reachable.contains(&"../../node_modules/lodash-es/filter.js".to_string()));
-    assert!(reachable.contains(&"../../node_modules/lodash-es/_baseMap.js".to_string()));
-    assert!(reachable.contains(&"../../node_modules/lodash-es/_baseFilter.js".to_string()));
+    assert!(reachable.contains(&Atom::from("../../node_modules/lodash-es/lodash.js")));
+    assert!(reachable.contains(&Atom::from("../../node_modules/lodash-es/map.js")));
+    assert!(reachable.contains(&Atom::from("../../node_modules/lodash-es/filter.js")));
+    assert!(reachable.contains(&Atom::from("../../node_modules/lodash-es/_baseMap.js")));
+    assert!(reachable.contains(&Atom::from("../../node_modules/lodash-es/_baseFilter.js")));
     
     println!("✅ Real-world webpack chunk analysis complete!");
     println!("   - Total modules: {}", 6);

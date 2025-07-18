@@ -289,17 +289,16 @@ impl Visit for WebpackModuleExtractor {
                     if prop.sym == "push" {
                         // Check if this is a webpack chunk push call
                         if node.args.len() == 1 {
-                            if let ExprOrSpread { expr, .. } = &node.args[0] {
-                                if let Expr::Array(array) = expr.as_ref() {
-                                    // Expected format: [[chunk_ids], {modules}]
-                                    if array.elems.len() >= 2 {
-                                        if let Some(Some(ExprOrSpread { expr: modules_expr, .. })) = array.elems.get(1) {
-                                            if let Expr::Object(obj) = modules_expr.as_ref() {
-                                                eprintln!("[WebpackModuleExtractor] Found split chunk .push() format");
-                                                self.is_split_chunk = true;
-                                                self.process_modules_object(obj);
-                                                return; // Don't visit children
-                                            }
+                            let ExprOrSpread { expr, .. } = &node.args[0];
+                            if let Expr::Array(array) = expr.as_ref() {
+                                // Expected format: [[chunk_ids], {modules}]
+                                if array.elems.len() >= 2 {
+                                    if let Some(Some(ExprOrSpread { expr: modules_expr, .. })) = array.elems.get(1) {
+                                        if let Expr::Object(obj) = modules_expr.as_ref() {
+                                            eprintln!("[WebpackModuleExtractor] Found split chunk .push() format");
+                                            self.is_split_chunk = true;
+                                            self.process_modules_object(obj);
+                                            return; // Don't visit children
                                         }
                                     }
                                 }
