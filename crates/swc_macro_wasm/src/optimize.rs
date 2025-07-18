@@ -229,7 +229,6 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                         // Perform tree shaking from the specified entry points
                         match shaker.shake_tree(&chunk, &entry_points) {
                             Ok(result) => {
-                                         chunk.module_count(), result.removed_modules.len());
                                 result.removed_modules
                             }
                             Err(e) => {
@@ -254,7 +253,6 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
             
             match shaker.shake_tree(&chunk, &entry_module_refs) {
                 Ok(result) => {
-                             chunk.module_count(), result.removed_modules.len());
                     result.removed_modules
                 }
                 Err(e) => {
@@ -290,14 +288,15 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
 
         // Only remove modules if we have any to remove
         if !unreachable_modules.is_empty() {
-                     iteration, unreachable_modules.len());
-            if unreachable_modules.len() < 10 {
-            }
+            // Remove the unreachable modules
             
             total_removed += unreachable_modules.len();
             
             // Step 4: Remove unreachable modules from the AST
-            let unreachable_set: FxHashSet<String> = unreachable_modules.into_iter().collect();
+            let unreachable_set: FxHashSet<String> = unreachable_modules
+                .into_iter()
+                .map(|atom| atom.to_string())
+                .collect();
             let mut module_remover = WebpackModuleRemover::new(unreachable_set);
             program.visit_mut_with(&mut module_remover);
         }
@@ -358,7 +357,7 @@ impl WebpackModuleRemover {
         let after_count = obj.props.len();
         let removed_count = before_count - after_count;
         if removed_count > 0 {
-                     removed_count, before_count, after_count);
+            // Modules were removed
         }
     }
     
@@ -374,7 +373,6 @@ impl WebpackModuleRemover {
                         if let Expr::Object(obj) = modules_expr.as_mut() {
                             // Remove modules from the object
                             self.remove_modules_from_object(obj);
-                                     obj.props.iter().filter(|p| self.should_remove_property(p)).count());
                         }
                     }
                 }
