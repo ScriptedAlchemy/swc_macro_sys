@@ -381,5 +381,5 @@ use serde_json::json;
         // Only step1 should remain but be unused, so might get removed in additional passes
         assert!(result.contains("independent"));
         // step1 might or might not be removed depending on DCE effectiveness
-        println!("Contains step1: {}", result.contains("step1"));
+        assert!(!result.contains("step1"), "Should not contain 'step1' after DCE optimization");
     }

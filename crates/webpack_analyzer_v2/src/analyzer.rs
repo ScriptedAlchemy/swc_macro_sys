@@ -145,30 +145,11 @@ impl WebpackAnalyzer {
 
     /// Build dependency graph by analyzing webpack_require calls
     fn build_dependency_graph(&self, chunk: &mut WebpackChunk) -> Result<()> {
-        // Re-extract module sources from the current chunk source (which may have been transformed)
-        let updated_modules = match chunk.chunk_type {
-            ChunkType::JSONP => self.extract_jsonp_modules_from_source(&chunk.source)?,
-            ChunkType::CommonJS => self.extract_commonjs_modules_from_source(&chunk.source)?,
-            ChunkType::WebpackModules => {
-                // WebpackModules support removed - use original sources as fallback
-                FxHashMap::default()
-            },
-        };
-        
-        // Update module sources with transformed versions and extract dependencies
-        for (module_id, module) in chunk.modules.iter_mut() {
-            if let Some(updated_source) = updated_modules.get(module_id) {
-                // Use the updated/transformed source for dependency extraction
-                let dependencies = self.extract_webpack_require_calls(updated_source)?;
-                for dep in dependencies {
-                    module.add_dependency(dep);
-                }
-            } else {
-                // Fallback to original source if not found in updated modules
-                let dependencies = self.extract_webpack_require_calls(&module.source)?;
-                for dep in dependencies {
-                    module.add_dependency(dep);
-                }
+        // Extract dependencies from the module sources we already have
+        for (_module_id, module) in chunk.modules.iter_mut() {
+            let dependencies = self.extract_webpack_require_calls(&module.source)?;
+            for dep in dependencies {
+                module.add_dependency(dep);
             }
         }
 
@@ -222,23 +203,6 @@ impl WebpackAnalyzer {
         Ok(dependencies)
     }
 
-    /// Extract modules from JSONP format source string
-    fn extract_jsonp_modules_from_source(&self, source: &str) -> Result<FxHashMap<ModuleId, String>> {
-        let program = self.parse_source(source)?;
-        let mut visitor = JSONPVisitor::new();
-        program.visit_with(&mut visitor);
-        for (module_id, _) in &visitor.modules {
-        }
-        Ok(visitor.modules)
-    }
-
-    /// Extract modules from CommonJS format source string  
-    fn extract_commonjs_modules_from_source(&self, source: &str) -> Result<FxHashMap<ModuleId, String>> {
-        let program = self.parse_source(source)?;
-        let mut visitor = CommonJSVisitor::new();
-        program.visit_with(&mut visitor);
-        Ok(visitor.modules)
-    }
 }
 
 /// Visitor for CommonJS format chunks
