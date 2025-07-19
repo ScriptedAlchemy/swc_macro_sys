@@ -1871,6 +1871,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "serde_json",
+ "swc_core",
  "thiserror 2.0.12",
  "tokio",
  "webpack_analyzer_v2",

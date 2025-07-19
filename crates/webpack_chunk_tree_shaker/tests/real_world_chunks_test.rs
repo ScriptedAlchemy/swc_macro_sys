@@ -58,7 +58,7 @@ fn test_webpack_feature_bundle_analysis() {
                     id.contains("153") || // numeric ID that might be entry
                     chunk.modules.get(*id).map_or(false, |m| m.dependents.len() > 0)
                 })
-                .cloned()
+                .map(|atom| atom.to_string())
                 .collect();
             
             println!("\n🎯 Potential entry points: {:?}", potential_entries);
@@ -170,7 +170,7 @@ fn test_rspack_lodash_chunk() {
                         id.contains(&format!("lodash-es/{}.js", func))
                     )
                 })
-                .cloned()
+                .map(|atom| atom.to_string())
                 .collect();
             
             println!("\n🎯 Found lodash entry functions: {:?}", lodash_entries);

@@ -109,7 +109,7 @@ fn test_real_world_webpack_chunk() {
     }
     
     // Use lodash.js as entry point
-    let entry_points = vec!["../../node_modules/lodash-es/lodash.js".to_string()];
+    let entry_points = vec![Atom::from("../../node_modules/lodash-es/lodash.js")];
     let reachable = graph.get_reachable_from_multiple(&entry_points);
     let orphaned = graph.find_orphaned_modules(&entry_points);
     

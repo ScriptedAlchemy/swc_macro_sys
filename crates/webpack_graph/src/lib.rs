@@ -1,3 +1,8 @@
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::module_inception)]
+#![allow(clippy::len_zero)]
+#![allow(clippy::redundant_closure)]
+
 pub mod error;
 pub mod graph;
 pub mod parser;

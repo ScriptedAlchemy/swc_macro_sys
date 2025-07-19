@@ -34,7 +34,6 @@ impl WebpackAnalyzer {
     pub fn analyze_chunk(&self, source: &str) -> Result<WebpackChunk> {
         // Step 1: Detect chunk type
         let chunk_type = self.detect_chunk_type(source)?;
-        println!("[WebpackAnalyzer] Detected chunk type: {:?}", chunk_type);
 
         // Step 2: Parse the source code
         let program = self.parse_source(source)?;
@@ -46,7 +45,6 @@ impl WebpackAnalyzer {
         // Step 4: Build dependency graph
         self.build_dependency_graph(&mut chunk)?;
 
-        println!("[WebpackAnalyzer] Analyzed chunk with {} modules", chunk.module_count());
         Ok(chunk)
     }
 
@@ -111,7 +109,6 @@ impl WebpackAnalyzer {
             chunk.add_module(module_id, module);
         }
 
-        println!("[WebpackAnalyzer] Extracted {} CommonJS modules", chunk.module_count());
         Ok(())
     }
 
@@ -125,7 +122,6 @@ impl WebpackAnalyzer {
             chunk.add_module(module_id, module);
         }
 
-        println!("[WebpackAnalyzer] Extracted {} JSONP modules", chunk.module_count());
         Ok(())
     }
 
@@ -139,7 +135,6 @@ impl WebpackAnalyzer {
             chunk.add_module(module_id, module);
         }
 
-        println!("[WebpackAnalyzer] Extracted {} WebpackModules modules", chunk.module_count());
         Ok(())
     }
 
@@ -166,7 +161,6 @@ impl WebpackAnalyzer {
             }
         }
 
-        println!("[WebpackAnalyzer] Built dependency graph");
         Ok(())
     }
 
@@ -298,7 +292,6 @@ impl CommonJSVisitor {
                 // Extract webpack_require calls from various statement types
                 self.extract_webpack_requires_from_stmt(stmt, &mut source);
             }
-        } else {
         }
         
         source
@@ -480,7 +473,6 @@ impl JSONPVisitor {
                 // Extract webpack_require calls from various statement types
                 self.extract_webpack_requires_from_stmt(stmt, &mut source);
             }
-        } else {
         }
         
         source
@@ -729,7 +721,6 @@ impl WebpackModulesVisitor {
                 // Extract webpack_require calls from various statement types
                 self.extract_webpack_requires_from_stmt(stmt, &mut source);
             }
-        } else {
         }
         
         source

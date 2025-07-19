@@ -53,7 +53,7 @@ impl WebpackTreeShaker {
     pub fn set_config(&mut self, _config: serde_json::Value) {
         // For now, just acknowledge that config is received
         // TODO: Implement tree shaking configuration integration
-        eprintln!("Tree shaking config received (integration pending)");
+        // Tree shaking config received (integration pending)
     }
 
     pub fn pass(&self) -> u16 {
@@ -171,12 +171,7 @@ impl WebpackTreeShaker {
             self.changed = true;
             self.removed_modules = modules_to_remove.clone();
             
-            eprintln!(
-                "Webpack tree shaking pass {}: Removed {} modules: {:?}",
-                self.pass + 1,
-                remover.removed_count,
-                modules_to_remove.iter().take(5).collect::<Vec<_>>()
-            );
+            // Webpack tree shaking pass completed
         }
     }
 }

@@ -366,7 +366,7 @@ impl TreeShakingValidator {
     fn detect_orphaned_modules(
         &self,
         graph: &DependencyGraph,
-        errors: &mut Vec<ValidationError>,
+        _errors: &mut Vec<ValidationError>,
         warnings: &mut Vec<ValidationWarning>,
     ) -> Result<()> {
         for (module_id, module) in &graph.modules {

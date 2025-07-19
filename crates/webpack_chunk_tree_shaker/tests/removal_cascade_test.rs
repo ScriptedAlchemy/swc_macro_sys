@@ -1,4 +1,5 @@
 use webpack_chunk_tree_shaker::*;
+use swc_core::atoms::Atom;
 
 /// Test comprehensive removal cascade - remove one module and see what else gets removed
 #[test]
@@ -107,7 +108,7 @@ fn test_remove_module_and_cascade_effect() {
     println!("\n🎯 STEP 2: Analyzing impact of removing 'feature-a'");
     
     // Simulate removing feature-a to see what would happen
-    let impact = graph.simulate_module_removal(&"feature-a".to_string());
+    let impact = graph.simulate_module_removal(&Atom::from("feature-a"));
     
     println!("📋 Impact Analysis for removing 'feature-a':");
     println!("  - Removed module: {}", impact.removed_module);
@@ -136,14 +137,14 @@ fn test_remove_module_and_cascade_effect() {
     println!("🔒 Preserved modules: {:?}", result.preserved_modules);
     
     // Verify the expected removals
-    assert!(result.removed_modules.contains(&"feature-a".to_string()));
+    assert!(result.removed_modules.contains(&Atom::from("feature-a")));
     assert_eq!(result.stats.original_count, 10);
     assert!(result.stats.final_count < 10);
     assert!(result.stats.removed_count >= 1);
     
     // Verify that entry-point is still there (if preserved)
-    if !result.removed_modules.contains(&"entry-point".to_string()) {
-        assert!(result.optimized_chunk.modules.contains_key("entry-point"));
+    if !result.removed_modules.contains(&Atom::from("entry-point")) {
+        assert!(result.optimized_chunk.modules.contains_key(&Atom::from("entry-point")));
     }
     
     println!("\n✅ Test passed! Successfully removed module and showed cascade effect.");
@@ -209,7 +210,7 @@ fn test_remove_module_creates_orphans() {
     println!("\n🎯 STEP 2: Analyzing impact of removing 'bridge' (critical connector)");
     
     // This should break main and potentially orphan services
-    let impact = graph.simulate_module_removal(&"bridge".to_string());
+    let impact = graph.simulate_module_removal(&Atom::from("bridge"));
     
     println!("📋 Impact Analysis for removing 'bridge':");
     println!("  - Removed module: {}", impact.removed_module);
@@ -217,7 +218,7 @@ fn test_remove_module_creates_orphans() {
     println!("  - Potentially orphaned: {:?}", impact.potentially_orphaned);
     
     // Should break main (which depends on bridge)
-    assert!(impact.broken_modules.contains(&"main".to_string()));
+    assert!(impact.broken_modules.contains(&Atom::from("main")));
     
     println!("\n🔥 STEP 3: Actually removing 'bridge' with aggressive mode");
     
@@ -234,7 +235,7 @@ fn test_remove_module_creates_orphans() {
     println!("  - Preserved modules: {:?}", result.preserved_modules);
     
     // Verify bridge was removed
-    assert!(result.removed_modules.contains(&"bridge".to_string()));
+    assert!(result.removed_modules.contains(&Atom::from("bridge")));
     
     // The main module should also be affected (broken due to missing bridge)
     // In aggressive mode, it might be removed too
@@ -288,9 +289,9 @@ fn test_find_unused_then_remove() {
     println!("🗑️ Found unused modules: {:?}", unused);
     
     // Should find unused-feature, unused-utils, and orphan-module
-    assert!(unused.contains(&"unused-feature".to_string()));
-    assert!(unused.contains(&"unused-utils".to_string()));
-    assert!(unused.contains(&"orphan-module".to_string()));
+    assert!(unused.contains(&Atom::from("unused-feature")));
+    assert!(unused.contains(&Atom::from("unused-utils")));
+    assert!(unused.contains(&Atom::from("orphan-module")));
     
     println!("\n🎯 STEP 2: Removing unused modules");
     
@@ -314,14 +315,14 @@ fn test_find_unused_then_remove() {
     assert_eq!(result.stats.final_count, 3); // main, active-feature, active-utils
     
     // Verify active modules are preserved
-    assert!(result.optimized_chunk.modules.contains_key("main"));
-    assert!(result.optimized_chunk.modules.contains_key("active-feature"));
-    assert!(result.optimized_chunk.modules.contains_key("active-utils"));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("main")));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("active-feature")));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("active-utils")));
     
     // Verify unused modules are removed
-    assert!(!result.optimized_chunk.modules.contains_key("unused-feature"));
-    assert!(!result.optimized_chunk.modules.contains_key("unused-utils"));
-    assert!(!result.optimized_chunk.modules.contains_key("orphan-module"));
+    assert!(!result.optimized_chunk.modules.contains_key(&Atom::from("unused-feature")));
+    assert!(!result.optimized_chunk.modules.contains_key(&Atom::from("unused-utils")));
+    assert!(!result.optimized_chunk.modules.contains_key(&Atom::from("orphan-module")));
     
     println!("\n✅ Test passed! Successfully identified and removed unused modules.");
 }
@@ -394,9 +395,9 @@ fn test_complete_workflow() {
     println!("  - Count: {}", unused.len());
     
     // Should find filter, sortBy, debounce, and their dependencies as unused
-    assert!(unused.contains(&"lodash/filter".to_string()));
-    assert!(unused.contains(&"lodash/sortBy".to_string()));
-    assert!(unused.contains(&"lodash/debounce".to_string()));
+    assert!(unused.contains(&Atom::from("lodash/filter")));
+    assert!(unused.contains(&Atom::from("lodash/sortBy")));
+    assert!(unused.contains(&Atom::from("lodash/debounce")));
     
     println!("\n🔥 STEP 3: Remove Unused Modules");
     let mut options = TreeShakingOptions::default();
@@ -437,12 +438,12 @@ fn test_complete_workflow() {
     println!("  - Contains lodash/filter: {}", optimized_source.contains("lodash/filter"));
     
     // Verify final state
-    assert!(result.optimized_chunk.modules.contains_key("lodash/map"));
-    assert!(result.optimized_chunk.modules.contains_key("lodash/_baseMap"));
-    assert!(result.optimized_chunk.modules.contains_key("lodash/_baseEach"));
-    assert!(!result.optimized_chunk.modules.contains_key("lodash/filter"));
-    assert!(!result.optimized_chunk.modules.contains_key("lodash/sortBy"));
-    assert!(!result.optimized_chunk.modules.contains_key("lodash/debounce"));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("lodash/map")));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("lodash/_baseMap")));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("lodash/_baseEach")));
+    assert!(!result.optimized_chunk.modules.contains_key(&Atom::from("lodash/filter")));
+    assert!(!result.optimized_chunk.modules.contains_key(&Atom::from("lodash/sortBy")));
+    assert!(!result.optimized_chunk.modules.contains_key(&Atom::from("lodash/debounce")));
     
     println!("\n🎉 WORKFLOW COMPLETE!");
     println!("   Original: {} modules → Final: {} modules ({:.1}% reduction)",

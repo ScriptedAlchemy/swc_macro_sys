@@ -151,7 +151,7 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
         // Step 2: Analyze the chunk using webpack_analyzer_v2
         let mut chunk = match analyzer.analyze_chunk(&current_code) {
             Ok(c) => c,
-            Err(e) => {
+            Err(_e) => {
                 if iteration == 1 {
                     return; // Skip tree shaking entirely if first analysis fails - maybe it's not a webpack bundle
                 } else {
@@ -165,20 +165,20 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
         
         // Step 2.6: Rebuild dependency graph after macro processing changes
         if iteration > 1 {
-            if let Err(e) = analyzer.rebuild_dependency_graph(&mut chunk) {
+            if let Err(_e) = analyzer.rebuild_dependency_graph(&mut chunk) {
             }
         }
         
         // Debug: Log dependency graph details
         if iteration == 1 {
-            for (module_id, module) in &chunk.modules {
+            for (_module_id, _module) in &chunk.modules {
             }
         }
 
         // Step 3: Check if this is a split chunk before tree shaking
         // For webpack chunks, we assume it's a split chunk if it has modules but no clear entry points
         // Check if this is a split chunk (no direct entry point calls) vs a bundle with entry points
-        let has_entry_point_calls = current_code.contains("__webpack_require__(") && 
+        let _has_entry_point_calls = current_code.contains("__webpack_require__(") && 
             !current_code.contains("__webpack_require__.d(") && 
             !current_code.contains("__webpack_require__.r(");
             
@@ -231,7 +231,7 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                             Ok(result) => {
                                 result.removed_modules
                             }
-                            Err(e) => {
+                            Err(_e) => {
                                 Vec::new()
                             }
                         }
@@ -255,7 +255,7 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                 Ok(result) => {
                     result.removed_modules
                 }
-                Err(e) => {
+                Err(_e) => {
                     Vec::new()
                 }
             }

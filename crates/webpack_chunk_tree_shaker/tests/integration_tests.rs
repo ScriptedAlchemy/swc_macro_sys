@@ -1,4 +1,5 @@
 use webpack_chunk_tree_shaker::*;
+use swc_core::atoms::Atom;
 
 /// Test basic module removal functionality
 #[test]
@@ -37,9 +38,9 @@ fn test_basic_module_removal() {
     assert_eq!(result.removed_modules.len(), 1);
     assert_eq!(result.removed_modules[0], "module-c");
     assert_eq!(result.optimized_chunk.module_count(), 2);
-    assert!(result.optimized_chunk.modules.contains_key("module-a"));
-    assert!(result.optimized_chunk.modules.contains_key("module-b"));
-    assert!(!result.optimized_chunk.modules.contains_key("module-c"));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("module-a")));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("module-b")));
+    assert!(!result.optimized_chunk.modules.contains_key(&Atom::from("module-c")));
     
     // Check statistics
     assert_eq!(result.stats.original_count, 3);
@@ -89,16 +90,16 @@ fn test_tree_shaking_with_entry_points() {
     
     // Verify results
     assert_eq!(result.optimized_chunk.module_count(), 3); // entry, module-a, module-b
-    assert!(result.optimized_chunk.modules.contains_key("entry"));
-    assert!(result.optimized_chunk.modules.contains_key("module-a"));
-    assert!(result.optimized_chunk.modules.contains_key("module-b"));
-    assert!(!result.optimized_chunk.modules.contains_key("unused-1"));
-    assert!(!result.optimized_chunk.modules.contains_key("unused-2"));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("entry")));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("module-a")));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("module-b")));
+    assert!(!result.optimized_chunk.modules.contains_key(&Atom::from("unused-1")));
+    assert!(!result.optimized_chunk.modules.contains_key(&Atom::from("unused-2")));
     
     // Check that unused modules were removed
     assert_eq!(result.removed_modules.len(), 2);
-    assert!(result.removed_modules.contains(&"unused-1".to_string()));
-    assert!(result.removed_modules.contains(&"unused-2".to_string()));
+    assert!(result.removed_modules.contains(&Atom::from("unused-1")));
+    assert!(result.removed_modules.contains(&Atom::from("unused-2")));
 }
 
 /// Test finding unused modules
@@ -137,8 +138,8 @@ fn test_find_unused_modules() {
     
     // Verify results
     assert_eq!(unused.len(), 2);
-    assert!(unused.contains(&"debug".to_string()));
-    assert!(unused.contains(&"test-helper".to_string()));
+    assert!(unused.contains(&Atom::from("debug")));
+    assert!(unused.contains(&Atom::from("test-helper")));
 }
 
 /// Test validation before and after tree shaking
@@ -286,7 +287,7 @@ fn test_optimization_strategies() {
     assert!(result.optimized_chunk.module_count() < chunk.module_count());
     
     // Check that main is preserved (utils might be removed if considered unused)
-    assert!(result.optimized_chunk.modules.contains_key("main"));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("main")));
     // Note: utils might be removed if it's not properly detected as being used by main
     
     // Check optimization details
@@ -395,21 +396,21 @@ fn test_realistic_lodash_chunk() {
     let unused = shaker.find_unused_modules(&chunk, &["../../node_modules/lodash-es/map.js"]).unwrap();
     
     // Should identify filter and sortBy as unused
-    assert!(unused.contains(&"../../node_modules/lodash-es/filter.js".to_string()));
-    assert!(unused.contains(&"../../node_modules/lodash-es/sortBy.js".to_string()));
+    assert!(unused.contains(&Atom::from("../../node_modules/lodash-es/filter.js")));
+    assert!(unused.contains(&Atom::from("../../node_modules/lodash-es/sortBy.js")));
     
     // Perform tree shaking
     let result = shaker.shake_tree(&chunk, &["../../node_modules/lodash-es/map.js"]).unwrap();
     
     // Should keep map and its dependencies
-    assert!(result.optimized_chunk.modules.contains_key("../../node_modules/lodash-es/map.js"));
-    assert!(result.optimized_chunk.modules.contains_key("../../node_modules/lodash-es/_baseMap.js"));
-    assert!(result.optimized_chunk.modules.contains_key("../../node_modules/lodash-es/_baseEach.js"));
-    assert!(result.optimized_chunk.modules.contains_key("../../node_modules/lodash-es/isArrayLike.js"));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("../../node_modules/lodash-es/map.js")));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("../../node_modules/lodash-es/_baseMap.js")));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("../../node_modules/lodash-es/_baseEach.js")));
+    assert!(result.optimized_chunk.modules.contains_key(&Atom::from("../../node_modules/lodash-es/isArrayLike.js")));
     
     // Should remove unused modules
-    assert!(!result.optimized_chunk.modules.contains_key("../../node_modules/lodash-es/filter.js"));
-    assert!(!result.optimized_chunk.modules.contains_key("../../node_modules/lodash-es/sortBy.js"));
+    assert!(!result.optimized_chunk.modules.contains_key(&Atom::from("../../node_modules/lodash-es/filter.js")));
+    assert!(!result.optimized_chunk.modules.contains_key(&Atom::from("../../node_modules/lodash-es/sortBy.js")));
     
     assert_eq!(result.optimized_chunk.module_count(), 4);
     assert_eq!(result.removed_modules.len(), 2);

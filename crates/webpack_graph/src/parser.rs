@@ -33,7 +33,7 @@ impl WebpackBundleParser {
 
         let program = parser
             .parse_program()
-            .map_err(|e| WebpackGraphError::ParseError(format!("Failed to parse JavaScript: {:?}", e)))?;
+            .map_err(|e| WebpackGraphError::ParseError(format!("Failed to parse JavaScript: {e:?}")))?;
 
         // Create visitor to extract webpack information
         let mut visitor = WebpackVisitor::new();
@@ -135,10 +135,10 @@ impl WebpackBundleParser {
         let mut dependencies = Vec::new();
         
         if source.contains("featureC") {
-            eprintln!("[webpack_graph] Extracting dependencies from source (contains featureC): {}", source);
+            eprintln!("[webpack_graph] Extracting dependencies from source (contains featureC): {source}");
         }
         if source.contains("__webpack_require__.d") {
-            eprintln!("[webpack_graph] Extracting dependencies from source (contains __webpack_require__.d): {}", source);
+            eprintln!("[webpack_graph] Extracting dependencies from source (contains __webpack_require__.d): {source}");
         }
         
         // Match numeric module IDs: __webpack_require__(123)
@@ -252,7 +252,7 @@ impl WebpackBundleParser {
             
             if let Some(modules_start) = modules_start_opt {
                 let modules_section = &source[modules_start..];
-                eprintln!("[webpack_graph] Found modules section starting at position {}", modules_start);
+                eprintln!("[webpack_graph] Found modules section starting at position {modules_start}");
                 
                 // Find the end of the modules object
                 let mut brace_count = 1;
@@ -390,7 +390,7 @@ impl WebpackVisitor {
 
                 // Extract module source from the function expression
                 let module_source = self.extract_function_source(&kv.value)
-                    .unwrap_or_else(|| format!("/* Module {} */", module_id));
+                    .unwrap_or_else(|| format!("/* Module {module_id} */"));
                 
                 return Some((module_id, module_source));
             }
@@ -608,11 +608,8 @@ impl WebpackVisitor {
 impl Visit for WebpackVisitor {
     /// Visit all declarations to find webpack_modules (var, let, const)
     fn visit_decl(&mut self, node: &Decl) {
-        match node {
-            Decl::Var(var_decl) => {
-                self.process_var_declaration(var_decl);
-            }
-            _ => {}
+        if let Decl::Var(var_decl) = node {
+            self.process_var_declaration(var_decl);
         }
         
         // Continue visiting children
@@ -752,7 +749,7 @@ impl WebpackVisitor {
     /// Process split chunk .push() call
     fn process_split_chunk_push(&mut self, call: &CallExpr) {
         // Split chunk format: .push([[chunk_ids], { modules }])
-        if call.args.len() >= 1 {
+        if !call.args.is_empty() {
             let ExprOrSpread { expr, .. } = &call.args[0];
             if let Expr::Array(array) = expr.as_ref() {
                 // We expect 2 elements: [chunk_ids, modules_object]
@@ -812,349 +809,4 @@ impl WebpackVisitor {
 
 // Removed unused RequireExtractor and ExtractionContext - dead code
 
-/// Enhanced require extractor that comprehensively finds all __webpack_require__ calls
-struct RequireExtractor {
-    dependencies: Vec<String>,
-    current_context: ExtractionContext,
-}
 
-#[derive(Debug, Clone)]
-enum ExtractionContext {
-    ModuleFunction,
-    ExportDefinition,
-    ImportStatement,
-    PropertyAccess,
-}
-
-impl RequireExtractor {
-    fn new() -> Self {
-        Self {
-            dependencies: Vec::new(),
-            current_context: ExtractionContext::ModuleFunction,
-        }
-    }
-    
-    /// Extract all __webpack_require__ calls from an expression
-    fn extract_from_expr(&mut self, expr: &Expr) {
-        match expr {
-            Expr::Call(call) => self.handle_call_expr(call),
-            Expr::Member(member) => self.handle_member_expr(member),
-            Expr::Arrow(arrow) => self.handle_arrow_expr(arrow),
-            Expr::Paren(paren) => self.extract_from_expr(&paren.expr),
-            Expr::Fn(func) => self.handle_function_expr(func),
-            Expr::Object(obj) => self.handle_object_expr(obj),
-            Expr::Array(arr) => self.handle_array_expr(arr),
-            Expr::Cond(cond) => self.handle_conditional_expr(cond),
-            Expr::Assign(assign) => self.handle_assign_expr(assign),
-            Expr::Seq(seq) => self.handle_sequence_expr(seq),
-            _ => {
-                // For other expressions, visit children if they exist
-                expr.visit_children_with(self);
-            }
-        }
-    }
-    
-    /// Extract from statements
-    fn extract_from_stmt(&mut self, stmt: &Stmt) {
-        match stmt {
-            Stmt::Expr(expr_stmt) => {
-                self.extract_from_expr(&expr_stmt.expr);
-            }
-            Stmt::Decl(Decl::Var(var_decl)) => {
-                for declarator in &var_decl.decls {
-                    if let Some(init) = &declarator.init {
-                        self.extract_from_expr(init);
-                    }
-                }
-            }
-            Stmt::Block(block) => {
-                for stmt in &block.stmts {
-                    self.extract_from_stmt(stmt);
-                }
-            }
-            Stmt::If(if_stmt) => {
-                self.extract_from_stmt(&if_stmt.cons);
-                if let Some(alt) = &if_stmt.alt {
-                    self.extract_from_stmt(alt);
-                }
-            }
-            Stmt::Return(ret) => {
-                if let Some(arg) = &ret.arg {
-                    self.extract_from_expr(arg);
-                }
-            }
-            _ => {
-                // For other statements, visit children
-                stmt.visit_children_with(self);
-            }
-        }
-    }
-    
-    /// Handle call expressions - the most important case
-    fn handle_call_expr(&mut self, call: &CallExpr) {
-        // Handle direct __webpack_require__ calls
-        if self.is_webpack_require_call(call) {
-            if let Some(module_id) = self.extract_module_id_from_call(call) {
-                self.add_dependency(module_id);
-            }
-        }
-        
-        // Handle __webpack_require__.d() export definitions
-        if self.is_webpack_require_d_call(call) {
-            self.handle_export_definition(call);
-        }
-        
-        // Handle __webpack_require__.r() calls
-        if self.is_webpack_require_r_call(call) {
-            // These don't have dependencies but we should traverse arguments
-            for arg in &call.args {
-                self.extract_from_expr(&arg.expr);
-            }
-        }
-        
-        // Always traverse arguments for nested requires
-        for arg in &call.args {
-            self.extract_from_expr(&arg.expr);
-        }
-        
-        // Traverse callee for chained calls
-        if let Callee::Expr(expr) = &call.callee {
-            self.extract_from_expr(expr);
-        }
-    }
-    
-    /// Handle member expressions (property access)
-    fn handle_member_expr(&mut self, member: &MemberExpr) {
-        // Handle __webpack_require__("module").property patterns
-        if let Expr::Call(call) = member.obj.as_ref() {
-            if self.is_webpack_require_call(call) {
-                if let Some(module_id) = self.extract_module_id_from_call(call) {
-                    self.add_dependency(module_id);
-                }
-            }
-        }
-        
-        // Always traverse object and property
-        self.extract_from_expr(&member.obj);
-        if let MemberProp::Computed(computed) = &member.prop {
-            self.extract_from_expr(&computed.expr);
-        }
-    }
-    
-    /// Handle arrow expressions
-    fn handle_arrow_expr(&mut self, arrow: &ArrowExpr) {
-        let old_context = self.current_context.clone();
-        self.current_context = ExtractionContext::ExportDefinition;
-        
-        match arrow.body.as_ref() {
-            BlockStmtOrExpr::BlockStmt(block) => {
-                for stmt in &block.stmts {
-                    self.extract_from_stmt(stmt);
-                }
-            }
-            BlockStmtOrExpr::Expr(expr) => {
-                self.extract_from_expr(expr);
-            }
-        }
-        
-        self.current_context = old_context;
-    }
-    
-    /// Handle function expressions
-    fn handle_function_expr(&mut self, func: &FnExpr) {
-        if let Some(body) = &func.function.body {
-            for stmt in &body.stmts {
-                self.extract_from_stmt(stmt);
-            }
-        }
-    }
-    
-    /// Handle object expressions
-    fn handle_object_expr(&mut self, obj: &ObjectLit) {
-        for prop in &obj.props {
-            match prop {
-                PropOrSpread::Prop(prop) => {
-                    match prop.as_ref() {
-                        Prop::KeyValue(kv) => {
-                            self.extract_from_expr(&kv.value);
-                        }
-                        Prop::Shorthand(_) => {}
-                        Prop::Assign(assign) => {
-                            self.extract_from_expr(&assign.value);
-                        }
-                        Prop::Getter(getter) => {
-                            if let Some(body) = &getter.body {
-                                for stmt in &body.stmts {
-                                    self.extract_from_stmt(stmt);
-                                }
-                            }
-                        }
-                        Prop::Setter(setter) => {
-                            if let Some(body) = &setter.body {
-                                for stmt in &body.stmts {
-                                    self.extract_from_stmt(stmt);
-                                }
-                            }
-                        }
-                        Prop::Method(method) => {
-                            if let Some(body) = &method.function.body {
-                                for stmt in &body.stmts {
-                                    self.extract_from_stmt(stmt);
-                                }
-                            }
-                        }
-                    }
-                }
-                PropOrSpread::Spread(spread) => {
-                    self.extract_from_expr(&spread.expr);
-                }
-            }
-        }
-    }
-    
-    /// Handle array expressions
-    fn handle_array_expr(&mut self, arr: &ArrayLit) {
-        for elem in &arr.elems {
-            if let Some(ExprOrSpread { expr, .. }) = elem {
-                self.extract_from_expr(expr);
-            }
-        }
-    }
-    
-    /// Handle conditional expressions
-    fn handle_conditional_expr(&mut self, cond: &CondExpr) {
-        self.extract_from_expr(&cond.test);
-        self.extract_from_expr(&cond.cons);
-        self.extract_from_expr(&cond.alt);
-    }
-    
-    /// Handle assignment expressions
-    fn handle_assign_expr(&mut self, assign: &AssignExpr) {
-        self.extract_from_expr(&assign.right);
-        if let AssignTarget::Simple(SimpleAssignTarget::Member(member)) = &assign.left {
-            self.extract_from_expr(&member.obj);
-            if let MemberProp::Computed(computed) = &member.prop {
-                self.extract_from_expr(&computed.expr);
-            }
-        }
-    }
-    
-    /// Handle sequence expressions
-    fn handle_sequence_expr(&mut self, seq: &SeqExpr) {
-        for expr in &seq.exprs {
-            self.extract_from_expr(expr);
-        }
-    }
-    
-    /// Handle __webpack_require__.d() export definitions
-    fn handle_export_definition(&mut self, call: &CallExpr) {
-        let old_context = self.current_context.clone();
-        self.current_context = ExtractionContext::ExportDefinition;
-        
-        // The second argument contains the export definitions
-        if call.args.len() >= 2 {
-            if let Expr::Object(obj) = call.args[1].expr.as_ref() {
-                eprintln!("[RequireExtractor] Processing __webpack_require__.d() with {} properties", obj.props.len());
-                for prop in &obj.props {
-                    if let PropOrSpread::Prop(prop) = prop {
-                        if let Prop::KeyValue(kv) = prop.as_ref() {
-                            // The value often contains arrow functions with requires
-                            eprintln!("[RequireExtractor] Processing property value: {:?}", kv.value);
-                            self.extract_from_expr(&kv.value);
-                        }
-                    }
-                }
-            }
-        }
-        
-        self.current_context = old_context;
-    }
-    
-    /// Check if a call is __webpack_require__()
-    fn is_webpack_require_call(&self, call: &CallExpr) -> bool {
-        if let Callee::Expr(expr) = &call.callee {
-            if let Expr::Ident(ident) = expr.as_ref() {
-                return ident.sym == "__webpack_require__";
-            }
-        }
-        false
-    }
-    
-    /// Check if a call is __webpack_require__.d()
-    fn is_webpack_require_d_call(&self, call: &CallExpr) -> bool {
-        if let Callee::Expr(expr) = &call.callee {
-            if let Expr::Member(member) = expr.as_ref() {
-                if let Expr::Ident(ident) = member.obj.as_ref() {
-                    if ident.sym == "__webpack_require__" {
-                        if let MemberProp::Ident(prop) = &member.prop {
-                            return prop.sym == "d";
-                        }
-                    }
-                }
-            }
-        }
-        false
-    }
-    
-    /// Check if a call is __webpack_require__.r()
-    fn is_webpack_require_r_call(&self, call: &CallExpr) -> bool {
-        if let Callee::Expr(expr) = &call.callee {
-            if let Expr::Member(member) = expr.as_ref() {
-                if let Expr::Ident(ident) = member.obj.as_ref() {
-                    if ident.sym == "__webpack_require__" {
-                        if let MemberProp::Ident(prop) = &member.prop {
-                            return prop.sym == "r";
-                        }
-                    }
-                }
-            }
-        }
-        false
-    }
-    
-    /// Extract module ID from a __webpack_require__ call
-    fn extract_module_id_from_call(&self, call: &CallExpr) -> Option<String> {
-        if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
-            match expr.as_ref() {
-                Expr::Lit(Lit::Num(num)) => {
-                    Some(num.value.to_string().split('.').next()?.to_string())
-                }
-                Expr::Lit(Lit::Str(s)) => {
-                    Some(s.value.to_string())
-                }
-                _ => None,
-            }
-        } else {
-            None
-        }
-    }
-    
-    /// Add a dependency if not already present
-    fn add_dependency(&mut self, module_id: String) {
-        if !self.dependencies.contains(&module_id) {
-            eprintln!("[RequireExtractor] Adding dependency: {}", module_id);
-            self.dependencies.push(module_id);
-        }
-    }
-}
-
-// Implement Visit trait for RequireExtractor to enable AST traversal
-impl Visit for RequireExtractor {
-    fn visit_expr(&mut self, expr: &Expr) {
-        self.extract_from_expr(expr);
-    }
-    
-    fn visit_stmt(&mut self, stmt: &Stmt) {
-        self.extract_from_stmt(stmt);
-    }
-}
-
-impl WebpackBundleParser {
-    // Removed analyze_split_chunk_reachability - let tree shaker handle it
-}
-
-impl Default for WebpackBundleParser {
-    fn default() -> Self {
-        Self::new().expect("Failed to create default WebpackBundleParser")
-    }
-} 

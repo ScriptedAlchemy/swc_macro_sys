@@ -203,13 +203,13 @@ impl ModuleRemovalImpact {
         println!("Impact of removing '{}':", self.removed_module);
         println!("  - Broken modules: {}", self.broken_modules.len());
         for module in &self.broken_modules {
-            let short_name = module.split('/').last().unwrap_or(module);
-            println!("    * {}", short_name);
+            let short_name = module.split('/').next_back().unwrap_or(module);
+            println!("    * {short_name}");
         }
         println!("  - Potentially orphaned: {}", self.potentially_orphaned.len());
         for module in &self.potentially_orphaned {
-            let short_name = module.split('/').last().unwrap_or(module);
-            println!("    * {}", short_name);
+            let short_name = module.split('/').next_back().unwrap_or(module);
+            println!("    * {short_name}");
         }
     }
 }
