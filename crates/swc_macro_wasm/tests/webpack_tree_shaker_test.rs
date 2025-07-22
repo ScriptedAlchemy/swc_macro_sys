@@ -447,6 +447,10 @@ fn test_tree_shaker_with_complex_dependency_patterns() {
                 "utilC": true,
                 "orphan": false
             }
+        },
+        "entryModules": {
+            "testA": "entryA.js",
+            "testB": "entryB.js"
         }
     });
     

@@ -9,7 +9,24 @@ fn test_full_module_graph_real_world_lodash() {
     let source = fs::read_to_string("../../test-cases/rspack-cjs-annotated-output/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js")
         .expect("Failed to read lodash chunk file");
     
-    let chunk = analyzer.analyze_chunk(&source).unwrap();
+    // Characteristics for rspack-cjs lodash chunk
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    
+    let chunk = analyzer.analyze_chunk(&source, characteristics).unwrap();
     
     println!("📊 Full Module Graph Analysis:");
     println!("   - Total modules: {}", chunk.module_count());

@@ -229,7 +229,7 @@ impl TreeShakingValidator {
         &self,
         chunk: &WebpackChunk,
         errors: &mut Vec<ValidationError>,
-        warnings: &mut Vec<ValidationWarning>,
+        _warnings: &mut Vec<ValidationWarning>,
     ) -> Result<()> {
         // Check if chunk has modules
         if chunk.modules.is_empty() {
@@ -256,7 +256,7 @@ impl TreeShakingValidator {
             
             // Check for large modules
             if module.source.len() > 50000 {
-                warnings.push(ValidationWarning::LargeModule {
+                _warnings.push(ValidationWarning::LargeModule {
                     module_id: module_id.clone(),
                     size: module.source.len(),
                 });
@@ -271,7 +271,7 @@ impl TreeShakingValidator {
         &self,
         graph: &DependencyGraph,
         errors: &mut Vec<ValidationError>,
-        warnings: &mut Vec<ValidationWarning>,
+        _warnings: &mut Vec<ValidationWarning>,
     ) -> Result<()> {
         for (module_id, module) in &graph.modules {
             // Check that all dependencies exist
@@ -297,7 +297,7 @@ impl TreeShakingValidator {
             // Check for suspicious dependencies
             for dep_id in &module.dependencies {
                 if module_id == dep_id {
-                    warnings.push(ValidationWarning::SuspiciousDependency {
+                    _warnings.push(ValidationWarning::SuspiciousDependency {
                         from_module: module_id.clone(),
                         to_module: dep_id.clone(),
                         reason: "Self-dependency".to_string(),
@@ -314,7 +314,7 @@ impl TreeShakingValidator {
         &self,
         chunk: &WebpackChunk,
         errors: &mut Vec<ValidationError>,
-        warnings: &mut Vec<ValidationWarning>,
+        _warnings: &mut Vec<ValidationWarning>,
     ) -> Result<()> {
         for (module_id, module) in &chunk.modules {
             // Look for webpack_require calls in source
@@ -339,7 +339,7 @@ impl TreeShakingValidator {
         &self,
         graph: &DependencyGraph,
         errors: &mut Vec<ValidationError>,
-        warnings: &mut Vec<ValidationWarning>,
+        _warnings: &mut Vec<ValidationWarning>,
     ) -> Result<()> {
         let mut visited = HashSet::new();
         let mut recursion_stack = HashSet::new();
@@ -367,12 +367,12 @@ impl TreeShakingValidator {
         &self,
         graph: &DependencyGraph,
         _errors: &mut Vec<ValidationError>,
-        warnings: &mut Vec<ValidationWarning>,
+        _warnings: &mut Vec<ValidationWarning>,
     ) -> Result<()> {
         for (module_id, module) in &graph.modules {
             // A module is orphaned if it has no dependents and is not an entry point
             if module.dependents.is_empty() && !self.is_entry_point(module_id) {
-                warnings.push(ValidationWarning::PotentiallyUnused {
+                _warnings.push(ValidationWarning::PotentiallyUnused {
                     module_id: module_id.clone(),
                     reason: "No dependents, might be unused".to_string(),
                 });
@@ -389,7 +389,7 @@ impl TreeShakingValidator {
         optimized_chunk: &WebpackChunk,
         removed_modules: &[ModuleId],
         errors: &mut Vec<ValidationError>,
-        warnings: &mut Vec<ValidationWarning>,
+        _warnings: &mut Vec<ValidationWarning>,
     ) -> Result<()> {
         // Check that removed modules actually existed
         for module_id in removed_modules {
@@ -425,7 +425,7 @@ impl TreeShakingValidator {
         original_chunk: &WebpackChunk,
         removed_modules: &[ModuleId],
         errors: &mut Vec<ValidationError>,
-        warnings: &mut Vec<ValidationWarning>,
+        _warnings: &mut Vec<ValidationWarning>,
     ) -> Result<()> {
         // Build dependency graph from original chunk
         let mut graph = DependencyGraph::new();

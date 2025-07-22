@@ -3,30 +3,43 @@ use swc_core::atoms::Atom;
 
 #[test]
 fn test_chunk_type_detection() {
-    let analyzer = WebpackAnalyzer::new();
+    // Test CommonJS Sync detection
+    let commonjs_sync_chars = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["chunk.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
     
-    // Test CommonJS detection
-    let commonjs_source = r#"
-        "use strict";
-        exports.modules = {
-            "module1.js": function() {},
-            "module2.js": function() {}
-        };
-    "#;
-    
-    let chunk_type = analyzer.detect_chunk_type(commonjs_source).unwrap();
-    assert_eq!(chunk_type, ChunkType::CommonJS);
+    assert_eq!(commonjs_sync_chars.determine_chunk_type(), ChunkType::CommonJSSync);
     
     // Test JSONP detection
-    let jsonp_source = r#"
-        (self["webpackChunkapp"] = self["webpackChunkapp"] || []).push([["chunk1"], {
-            "module1.js": function() {},
-            "module2.js": function() {}
-        }]);
-    "#;
+    let jsonp_chars = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "jsonp".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["chunk.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
     
-    let chunk_type = analyzer.detect_chunk_type(jsonp_source).unwrap();
-    assert_eq!(chunk_type, ChunkType::JSONP);
+    assert_eq!(jsonp_chars.determine_chunk_type(), ChunkType::JSONP);
 }
 
 #[test]
@@ -54,9 +67,25 @@ fn test_commonjs_module_extraction() {
         };
     "#;
     
-    let chunk = analyzer.analyze_chunk(source).unwrap();
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["chunk.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
     
-    assert_eq!(chunk.chunk_type, ChunkType::CommonJS);
+    let chunk = analyzer.analyze_chunk(source, characteristics).unwrap();
+    
+    assert_eq!(chunk.chunk_type, ChunkType::CommonJSSync);
     assert_eq!(chunk.module_count(), 2);
     assert!(chunk.get_module(&Atom::from("module1.js")).is_some());
     assert!(chunk.get_module(&Atom::from("module2.js")).is_some());
@@ -78,7 +107,23 @@ fn test_jsonp_module_extraction() {
         }]);
     "#;
     
-    let chunk = analyzer.analyze_chunk(source).unwrap();
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "jsonp".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["chunk.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    
+    let chunk = analyzer.analyze_chunk(source, characteristics).unwrap();
     
     assert_eq!(chunk.chunk_type, ChunkType::JSONP);
     assert_eq!(chunk.module_count(), 2);
@@ -109,7 +154,23 @@ fn test_dependency_graph_building() {
         };
     "#;
     
-    let chunk = analyzer.analyze_chunk(source).unwrap();
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["chunk.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    
+    let chunk = analyzer.analyze_chunk(source, characteristics).unwrap();
     
     // Test module dependencies
     let main_module = chunk.get_module(&Atom::from("main.js")).unwrap();
@@ -156,9 +217,25 @@ fn test_real_world_lodash_chunk() {
         };
     "#;
     
-    let chunk = analyzer.analyze_chunk(source).unwrap();
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["chunk.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
     
-    assert_eq!(chunk.chunk_type, ChunkType::CommonJS);
+    let chunk = analyzer.analyze_chunk(source, characteristics).unwrap();
+    
+    assert_eq!(chunk.chunk_type, ChunkType::CommonJSSync);
     assert_eq!(chunk.module_count(), 2);
     
     // Test dependency relationships

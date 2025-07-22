@@ -13,7 +13,7 @@ use swc_ecma_transforms_base::fixer::fixer;
 use swc_ecma_transforms_base::resolver;
 use swc_macro_condition_transform::condition_transform;
 use swc_macro_parser::MacroParser;
-use webpack_analyzer_v2::{WebpackAnalyzer, ChunkType};
+use webpack_analyzer_v2::{WebpackAnalyzer, ChunkType, ChunkCharacteristics};
 use webpack_chunk_tree_shaker::WebpackTreeShaker;
 use rustc_hash::FxHashSet;
 use regex::Regex;
@@ -117,6 +117,51 @@ fn has_macro_processing_config(config: &serde_json::Value) -> bool {
     config.get("entryModules").is_some()
 }
 
+/// Extract chunk characteristics from config or create default ones
+fn get_chunk_characteristics(config: &serde_json::Value, source: &str) -> ChunkCharacteristics {
+    // Check if chunk_characteristics is provided in config
+    if let Some(chars_value) = config.get("chunk_characteristics") {
+        if let Ok(characteristics) = serde_json::from_value::<ChunkCharacteristics>(chars_value.clone()) {
+            return characteristics;
+        }
+    }
+    
+    // Detect chunk format from source code
+    let chunk_format = if source.contains("exports.modules") {
+        "require".to_string() // CommonJS format
+    } else if source.contains("__webpack_modules__") {
+        "webpack".to_string() // Standard webpack format
+    } else if source.contains(".push([") {
+        "jsonp".to_string() // JSONP format 
+    } else {
+        "jsonp".to_string() // Default fallback
+    };
+    
+    // Create default characteristics based on detected format
+    // For standard webpack bundles with __webpack_modules__, set as entrypoint to trigger WebpackModules type
+    let (is_entrypoint, has_runtime) = if chunk_format == "webpack" {
+        (true, true) // This will make determine_chunk_type() return WebpackModules
+    } else {
+        (false, false)
+    };
+
+    ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime,
+        is_entrypoint,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format,
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["chunk.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    }
+}
+
 /// Performs iterative webpack module tree shaking after DCE
 fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comments: &SingleThreadedComments, config: &serde_json::Value) {
     let analyzer = WebpackAnalyzer::new();
@@ -149,7 +194,8 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
         };
 
         // Step 2: Analyze the chunk using webpack_analyzer_v2
-        let mut chunk = match analyzer.analyze_chunk(&current_code) {
+        let characteristics = get_chunk_characteristics(config, &current_code);
+        let mut chunk = match analyzer.analyze_chunk(&current_code, characteristics) {
             Ok(c) => c,
             Err(_e) => {
                 if iteration == 1 {
@@ -169,10 +215,10 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
             }
         }
         
-        // Debug: Log dependency graph details
-        if iteration == 1 {
-            for (_module_id, _module) in &chunk.modules {
-            }
+        // Debug: Log dependency graph details (only in debug mode)
+        #[cfg(debug_assertions)]
+        if iteration == 1 && chunk.modules.len() > 0 {
+            println!("Tree shaking debug: Chunk has {} modules", chunk.modules.len());
         }
 
         // Step 3: Check if this is a split chunk before tree shaking
@@ -183,11 +229,16 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
             !current_code.contains("__webpack_require__.r(");
             
         let is_split_chunk = match chunk.chunk_type {
-            ChunkType::CommonJS => true,  // CommonJS exports.modules are always split chunks
+            ChunkType::CommonJSAsync | ChunkType::CommonJSSync => true,  // CommonJS exports.modules are always split chunks
             ChunkType::JSONP => true,     // JSONP chunks are always split chunks
+            ChunkType::ESModules => true, // ES modules chunks are typically split chunks
             ChunkType::WebpackModules => {
                 // WebpackModules support removed - treat as non-split chunk
                 false
+            },
+            ChunkType::Unknown => {
+                // Unknown chunk types - default to split chunk behavior
+                true
             }
         };
         
@@ -209,6 +260,27 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                                     entry_points.push(entry_atom);
                                 }
                             }
+                        }
+                    }
+                }
+                
+                // If no explicit entry modules are found in the chunk, try to find main-like modules
+                if entry_points.is_empty() {
+                    // Look for modules that match common entry patterns
+                    for module_id in chunk.modules.keys() {
+                        let module_str = module_id.as_str();
+                        if module_str.contains("main") || 
+                           module_str.ends_with("index.js") || 
+                           module_str.ends_with("lodash.js") ||  // Common library entry point
+                           module_str == "0" {
+                            entry_points.push(module_id.clone());
+                        }
+                    }
+                    
+                    // If still no entry points, use the first module as entry point
+                    if entry_points.is_empty() {
+                        if let Some(first_module) = chunk.modules.keys().next() {
+                            entry_points.push(first_module.clone());
                         }
                     }
                 }

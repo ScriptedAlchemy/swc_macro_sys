@@ -81,10 +81,27 @@ fn test_real_world_webpack_chunk() {
         };
     "#;
     
-    let chunk = analyzer.analyze_chunk(source).unwrap();
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["vendors-lodash.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    
+    let chunk = analyzer.analyze_chunk(source, characteristics).unwrap();
     
     // Test basic chunk properties
-    assert_eq!(chunk.chunk_type, ChunkType::CommonJS);
+    // Updated for new enum variant - should be CommonJSSync due to "use strict" at start
+    assert_eq!(chunk.chunk_type, ChunkType::CommonJSSync);
     assert_eq!(chunk.module_count(), 6);
     
     // Test main lodash module dependencies

@@ -9,7 +9,6 @@ exports.modules = {
 __webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
   loadRemoteComponents: () => (loadRemoteComponents),
-  loadRemoteComponents: () => (loadRemoteComponents),
   processItems: () => (processItems),
   sortBy: () => (/* reexport safe */ lodash_es__WEBPACK_IMPORTED_MODULE_0__.sortBy),
   uniq: () => (/* reexport safe */ lodash_es__WEBPACK_IMPORTED_MODULE_0__.uniq)

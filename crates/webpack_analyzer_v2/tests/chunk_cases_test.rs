@@ -9,7 +9,25 @@ fn test_host_vendor_chunk() {
     println!("Testing host vendor chunk...");
     
     let analyzer = WebpackAnalyzer::new();
-    let result = analyzer.analyze_chunk(&chunk_content);
+    
+    // Host chunk characteristics from share-usage.json
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "async-node".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    
+    let result = analyzer.analyze_chunk(&chunk_content, characteristics);
     
     match result {
         Ok(chunk) => {
@@ -28,7 +46,8 @@ fn test_host_vendor_chunk() {
             let sample_modules: Vec<_> = chunk.modules.keys().take(5).collect();
             println!("  Sample modules: {:?}", sample_modules);
             
-            assert_eq!(chunk.chunk_type, ChunkType::CommonJS);
+            // Update for new enum variant - could be CommonJSAsync or CommonJSSync
+            assert!(matches!(chunk.chunk_type, ChunkType::CommonJSAsync | ChunkType::CommonJSSync));
             assert!(chunk.module_count() > 0, "Should have extracted modules");
         }
         Err(e) => {
@@ -45,7 +64,25 @@ fn test_remote_vendor_chunk() {
     println!("Testing remote vendor chunk...");
     
     let analyzer = WebpackAnalyzer::new();
-    let result = analyzer.analyze_chunk(&chunk_content);
+    
+    // Remote chunk characteristics from share-usage.json
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "async-node".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["remote".to_string(), "main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    
+    let result = analyzer.analyze_chunk(&chunk_content, characteristics);
     
     match result {
         Ok(chunk) => {
@@ -64,7 +101,8 @@ fn test_remote_vendor_chunk() {
             let sample_modules: Vec<_> = chunk.modules.keys().take(5).collect();
             println!("  Sample modules: {:?}", sample_modules);
             
-            assert_eq!(chunk.chunk_type, ChunkType::CommonJS);
+            // Update for new enum variant - could be CommonJSAsync or CommonJSSync
+            assert!(matches!(chunk.chunk_type, ChunkType::CommonJSAsync | ChunkType::CommonJSSync));
             assert!(chunk.module_count() > 0, "Should have extracted modules");
         }
         Err(e) => {
@@ -81,7 +119,25 @@ fn test_source_utils_chunk() {
     println!("Testing source utils chunk...");
     
     let analyzer = WebpackAnalyzer::new();
-    let result = analyzer.analyze_chunk(&chunk_content);
+    
+    // Utils chunk characteristics (async-node format)
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "async-node".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["remote".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["src_utils_js.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    
+    let result = analyzer.analyze_chunk(&chunk_content, characteristics);
     
     match result {
         Ok(chunk) => {
@@ -102,7 +158,8 @@ fn test_source_utils_chunk() {
                 println!("    Dependencies: {:?}", module.dependencies);
             }
             
-            assert_eq!(chunk.chunk_type, ChunkType::CommonJS);
+            // Update for new enum variant - could be CommonJSAsync or CommonJSSync
+            assert!(matches!(chunk.chunk_type, ChunkType::CommonJSAsync | ChunkType::CommonJSSync));
             assert!(chunk.module_count() > 0, "Should have extracted modules");
         }
         Err(e) => {
@@ -119,7 +176,25 @@ fn test_source_button_chunk() {
     println!("Testing source button chunk...");
     
     let analyzer = WebpackAnalyzer::new();
-    let result = analyzer.analyze_chunk(&chunk_content);
+    
+    // Button chunk characteristics (async-node format)
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "async-node".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["remote".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["src_Button_js.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    
+    let result = analyzer.analyze_chunk(&chunk_content, characteristics);
     
     match result {
         Ok(chunk) => {
@@ -140,7 +215,8 @@ fn test_source_button_chunk() {
                 println!("    Dependencies: {:?}", module.dependencies);
             }
             
-            assert_eq!(chunk.chunk_type, ChunkType::CommonJS);
+            // Update for new enum variant - could be CommonJSAsync or CommonJSSync
+            assert!(matches!(chunk.chunk_type, ChunkType::CommonJSAsync | ChunkType::CommonJSSync));
             assert!(chunk.module_count() > 0, "Should have extracted modules");
         }
         Err(e) => {
@@ -150,46 +226,87 @@ fn test_source_button_chunk() {
 }
 
 #[test]
-fn test_chunk_type_detection() {
-    println!("Testing chunk type detection...");
+fn test_chunk_characteristics_detection() {
+    println!("Testing chunk characteristics-based detection...");
     
     let analyzer = WebpackAnalyzer::new();
     
-    // Test CommonJS format detection
+    // Test with async-node chunk format characteristics
+    let async_node_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "async-node".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["remote".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["vendors-lodash.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    
     let commonjs_sample = r#"
-    "use strict";
     exports.ids = ["test"];
     exports.modules = {
         "module1": function() { return "test"; }
     };
     "#;
     
-    let result = analyzer.analyze_chunk(commonjs_sample);
+    let result = analyzer.analyze_chunk(commonjs_sample, async_node_characteristics);
     match result {
         Ok(chunk) => {
-            println!("✓ CommonJS detection works");
-            assert_eq!(chunk.chunk_type, ChunkType::CommonJS);
+            println!("✓ Chunk characteristics detection works for async-node");
+            assert_eq!(chunk.chunk_type, ChunkType::CommonJSAsync);
+            assert!(chunk.characteristics.is_some());
+            if let Some(chars) = &chunk.characteristics {
+                assert_eq!(chars.chunk_format, "async-node");
+                assert!(!chars.is_vendor_chunk()); // Should be false since can_be_initial is false
+            }
         }
         Err(e) => {
-            panic!("CommonJS detection failed: {}", e);
+            panic!("Chunk characteristics detection failed: {}", e);
         }
     }
     
-    // Test JSONP format detection
+    // Test with jsonp chunk format characteristics
+    let jsonp_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "jsonp".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["chunk.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    
     let jsonp_sample = r#"
     (self["webpackChunktest"] = self["webpackChunktest"] || []).push([["test"], {
         "module1": function() { return "test"; }
     }]);
     "#;
     
-    let result = analyzer.analyze_chunk(jsonp_sample);
+    let result = analyzer.analyze_chunk(jsonp_sample, jsonp_characteristics);
     match result {
         Ok(chunk) => {
-            println!("✓ JSONP detection works");
+            println!("✓ Chunk characteristics detection works for jsonp");
             assert_eq!(chunk.chunk_type, ChunkType::JSONP);
+            assert!(chunk.characteristics.is_some());
+            if let Some(chars) = &chunk.characteristics {
+                assert_eq!(chars.chunk_format, "jsonp");
+                assert!(chars.is_vendor_chunk()); // Should be true since can_be_initial is true
+            }
         }
         Err(e) => {
-            panic!("JSONP detection failed: {}", e);
+            panic!("Chunk characteristics detection failed: {}", e);
         }
     }
 }

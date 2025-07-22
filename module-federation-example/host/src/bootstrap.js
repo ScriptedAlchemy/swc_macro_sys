@@ -130,7 +130,7 @@ export function processItems(items) {
 }
 
 // Export functions for testing
-export { loadRemoteComponents, sortBy, uniq };
+export { sortBy, uniq };
 
 // Initialize the app only in browser environment
 if (typeof document !== 'undefined') {

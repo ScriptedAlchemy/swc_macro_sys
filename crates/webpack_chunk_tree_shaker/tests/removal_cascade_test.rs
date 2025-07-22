@@ -1,5 +1,6 @@
 use webpack_chunk_tree_shaker::*;
 use swc_core::atoms::Atom;
+use webpack_analyzer_v2::chunk::ChunkCharacteristics;
 
 /// Test comprehensive removal cascade - remove one module and see what else gets removed
 #[test]
@@ -77,7 +78,22 @@ fn test_remove_module_and_cascade_effect() {
     
     // Analyze the chunk
     let analyzer = WebpackAnalyzer::new();
-    let chunk = analyzer.analyze_chunk(chunk_source).unwrap();
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: true,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: Some("entry-point".to_string()),
+        has_async_chunks: false,
+        chunk_files: vec![],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
     println!("📊 Original chunk has {} modules", chunk.module_count());
     
@@ -197,7 +213,22 @@ fn test_remove_module_creates_orphans() {
     println!("🔍 STEP 1: Analyzing chunk with potential orphans");
     
     let analyzer = WebpackAnalyzer::new();
-    let chunk = analyzer.analyze_chunk(chunk_source).unwrap();
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: true,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: Some("main".to_string()),
+        has_async_chunks: false,
+        chunk_files: vec![],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
     println!("📊 Original chunk has {} modules", chunk.module_count());
     
@@ -277,7 +308,22 @@ fn test_find_unused_then_remove() {
     println!("🔍 STEP 1: Finding unused modules");
     
     let analyzer = WebpackAnalyzer::new();
-    let chunk = analyzer.analyze_chunk(chunk_source).unwrap();
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: true,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: Some("main".to_string()),
+        has_async_chunks: false,
+        chunk_files: vec![],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
     println!("📊 Original chunk has {} modules", chunk.module_count());
     
@@ -382,7 +428,22 @@ fn test_complete_workflow() {
     
     println!("\n📊 STEP 1: Initial Analysis");
     let analyzer = WebpackAnalyzer::new();
-    let chunk = analyzer.analyze_chunk(chunk_source).unwrap();
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["vendor-chunk".to_string()],
+        is_shared_chunk: true,
+        shared_modules: vec![],
+    };
+    let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
     println!("  - Original modules: {}", chunk.module_count());
     println!("  - Chunk type: {:?}", chunk.chunk_type);

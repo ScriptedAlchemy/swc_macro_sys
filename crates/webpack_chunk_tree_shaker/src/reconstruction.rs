@@ -34,9 +34,16 @@ impl ChunkReconstructor {
         preserved_modules: &FxHashMap<ModuleId, WebpackModule>,
     ) -> Result<String> {
         match chunk.chunk_type {
-            ChunkType::CommonJS => self.reconstruct_commonjs_chunk(preserved_modules),
+            ChunkType::CommonJSAsync | ChunkType::CommonJSSync => self.reconstruct_commonjs_chunk(preserved_modules),
             ChunkType::JSONP => self.reconstruct_jsonp_chunk(preserved_modules),
             ChunkType::WebpackModules => self.reconstruct_webpack_modules_chunk(preserved_modules),
+            ChunkType::ESModules => {
+                // For now, treat ES modules similar to webpack modules
+                self.reconstruct_webpack_modules_chunk(preserved_modules)
+            },
+            ChunkType::Unknown => {
+                Err(TreeShakingError::reconstruction_failed("Cannot reconstruct chunk of unknown type").into())
+            },
         }
     }
 

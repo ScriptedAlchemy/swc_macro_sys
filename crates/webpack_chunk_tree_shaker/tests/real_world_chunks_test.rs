@@ -1,6 +1,7 @@
 use webpack_chunk_tree_shaker::*;
 use std::fs;
 use std::path::Path;
+use webpack_analyzer_v2::chunk::ChunkCharacteristics;
 
 /// Test tree shaker with real-world webpack chunks from test-cases directory
 #[test]
@@ -21,7 +22,22 @@ fn test_webpack_feature_bundle_analysis() {
     
     // Analyze the chunk
     let analyzer = WebpackAnalyzer::new();
-    let result = analyzer.analyze_chunk(&chunk_source);
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: true,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: Some("featureA".to_string()),
+        has_async_chunks: false,
+        chunk_files: vec!["bundle-feature-a-only.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let result = analyzer.analyze_chunk(&chunk_source, chunk_characteristics);
     
     match result {
         Ok(chunk) => {
@@ -128,7 +144,22 @@ fn test_rspack_lodash_chunk() {
     
     // Analyze the chunk
     let analyzer = WebpackAnalyzer::new();
-    let result = analyzer.analyze_chunk(&chunk_source);
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["vendors-lodash.js".to_string()],
+        is_shared_chunk: true,
+        shared_modules: vec![],
+    };
+    let result = analyzer.analyze_chunk(&chunk_source, chunk_characteristics);
     
     match result {
         Ok(chunk) => {
@@ -253,7 +284,22 @@ fn test_simple_real_world_chunk() {
     // For simple code files, we might need to wrap them in a webpack-like structure
     // Let's first try to analyze as-is
     let analyzer = WebpackAnalyzer::new();
-    let result = analyzer.analyze_chunk(&chunk_source);
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: true,
+        can_be_initial: true,
+        is_only_initial: true,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: Some("main".to_string()),
+        has_async_chunks: false,
+        chunk_files: vec!["dead-code-elimination.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let result = analyzer.analyze_chunk(&chunk_source, chunk_characteristics);
     
     match result {
         Ok(chunk) => {
@@ -292,7 +338,22 @@ fn test_cascade_removal_real_world() {
     println!("📊 Source size: {} characters", chunk_source.len());
     
     let analyzer = WebpackAnalyzer::new();
-    let result = analyzer.analyze_chunk(&chunk_source);
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["bundle-all-features.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let result = analyzer.analyze_chunk(&chunk_source, chunk_characteristics);
     
     match result {
         Ok(chunk) => {

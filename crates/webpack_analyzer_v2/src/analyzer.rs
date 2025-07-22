@@ -6,7 +6,7 @@ use swc_core::atoms::Atom;
 use rustc_hash::FxHashMap;
 
 use crate::{
-    chunk::{ChunkType, WebpackChunk},
+    chunk::{ChunkType, ChunkCharacteristics, WebpackChunk},
     module::{ModuleId, WebpackModule},
     Result,
 };
@@ -30,19 +30,31 @@ impl WebpackAnalyzer {
         }
     }
 
-    /// Analyze a webpack chunk from source code
-    pub fn analyze_chunk(&self, source: &str) -> Result<WebpackChunk> {
-        // Step 1: Detect chunk type
-        let chunk_type = self.detect_chunk_type(source)?;
+    /// Analyze a webpack chunk with chunk characteristics (required)
+    pub fn analyze_chunk(&self, source: &str, characteristics: ChunkCharacteristics) -> Result<WebpackChunk> {
+        // Step 1: Determine chunk type from characteristics
+        let chunk_type = characteristics.determine_chunk_type();
+        
+        // Step 2: Validate chunk type is not Unknown
+        if chunk_type == ChunkType::Unknown {
+            return Err(format!("Unable to determine chunk type from characteristics. chunk_format: '{}'", 
+                characteristics.chunk_format).into());
+        }
 
-        // Step 2: Parse the source code
+        // Step 3: Parse the source code
         let program = self.parse_source(source)?;
 
-        // Step 3: Extract modules based on chunk type
-        let mut chunk = WebpackChunk::new(chunk_type.clone(), source.to_string());
+        // Step 4: Create chunk with characteristics
+        let mut chunk = WebpackChunk::new_with_characteristics(
+            chunk_type.clone(),
+            source.to_string(),
+            characteristics,
+        );
+
+        // Step 5: Extract modules based on chunk type
         self.extract_modules(&program, &mut chunk)?;
 
-        // Step 4: Build dependency graph
+        // Step 6: Build dependency graph
         self.build_dependency_graph(&mut chunk)?;
 
         Ok(chunk)
@@ -63,19 +75,6 @@ impl WebpackAnalyzer {
         Ok(())
     }
 
-    /// Detect the type of webpack chunk
-    pub fn detect_chunk_type(&self, source: &str) -> Result<ChunkType> {
-        if source.contains("exports.modules") {
-            Ok(ChunkType::CommonJS)
-        } else if source.contains("__webpack_modules__") {
-            Ok(ChunkType::WebpackModules)
-        } else if source.contains("webpackChunk") && source.contains("].push([") {
-            // More specific check for JSONP format: (self["webpackChunkname"] = self["webpackChunkname"] || []).push([
-            Ok(ChunkType::JSONP)
-        } else {
-            Err("Unknown chunk type - not a recognized webpack chunk format".into())
-        }
-    }
 
     /// Parse source code into AST
     fn parse_source(&self, source: &str) -> Result<Program> {
@@ -93,9 +92,26 @@ impl WebpackAnalyzer {
     /// Extract modules from the AST based on chunk type
     fn extract_modules(&self, program: &Program, chunk: &mut WebpackChunk) -> Result<()> {
         match chunk.chunk_type {
-            ChunkType::CommonJS => self.extract_commonjs_modules(program, chunk),
+            ChunkType::CommonJSAsync | ChunkType::CommonJSSync => {
+                self.extract_commonjs_modules(program, chunk)
+            },
             ChunkType::JSONP => self.extract_jsonp_modules(program, chunk),
             ChunkType::WebpackModules => self.extract_webpack_modules(program, chunk),
+            ChunkType::ESModules => {
+                // For now, treat ES modules similar to webpack modules
+                // TODO: Implement dedicated ES modules extraction
+                self.extract_webpack_modules(program, chunk)
+            },
+            ChunkType::Unknown => {
+                // Try all extraction methods and use the one that finds modules
+                if self.extract_commonjs_modules(program, chunk).is_ok() && chunk.module_count() > 0 {
+                    Ok(())
+                } else if self.extract_jsonp_modules(program, chunk).is_ok() && chunk.module_count() > 0 {
+                    Ok(())
+                } else {
+                    self.extract_webpack_modules(program, chunk)
+                }
+            },
         }
     }
 

@@ -1,5 +1,6 @@
 use webpack_chunk_tree_shaker::*;
 use swc_core::atoms::Atom;
+use webpack_analyzer_v2::chunk::ChunkCharacteristics;
 
 /// Test basic module removal functionality
 #[test]
@@ -24,7 +25,22 @@ fn test_basic_module_removal() {
     
     // Analyze the chunk
     let analyzer = WebpackAnalyzer::new();
-    let chunk = analyzer.analyze_chunk(chunk_source).unwrap();
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec![],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
     // Create tree shaker with options that allow removing entry modules
     let mut options = TreeShakingOptions::default();
@@ -80,7 +96,22 @@ fn test_tree_shaking_with_entry_points() {
     
     // Analyze the chunk
     let analyzer = WebpackAnalyzer::new();
-    let chunk = analyzer.analyze_chunk(chunk_source).unwrap();
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: true,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: Some("entry".to_string()),
+        has_async_chunks: false,
+        chunk_files: vec![],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
     // Create tree shaker
     let shaker = WebpackTreeShaker::new();
@@ -128,7 +159,22 @@ fn test_find_unused_modules() {
     
     // Analyze the chunk
     let analyzer = WebpackAnalyzer::new();
-    let chunk = analyzer.analyze_chunk(chunk_source).unwrap();
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec![],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
     // Create tree shaker
     let shaker = WebpackTreeShaker::new();
@@ -165,7 +211,22 @@ fn test_validation_workflow() {
     
     // Analyze the chunk
     let analyzer = WebpackAnalyzer::new();
-    let chunk = analyzer.analyze_chunk(chunk_source).unwrap();
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec![],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
     // Create validator
     let validator = TreeShakingValidator::new();
@@ -213,7 +274,22 @@ fn test_chunk_reconstruction() {
     
     // Analyze the chunk
     let analyzer = WebpackAnalyzer::new();
-    let chunk = analyzer.analyze_chunk(chunk_source).unwrap();
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec![],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
     // Create reconstructor
     let reconstructor = ChunkReconstructor::new();
@@ -266,7 +342,22 @@ fn test_optimization_strategies() {
     
     // Analyze the chunk
     let analyzer = WebpackAnalyzer::new();
-    let chunk = analyzer.analyze_chunk(chunk_source).unwrap();
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec![],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
     // Create optimizer with options that allow removing entry modules and aggressive mode
     let mut options = TreeShakingOptions::default();
@@ -320,7 +411,22 @@ fn test_error_handling() {
     
     // Analyze the chunk
     let analyzer = WebpackAnalyzer::new();
-    let chunk = analyzer.analyze_chunk(chunk_source).unwrap();
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec![],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+    };
+    let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
     // Create tree shaker
     let shaker = WebpackTreeShaker::new();
@@ -384,10 +490,25 @@ fn test_realistic_lodash_chunk() {
     
     // Analyze the chunk
     let analyzer = WebpackAnalyzer::new();
-    let chunk = analyzer.analyze_chunk(chunk_source).unwrap();
+    let chunk_characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "require".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec![],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["vendors-lodash".to_string()],
+        is_shared_chunk: true,
+        shared_modules: vec![],
+    };
+    let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
     assert_eq!(chunk.module_count(), 6);
-    assert_eq!(chunk.chunk_type, ChunkType::CommonJS);
+    assert!(matches!(chunk.chunk_type, ChunkType::CommonJSAsync | ChunkType::CommonJSSync));
     
     // Create tree shaker
     let shaker = WebpackTreeShaker::new();

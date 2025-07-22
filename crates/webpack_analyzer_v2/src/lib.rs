@@ -3,7 +3,7 @@ pub mod module;
 pub mod dependency_graph;
 pub mod analyzer;
 
-pub use chunk::{ChunkType, WebpackChunk};
+pub use chunk::{ChunkType, ChunkCharacteristics, WebpackChunk};
 pub use module::{ModuleId, WebpackModule};
 pub use dependency_graph::{DependencyGraph, ModuleRemovalImpact};
 pub use analyzer::WebpackAnalyzer;

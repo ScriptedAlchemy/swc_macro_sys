@@ -37,12 +37,12 @@ fn test_module_federation_lodash_optimization() {
         &fs::read_to_string(&remote_usage_path).expect("Failed to read remote usage")
     ).expect("Failed to parse remote usage JSON");
 
-    // Extract lodash usage
-    let host_lodash = &host_usage["consume_shared_modules"]["lodash-es"];
-    let remote_lodash = &remote_usage["consume_shared_modules"]["lodash-es"];
+    // Extract lodash usage - the JSON structure has lodash-es at the top level
+    let host_lodash = &host_usage["lodash-es"];
+    let remote_lodash = &remote_usage["lodash-es"];
 
-    let host_used = host_lodash["used_exports"].as_array().unwrap();
-    let remote_used = remote_lodash["used_exports"].as_array().unwrap();
+    let host_used = host_lodash["used_exports"].as_array().expect("host_lodash should have used_exports array");
+    let remote_used = remote_lodash["used_exports"].as_array().expect("remote_lodash should have used_exports array");
 
     println!("Host app uses {} lodash exports: {:?}", host_used.len(), 
         host_used.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>());
