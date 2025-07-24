@@ -57,9 +57,13 @@ function mergeUsageData(files) {
   const entryModules = {};
   
   files.forEach(({ name, data }) => {
-    if (!data.consume_shared_modules) return;
-    
-    Object.entries(data.consume_shared_modules).forEach(([moduleKey, moduleData]) => {
+    // Handle new structure where modules are at top level
+    Object.entries(data).forEach(([moduleKey, moduleData]) => {
+      // Skip non-module entries
+      if (!moduleData || typeof moduleData !== 'object' || !moduleData.used_exports) {
+        return;
+      }
+      
       if (!combined[moduleKey]) {
         combined[moduleKey] = {
           used_exports: new Set(),
