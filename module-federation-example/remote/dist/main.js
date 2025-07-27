@@ -88,195 +88,17 @@ exports.typeDescMap = typeDescMap;
 
 
 }),
-"./src/Button.js": 
-/*!***********************!*\
-  !*** ./src/Button.js ***!
-  \***********************/
-(function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
-__webpack_require__.r(__webpack_exports__);
-__webpack_require__.d(__webpack_exports__, {
-  "default": () => (Button)
-});
-/* ESM import */var lodash_es__WEBPACK_IMPORTED_MODULE_0__ = /* #__PURE__ */ __webpack_require__(/*! lodash-es */ "webpack/sharing/consume/default/lodash-es/lodash-es");
-/* ESM import */var lodash_es__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(lodash_es__WEBPACK_IMPORTED_MODULE_0__);
-
-function Button({ text, onClick }) {
-    return /*#__PURE__*/ React.createElement("button", {
-        onClick: onClick,
-        style: {
-            padding: '10px 20px',
-            backgroundColor: '#007acc',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '16px'
-        }
-    }, (0,lodash_es__WEBPACK_IMPORTED_MODULE_0__.capitalize)(text));
-}
-
-
-}),
 "./src/index.js": 
 /*!**********************!*\
   !*** ./src/index.js ***!
   \**********************/
 (function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 __webpack_require__.r(__webpack_exports__);
-/* ESM import */var lodash_es__WEBPACK_IMPORTED_MODULE_0__ = /* #__PURE__ */ __webpack_require__(/*! lodash-es */ "webpack/sharing/consume/default/lodash-es/lodash-es");
-/* ESM import */var lodash_es__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(lodash_es__WEBPACK_IMPORTED_MODULE_0__);
-/* ESM import */var _Button__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Button */ "./src/Button.js");
-/* ESM import */var _utils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./utils */ "./src/utils.js");
-
-
-
-// Demo data
-const users = [
-    {
-        name: 'john doe',
-        email: 'john@example.com',
-        role: 'admin',
-        age: 30
-    },
-    {
-        name: 'jane smith',
-        email: 'jane@example.com',
-        role: 'user',
-        age: 25
-    },
-    {
-        name: 'bob wilson',
-        email: 'bob@example.com',
-        role: 'admin',
-        age: 35
-    }
-];
-// Group users by role using lodash-es
-const groupedUsers = (0,lodash_es__WEBPACK_IMPORTED_MODULE_0__.groupBy)(users, 'role');
-console.log('Remote app loaded!');
-console.log('Grouped users by role:', groupedUsers);
-// Create a debounced search function
-const debouncedSearch = (0,_utils__WEBPACK_IMPORTED_MODULE_2__.createDebouncedFunction)((query)=>{
-    console.log('Searching for:', query);
-}, 500);
-// Demo the remote app
-const app = document.getElementById('app');
-if (app) {
-    app.innerHTML = `
-    <div>
-      <h2>Remote App - Lodash-ES Demo</h2>
-      <div>
-        <h3>Users grouped by role:</h3>
-        <pre>${JSON.stringify(groupedUsers, null, 2)}</pre>
-      </div>
-      <div>
-        <h3>Formatted user data:</h3>
-        <pre>${JSON.stringify(users.map(_utils__WEBPACK_IMPORTED_MODULE_2__.formatUserData), null, 2)}</pre>
-      </div>
-      <input id="search" placeholder="Type to search (debounced)..." style="padding: 8px; margin: 10px 0; width: 300px;" />
-    </div>
-  `;
-    // Add event listener for debounced search
-    const searchInput = document.getElementById('search');
-    if (searchInput) {
-        searchInput.addEventListener('input', (e)=>{
-            debouncedSearch(e.target.value);
-        });
-    }
-}
-
-
-}),
-"./src/utils.js": 
-/*!**********************!*\
-  !*** ./src/utils.js ***!
-  \**********************/
-(function (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
-__webpack_require__.r(__webpack_exports__);
 __webpack_require__.d(__webpack_exports__, {
-  createDebouncedFunction: () => (createDebouncedFunction),
-  createThrottledFunction: () => (createThrottledFunction),
-  formatUserData: () => (formatUserData),
-  omitFields: () => (omitFields),
-  pickFields: () => (pickFields)
+  "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 });
-/* ESM import */var lodash_es__WEBPACK_IMPORTED_MODULE_0__ = /* #__PURE__ */ __webpack_require__(/*! lodash-es */ "webpack/sharing/consume/default/lodash-es/lodash-es");
-/* ESM import */var lodash_es__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(lodash_es__WEBPACK_IMPORTED_MODULE_0__);
-function _define_property(obj, key, value) {
-    if (key in obj) {
-        Object.defineProperty(obj, key, {
-            value: value,
-            enumerable: true,
-            configurable: true,
-            writable: true
-        });
-    } else {
-        obj[key] = value;
-    }
-    return obj;
-}
-function _object_spread(target) {
-    for(var i = 1; i < arguments.length; i++){
-        var source = arguments[i] != null ? arguments[i] : {};
-        var ownKeys = Object.keys(source);
-        if (typeof Object.getOwnPropertySymbols === "function") {
-            ownKeys = ownKeys.concat(Object.getOwnPropertySymbols(source).filter(function(sym) {
-                return Object.getOwnPropertyDescriptor(source, sym).enumerable;
-            }));
-        }
-        ownKeys.forEach(function(key) {
-            _define_property(target, key, source[key]);
-        });
-    }
-    return target;
-}
-function ownKeys(object, enumerableOnly) {
-    var keys = Object.keys(object);
-    if (Object.getOwnPropertySymbols) {
-        var symbols = Object.getOwnPropertySymbols(object);
-        if (enumerableOnly) {
-            symbols = symbols.filter(function(sym) {
-                return Object.getOwnPropertyDescriptor(object, sym).enumerable;
-            });
-        }
-        keys.push.apply(keys, symbols);
-    }
-    return keys;
-}
-function _object_spread_props(target, source) {
-    source = source != null ? source : {};
-    if (Object.getOwnPropertyDescriptors) {
-        Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
-    } else {
-        ownKeys(Object(source)).forEach(function(key) {
-            Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
-        });
-    }
-    return target;
-}
-
-const createDebouncedFunction = (fn, delay = 300)=>{
-    return (0,lodash_es__WEBPACK_IMPORTED_MODULE_0__.debounce)(fn, delay);
-};
-const createThrottledFunction = (fn, delay = 100)=>{
-    return (0,lodash_es__WEBPACK_IMPORTED_MODULE_0__.throttle)(fn, delay);
-};
-const pickFields = (obj, fields)=>{
-    return (0,lodash_es__WEBPACK_IMPORTED_MODULE_0__.pick)(obj, fields);
-};
-const omitFields = (obj, fields)=>{
-    return (0,lodash_es__WEBPACK_IMPORTED_MODULE_0__.omit)(obj, fields);
-};
-const formatUserData = (userData)=>{
-    const publicFields = pickFields(userData, [
-        'name',
-        'email',
-        'role'
-    ]);
-    return _object_spread_props(_object_spread({}, publicFields), {
-        displayName: publicFields.name ? publicFields.name.toUpperCase() : 'Anonymous'
-    });
-};
+// Use dynamic import for async chunks to avoid top-level await
+/* ESM default export */ const __WEBPACK_DEFAULT_EXPORT__ = (Promise.all(/*! import() */ [__webpack_require__.e("webpack_sharing_consume_default_lodash-es_lodash-es"), __webpack_require__.e("webpack_sharing_consume_default_ramda_ramda"), __webpack_require__.e("webpack_sharing_consume_default_date-fns_date-fns"), __webpack_require__.e("src_bootstrap_js")]).then(__webpack_require__.bind(__webpack_require__, /*! ./bootstrap.js */ "./src/bootstrap.js")));
 
 
 }),
@@ -5055,7 +4877,7 @@ if(!__webpack_require__.federation){
     __webpack_require__.federation = {
         
 chunkMatcher: function(chunkId) {
-    return true;
+    return !/^webpack_sharing_consume_default_(date\-fns_date\-fns|lodash\-es_lodash\-es|ramda_ramda)$/.test(chunkId);
 },
 rootOutputDir: "",
 
@@ -5143,14 +4965,14 @@ __webpack_require__.r = (exports) => {
 (() => {
 
 __webpack_require__.S = {};
-__webpack_require__.initializeSharingData = { scopeToSharingDataMapping: { "default": [{ name: "lodash-es", version: "4.17.21", factory: () => (__webpack_require__.e("vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js").then(() => (() => (__webpack_require__(/*! ../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js */ "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"))))), eager: 0, singleton: 1, requiredVersion: "^4.17.21", strictVersion: 1 }] }, uniqueName: "remote" };
+__webpack_require__.initializeSharingData = { scopeToSharingDataMapping: { "default": [{ name: "date-fns", version: "4.1.0", factory: () => (__webpack_require__.e("vendors-node_modules_pnpm_date-fns_4_1_0_node_modules_date-fns_index_js").then(() => (() => (__webpack_require__(/*! ../../node_modules/.pnpm/date-fns@4.1.0/node_modules/date-fns/index.js */ "../../node_modules/.pnpm/date-fns@4.1.0/node_modules/date-fns/index.js"))))), eager: 0, singleton: 1, requiredVersion: "^4.1.0", strictVersion: 1 }, { name: "lodash-es", version: "4.17.21", factory: () => (__webpack_require__.e("vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js").then(() => (() => (__webpack_require__(/*! ../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js */ "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"))))), eager: 0, singleton: 1, requiredVersion: "^4.17.21", strictVersion: 1 }, { name: "ramda", version: "0.31.3", factory: () => (__webpack_require__.e("vendors-node_modules_pnpm_ramda_0_31_3_node_modules_ramda_es_index_js").then(() => (() => (__webpack_require__(/*! ../../node_modules/.pnpm/ramda@0.31.3/node_modules/ramda/es/index.js */ "../../node_modules/.pnpm/ramda@0.31.3/node_modules/ramda/es/index.js"))))), eager: 0, singleton: 1, requiredVersion: "^0.31.3", strictVersion: 1 }] }, uniqueName: "remote" };
 __webpack_require__.I = __webpack_require__.I || function() { throw new Error("should have __webpack_require__.I") }
 
 })();
 // webpack/runtime/consumes_loading
 (() => {
 
-__webpack_require__.consumesLoadingData = { chunkMapping: {"main":["webpack/sharing/consume/default/lodash-es/lodash-es"]}, moduleIdToConsumeDataMapping: { "webpack/sharing/consume/default/lodash-es/lodash-es": { shareScope: "default", shareKey: "lodash-es", import: "lodash-es", requiredVersion: "^4.17.21", strictVersion: true, singleton: true, eager: false, fallback: () => (__webpack_require__.e("vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js").then(() => (() => (__webpack_require__(/*! lodash-es */ "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"))))) } }, initialConsumes: ["webpack/sharing/consume/default/lodash-es/lodash-es"] };
+__webpack_require__.consumesLoadingData = { chunkMapping: {"webpack_sharing_consume_default_date-fns_date-fns":["webpack/sharing/consume/default/date-fns/date-fns"],"webpack_sharing_consume_default_ramda_ramda":["webpack/sharing/consume/default/ramda/ramda"],"webpack_sharing_consume_default_lodash-es_lodash-es":["webpack/sharing/consume/default/lodash-es/lodash-es"]}, moduleIdToConsumeDataMapping: { "webpack/sharing/consume/default/date-fns/date-fns": { shareScope: "default", shareKey: "date-fns", import: "date-fns", requiredVersion: "^4.1.0", strictVersion: true, singleton: true, eager: false, fallback: () => (__webpack_require__.e("vendors-node_modules_pnpm_date-fns_4_1_0_node_modules_date-fns_index_js").then(() => (() => (__webpack_require__(/*! date-fns */ "../../node_modules/.pnpm/date-fns@4.1.0/node_modules/date-fns/index.js"))))) }, "webpack/sharing/consume/default/lodash-es/lodash-es": { shareScope: "default", shareKey: "lodash-es", import: "lodash-es", requiredVersion: "^4.17.21", strictVersion: true, singleton: true, eager: false, fallback: () => (__webpack_require__.e("vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js").then(() => (() => (__webpack_require__(/*! lodash-es */ "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"))))) }, "webpack/sharing/consume/default/ramda/ramda": { shareScope: "default", shareKey: "ramda", import: "ramda", requiredVersion: "^0.31.3", strictVersion: true, singleton: true, eager: false, fallback: () => (__webpack_require__.e("vendors-node_modules_pnpm_ramda_0_31_3_node_modules_ramda_es_index_js").then(() => (() => (__webpack_require__(/*! ramda */ "../../node_modules/.pnpm/ramda@0.31.3/node_modules/ramda/es/index.js"))))) } }, initialConsumes: [] };
 __webpack_require__.f.consumes = __webpack_require__.f.consumes || function() { throw new Error("should have __webpack_require__.f.consumes") }
 })();
 // webpack/runtime/readfile_chunk_loading
@@ -5181,7 +5003,7 @@ if (installedChunkData !== 0) {  // 0 means "already installed".
   if (installedChunkData) {
     promises.push(installedChunkData[2]);
   } else {
-    if (true) {  // all chunks have JS
+    if (!/^webpack_sharing_consume_default_(date\-fns_date\-fns|lodash\-es_lodash\-es|ramda_ramda)$/.test(chunkId)) {  // all chunks have JS
       // load the chunk and return promise to it
       var promise = new Promise(function (resolve, reject) {
         installedChunkData = installedChunks[chunkId] = [resolve, reject];
@@ -5199,7 +5021,8 @@ if (installedChunkData !== 0) {  // 0 means "already installed".
         });
       });
       promises.push(installedChunkData[2] = promise);
-    } 
+    } else installedChunks[chunkId] = 0;
+
   }
 }
         };

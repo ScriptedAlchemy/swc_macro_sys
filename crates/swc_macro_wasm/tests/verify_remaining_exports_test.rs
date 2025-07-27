@@ -22,39 +22,85 @@ fn test_verify_remaining_exports_after_optimization() {
         &fs::read_to_string(remote_usage_path).expect("Failed to read remote usage")
     ).expect("Failed to parse remote usage");
     
-    // Extract usage data
-    let host_used = host_usage["consume_shared_modules"]["lodash-es"]["used_exports"]
-        .as_array()
-        .unwrap();
-    let remote_used = remote_usage["consume_shared_modules"]["lodash-es"]["used_exports"]
-        .as_array()
-        .unwrap();
-    let unused = host_usage["consume_shared_modules"]["lodash-es"]["unused_exports"]
-        .as_array()
-        .unwrap();
-    
-    // Build tree shake config
-    let mut used_exports = std::collections::HashSet::new();
-    for export in host_used.iter().chain(remote_used.iter()) {
-        used_exports.insert(export.as_str().unwrap());
-    }
-    
-    let mut lodash_config = serde_json::Map::new();
-    for export in &used_exports {
-        lodash_config.insert(export.to_string(), json!(true));
-    }
-    for export in unused {
-        let export_name = export.as_str().unwrap();
-        if !used_exports.contains(export_name) {
-            lodash_config.insert(export_name.to_string(), json!(false));
+    // Extract usage data - handle both old and new formats
+    let (used_exports, config) = if host_usage.get("treeShake").is_some() {
+        // New format
+        let host_lodash = &host_usage["treeShake"]["lodash-es"];
+        let remote_lodash = &remote_usage["treeShake"]["lodash-es"];
+        
+        let host_lodash_obj = host_lodash.as_object().expect("host_lodash should be object");
+        let remote_lodash_obj = remote_lodash.as_object().expect("remote_lodash should be object");
+        
+        // Extract used exports (where value is true)
+        let mut used_exports = std::collections::HashSet::new();
+        for (key, value) in host_lodash_obj {
+            if key != "chunk_characteristics" && value.as_bool() == Some(true) {
+                used_exports.insert(key.as_str());
+            }
         }
-    }
-    
-    let config = json!({
-        "treeShake": {
-            "lodash-es": lodash_config
+        for (key, value) in remote_lodash_obj {
+            if key != "chunk_characteristics" && value.as_bool() == Some(true) {
+                used_exports.insert(key.as_str());
+            }
         }
-    });
+        
+        // Create merged config
+        let mut lodash_config = serde_json::Map::new();
+        for (key, value) in host_lodash_obj {
+            if key != "chunk_characteristics" {
+                lodash_config.insert(key.clone(), value.clone());
+            }
+        }
+        for (key, value) in remote_lodash_obj {
+            if key != "chunk_characteristics" && value.as_bool() == Some(true) {
+                lodash_config.insert(key.clone(), serde_json::Value::Bool(true));
+            }
+        }
+        
+        let config = json!({
+            "treeShake": {
+                "lodash-es": lodash_config
+            }
+        });
+        
+        (used_exports, config)
+    } else {
+        // Old format
+        let host_used = host_usage["consume_shared_modules"]["lodash-es"]["used_exports"]
+            .as_array()
+            .unwrap();
+        let remote_used = remote_usage["consume_shared_modules"]["lodash-es"]["used_exports"]
+            .as_array()
+            .unwrap();
+        let unused = host_usage["consume_shared_modules"]["lodash-es"]["unused_exports"]
+            .as_array()
+            .unwrap();
+        
+        // Build tree shake config
+        let mut used_exports = std::collections::HashSet::new();
+        for export in host_used.iter().chain(remote_used.iter()) {
+            used_exports.insert(export.as_str().unwrap());
+        }
+        
+        let mut lodash_config = serde_json::Map::new();
+        for export in &used_exports {
+            lodash_config.insert(export.to_string(), json!(true));
+        }
+        for export in unused {
+            let export_name = export.as_str().unwrap();
+            if !used_exports.contains(export_name) {
+                lodash_config.insert(export_name.to_string(), json!(false));
+            }
+        }
+        
+        let config = json!({
+            "treeShake": {
+                "lodash-es": lodash_config
+            }
+        });
+        
+        (used_exports, config)
+    };
     
     println!("Expected to preserve these exports: {:?}", used_exports);
     

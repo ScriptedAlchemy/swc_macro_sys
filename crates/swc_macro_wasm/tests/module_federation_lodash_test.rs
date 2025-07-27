@@ -37,42 +37,52 @@ fn test_module_federation_lodash_optimization() {
         &fs::read_to_string(&remote_usage_path).expect("Failed to read remote usage")
     ).expect("Failed to parse remote usage JSON");
 
-    // Extract lodash usage - the JSON structure has lodash-es at the top level
-    let host_lodash = &host_usage["lodash-es"];
-    let remote_lodash = &remote_usage["lodash-es"];
+    // Extract lodash usage from new format - treeShake.lodash-es contains exports with boolean values
+    let host_lodash = &host_usage["treeShake"]["lodash-es"];
+    let remote_lodash = &remote_usage["treeShake"]["lodash-es"];
 
-    let host_used = host_lodash["used_exports"].as_array().expect("host_lodash should have used_exports array");
-    let remote_used = remote_lodash["used_exports"].as_array().expect("remote_lodash should have used_exports array");
+    let host_lodash_obj = host_lodash.as_object().expect("host_lodash should be object");
+    let remote_lodash_obj = remote_lodash.as_object().expect("remote_lodash should be object");
 
-    println!("Host app uses {} lodash exports: {:?}", host_used.len(), 
-        host_used.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>());
-    println!("Remote app uses {} lodash exports: {:?}", remote_used.len(),
-        remote_used.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>());
+    // Extract used exports (where value is true)
+    let host_used: Vec<&str> = host_lodash_obj.iter()
+        .filter(|(k, v)| k.as_str() != "chunk_characteristics" && v.as_bool() == Some(true))
+        .map(|(k, _)| k.as_str())
+        .collect();
+    let remote_used: Vec<&str> = remote_lodash_obj.iter()
+        .filter(|(k, v)| k.as_str() != "chunk_characteristics" && v.as_bool() == Some(true))
+        .map(|(k, _)| k.as_str())
+        .collect();
+
+    println!("Host app uses {} lodash exports: {:?}", host_used.len(), host_used);
+    println!("Remote app uses {} lodash exports: {:?}", remote_used.len(), remote_used);
 
     // Merge used exports (union)
     let mut all_used_exports = std::collections::HashSet::new();
-    for export in host_used {
-        all_used_exports.insert(export.as_str().unwrap().to_string());
+    for export in &host_used {
+        all_used_exports.insert(export.to_string());
     }
-    for export in remote_used {
-        all_used_exports.insert(export.as_str().unwrap().to_string());
+    for export in &remote_used {
+        all_used_exports.insert(export.to_string());
     }
 
     println!("Combined used exports: {} total", all_used_exports.len());
     println!("Combined exports: {:?}", all_used_exports.iter().collect::<Vec<_>>());
 
-    // Create tree shake config
+    // Create tree shake config by merging both configs
     let mut tree_shake_config = serde_json::Map::new();
-    let unused_exports = host_lodash["unused_exports"].as_array().unwrap();
     
-    // Mark used exports as true, unused as false
-    for export in &all_used_exports {
-        tree_shake_config.insert(export.clone(), serde_json::Value::Bool(true));
+    // Start with all exports from host (includes both used and unused)
+    for (key, value) in host_lodash_obj {
+        if key != "chunk_characteristics" {
+            tree_shake_config.insert(key.clone(), value.clone());
+        }
     }
-    for export in unused_exports {
-        let export_name = export.as_str().unwrap();
-        if !all_used_exports.contains(export_name) {
-            tree_shake_config.insert(export_name.to_string(), serde_json::Value::Bool(false));
+    
+    // Update with remote's used exports (set to true if used in remote)
+    for (key, value) in remote_lodash_obj {
+        if key != "chunk_characteristics" && value.as_bool() == Some(true) {
+            tree_shake_config.insert(key.clone(), serde_json::Value::Bool(true));
         }
     }
 

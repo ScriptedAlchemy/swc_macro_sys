@@ -5,26 +5,26 @@
   "description": "Example usage of SWC Macro WASM bindings",
   "main": "example_wasm_usage.js",
   "scripts": {
-    "start": "node example_wasm_usage.js",
+    "start": "node --experimental-wasm-modules example_wasm_usage.js",
     "build-wasm": "cd crates/swc_macro_wasm && wasm-pack build --release",
     "test": "run-s test:rust test:js",
     "test:rust": "cargo test --workspace",
     "test:js": "pnpm -r test",
     "test:all": "run-s test:rust test:js:all",
     "test:js:all": "run-p test:root test:workspaces",
-    "test:root": "vitest run",
+    "test:root": "node --experimental-wasm-modules node_modules/.bin/vitest run",
     "test:workspaces": "pnpm -r test",
     "test:unit": "pnpm -r test:unit",
     "test:integration": "pnpm -r test:integration",
     "test:e2e": "pnpm -r test:e2e",
     "test:watch": "run-p test:watch:root test:watch:workspaces",
-    "test:watch:root": "vitest --watch",
+    "test:watch:root": "node --experimental-wasm-modules node_modules/.bin/vitest --watch",
     "test:watch:workspaces": "pnpm -r --parallel test:watch",
-    "test:ui": "vitest --ui",
+    "test:ui": "node --experimental-wasm-modules node_modules/.bin/vitest --ui",
     "test:coverage": "run-s test:coverage:rust test:coverage:js",
     "test:coverage:rust": "cargo tarpaulin --workspace --out Html --output-dir coverage/rust",
     "test:coverage:js": "run-s test:coverage:root test:coverage:workspaces",
-    "test:coverage:root": "vitest run --coverage",
+    "test:coverage:root": "node --experimental-wasm-modules node_modules/.bin/vitest run --coverage",
     "test:coverage:workspaces": "pnpm -r test:coverage",
     "test:ci": "run-s build test:all",
     "build": "run-s build:rust build:js",
@@ -57,8 +57,8 @@
   "packageManager": "pnpm@8.11.0+sha512.9df87c16c98db27b4e051d787e67f2207ec47e809ccb07bf7b5ec4acdcd1613355839a38d0b900144923d6a7057700b74d2a0ccb1558beb241647a1206a9a7ab",
   "pnpm": {
     "overrides": {
-      "@rspack/cli": "npm:@rspack-canary/cli@1.4.9-canary-38954f27-20250721231859",
-      "@rspack/core": "npm:@rspack-canary/core@1.4.9-canary-38954f27-20250721231859"
+      "@rspack/cli": "npm:@rspack-canary/cli@1.4.11-canary-1c16f486-20250724191319",
+      "@rspack/core": "npm:@rspack-canary/core@1.4.11-canary-1c16f486-20250724191319"
     }
   }
 }

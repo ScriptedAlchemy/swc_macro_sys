@@ -43,12 +43,24 @@ module.exports = {
       exposes: {
         './Button': './src/Button',
         './utils': './src/utils',
+        './dateUtils': './src/dateUtils',
+        './functionalUtils': './src/functionalUtils',
       },
       shared: {
         'lodash-es': {
           singleton: true,
           strictVersion: true,
           requiredVersion: '^4.17.21',
+        },
+        'date-fns': {
+          singleton: true,
+          strictVersion: true,
+          requiredVersion: '^4.1.0',
+        },
+        'ramda': {
+          singleton: true,
+          strictVersion: true,
+          requiredVersion: '^0.31.3',
         },
       },
     }),

@@ -40,8 +40,25 @@ console.log('='.repeat(80));
 const hostUsage = JSON.parse(fs.readFileSync(mfUsagePath, 'utf8'));
 const remoteUsage = JSON.parse(fs.readFileSync(remoteUsagePath, 'utf8'));
 
-const hostUsed = hostUsage.consume_shared_modules['lodash-es'].used_exports;
-const remoteUsed = remoteUsage.consume_shared_modules['lodash-es'].used_exports;
+let hostUsed, remoteUsed, mfUnusedExports;
+
+if (hostUsage.treeShake && hostUsage.treeShake['lodash-es']) {
+    // New dot notation format
+    hostUsed = Object.entries(hostUsage.treeShake['lodash-es'])
+        .filter(([key, value]) => value === true && key !== 'chunk_characteristics')
+        .map(([key]) => key);
+    remoteUsed = Object.entries(remoteUsage.treeShake['lodash-es'])
+        .filter(([key, value]) => value === true && key !== 'chunk_characteristics')
+        .map(([key]) => key);
+    mfUnusedExports = Object.entries(hostUsage.treeShake['lodash-es'])
+        .filter(([key, value]) => value === false)
+        .map(([key]) => key);
+} else {
+    // Old format
+    hostUsed = hostUsage.consume_shared_modules['lodash-es'].used_exports;
+    remoteUsed = remoteUsage.consume_shared_modules['lodash-es'].used_exports;
+    mfUnusedExports = hostUsage.consume_shared_modules['lodash-es'].unused_exports;
+}
 
 // Combine MF usage (union of both apps)
 const mfCombinedUsed = [...new Set([...hostUsed, ...remoteUsed])];
@@ -66,10 +83,6 @@ const treeShakeConfig = {};
 mfCombinedUsed.forEach(exportName => {
     treeShakeConfig[exportName] = true;
 });
-
-// Get all lodash exports that need to be marked as unused
-// We'll use the unused exports from MF usage data as reference
-const mfUnusedExports = hostUsage.consume_shared_modules['lodash-es'].unused_exports;
 
 // Mark unused exports as false
 mfUnusedExports.forEach(exportName => {

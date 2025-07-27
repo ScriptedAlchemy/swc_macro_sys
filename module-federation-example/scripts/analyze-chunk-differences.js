@@ -82,9 +82,40 @@ const mfUsage = JSON.parse(fs.readFileSync(mfUsagePath, 'utf8'));
 const remoteUsage = JSON.parse(fs.readFileSync(remoteUsagePath, 'utf8'));
 const standardUsage = JSON.parse(fs.readFileSync(standardUsagePath, 'utf8'));
 
-const mfHostUsed = mfUsage.consume_shared_modules['lodash-es'].used_exports;
-const mfRemoteUsed = remoteUsage.consume_shared_modules['lodash-es'].used_exports;
-const standardUsed = standardUsage.consume_shared_modules['lodash-es'].used_exports;
+let mfHostUsed, mfRemoteUsed, standardUsed, mfUnusedCount, standardUnusedCount;
+
+// Handle both old and new formats
+if (mfUsage.treeShake && mfUsage.treeShake['lodash-es']) {
+    // New dot notation format
+    mfHostUsed = Object.entries(mfUsage.treeShake['lodash-es'])
+        .filter(([key, value]) => value === true && key !== 'chunk_characteristics')
+        .map(([key]) => key);
+    mfRemoteUsed = Object.entries(remoteUsage.treeShake['lodash-es'])
+        .filter(([key, value]) => value === true && key !== 'chunk_characteristics')
+        .map(([key]) => key);
+    mfUnusedCount = Object.entries(mfUsage.treeShake['lodash-es'])
+        .filter(([key, value]) => value === false)
+        .length;
+} else {
+    // Old format
+    mfHostUsed = mfUsage.consume_shared_modules['lodash-es'].used_exports;
+    mfRemoteUsed = remoteUsage.consume_shared_modules['lodash-es'].used_exports;
+    mfUnusedCount = mfUsage.consume_shared_modules['lodash-es'].unused_exports.length;
+}
+
+if (standardUsage.treeShake && standardUsage.treeShake['lodash-es']) {
+    // New format for standard
+    standardUsed = Object.entries(standardUsage.treeShake['lodash-es'])
+        .filter(([key, value]) => value === true && key !== 'chunk_characteristics')
+        .map(([key]) => key);
+    standardUnusedCount = Object.entries(standardUsage.treeShake['lodash-es'])
+        .filter(([key, value]) => value === false)
+        .length;
+} else {
+    // Old format
+    standardUsed = standardUsage.consume_shared_modules['lodash-es'].used_exports;
+    standardUnusedCount = standardUsage.consume_shared_modules['lodash-es'].unused_exports.length;
+}
 
 // Combine MF usage
 const mfCombinedUsed = [...new Set([...mfHostUsed, ...mfRemoteUsed])];
@@ -94,9 +125,6 @@ console.log(`Module Federation (host):    ${mfHostUsed.length} exports: [${mfHos
 console.log(`Module Federation (remote):  ${mfRemoteUsed.length} exports: [${mfRemoteUsed.join(', ')}]`);
 console.log(`Module Federation (combined): ${mfCombinedUsed.length} exports: [${mfCombinedUsed.join(', ')}]`);
 console.log(`Standard webpack:            ${standardUsed.length} exports: [${standardUsed.join(', ')}]`);
-
-const mfUnusedCount = mfUsage.consume_shared_modules['lodash-es'].unused_exports.length;
-const standardUnusedCount = standardUsage.consume_shared_modules['lodash-es'].unused_exports.length;
 
 console.log(`\nUNUSED EXPORTS:`);
 console.log(`Module Federation unused: ${mfUnusedCount}`);

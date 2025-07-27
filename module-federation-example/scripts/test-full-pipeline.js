@@ -76,28 +76,35 @@ async function runFullPipeline() {
     const hostUsage = JSON.parse(fs.readFileSync(hostUsagePath, 'utf8'));
     const remoteUsage = JSON.parse(fs.readFileSync(remoteUsagePath, 'utf8'));
     
-    // Convert usage data to boolean map format
-    const convertUsageToBoolean = (usage) => {
-      const booleanMap = {};
-      
-      if (usage.consume_shared_modules && usage.consume_shared_modules['lodash-es']) {
-        const lodashUsage = usage.consume_shared_modules['lodash-es'];
+    // Handle both old and new formats
+    let mergedConfig;
+    
+    if (hostUsage.treeShake && hostUsage.treeShake['lodash-es']) {
+      // Already in new dot notation format, just merge
+      mergedConfig = hostUsage;
+    } else {
+      // Convert old format to new format
+      const convertUsageToBoolean = (usage) => {
+        const booleanMap = {};
         
-        // Mark used exports as true
-        if (lodashUsage.used_exports) {
-          lodashUsage.used_exports.forEach(exportName => {
-            booleanMap[exportName] = true;
-          });
+        if (usage.consume_shared_modules && usage.consume_shared_modules['lodash-es']) {
+          const lodashUsage = usage.consume_shared_modules['lodash-es'];
+          
+          // Mark used exports as true
+          if (lodashUsage.used_exports) {
+            lodashUsage.used_exports.forEach(exportName => {
+              booleanMap[exportName] = true;
+            });
+          }
+          
+          // Mark unused exports as false
+          if (lodashUsage.unused_exports) {
+            lodashUsage.unused_exports.forEach(exportName => {
+              booleanMap[exportName] = false;
+            });
+          }
         }
         
-        // Mark unused exports as false
-        if (lodashUsage.unused_exports) {
-          lodashUsage.unused_exports.forEach(exportName => {
-            booleanMap[exportName] = false;
-          });
-        }
-      }
-      
       return booleanMap;
     };
     

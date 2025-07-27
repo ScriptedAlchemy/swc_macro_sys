@@ -53,25 +53,8 @@ fn test_rspack_main_bundle_optimization() {
     let share_usage = include_str!("../../../test-cases/rspack-annotated-output/share-usage.json");
     let usage_data: serde_json::Value = serde_json::from_str(share_usage).unwrap();
     
-    // Build tree shaking configuration based on actual usage
-    let mut tree_shake_config = json!({});
-    if let Some(consumed_modules) = usage_data["consume_shared_modules"].as_object() {
-        for (module_name, module_data) in consumed_modules {
-            if let Some(used_exports) = module_data["used_exports"].as_array() {
-                let mut export_config = json!({});
-                for export in used_exports {
-                    if let Some(export_name) = export.as_str() {
-                        export_config[export_name] = json!(true);
-                    }
-                }
-                tree_shake_config[module_name] = export_config;
-            }
-        }
-    }
-    
-    let config = json!({
-        "treeShake": tree_shake_config
-    });
+    // The share-usage.json now directly contains the optimizer config format
+    let config = usage_data.clone();
     
     let result = optimize(main_bundle.to_string(), &config.to_string());
     

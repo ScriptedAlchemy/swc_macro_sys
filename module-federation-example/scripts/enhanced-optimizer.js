@@ -225,27 +225,35 @@ async function main() {
   const hostUsage = JSON.parse(fs.readFileSync(mfUsagePath, 'utf8'));
   const remoteUsage = JSON.parse(fs.readFileSync(remoteUsagePath, 'utf8'));
 
-  const hostUsed = hostUsage.consume_shared_modules['lodash-es'].used_exports;
-  const remoteUsed = remoteUsage.consume_shared_modules['lodash-es'].used_exports;
-  const mfCombinedUsed = [...new Set([...hostUsed, ...remoteUsed])];
-  const mfUnusedExports = hostUsage.consume_shared_modules['lodash-es'].unused_exports;
+  // Check if already in new format
+  let baseConfig;
+  if (hostUsage.treeShake && hostUsage.treeShake['lodash-es']) {
+    // Already in new dot notation format
+    baseConfig = hostUsage;
+  } else {
+    // Convert from old format
+    const hostUsed = hostUsage.consume_shared_modules['lodash-es'].used_exports;
+    const remoteUsed = remoteUsage.consume_shared_modules['lodash-es'].used_exports;
+    const mfCombinedUsed = [...new Set([...hostUsed, ...remoteUsed])];
+    const mfUnusedExports = hostUsage.consume_shared_modules['lodash-es'].unused_exports;
 
-  // Create base tree-shake config
-  const baseTreeShakeConfig = {};
-  mfCombinedUsed.forEach(exportName => {
-    baseTreeShakeConfig[exportName] = true;
-  });
-  mfUnusedExports.forEach(exportName => {
-    if (!mfCombinedUsed.includes(exportName)) {
-      baseTreeShakeConfig[exportName] = false;
-    }
-  });
+    // Create base tree-shake config
+    const baseTreeShakeConfig = {};
+    mfCombinedUsed.forEach(exportName => {
+      baseTreeShakeConfig[exportName] = true;
+    });
+    mfUnusedExports.forEach(exportName => {
+      if (!mfCombinedUsed.includes(exportName)) {
+        baseTreeShakeConfig[exportName] = false;
+      }
+    });
 
-  const baseConfig = {
-    treeShake: {
-      'lodash-es': baseTreeShakeConfig
-    }
-  };
+    baseConfig = {
+      treeShake: {
+        'lodash-es': baseTreeShakeConfig
+      }
+    };
+  }
 
   console.log('='.repeat(80));
   console.log('🔬 TESTING ENHANCED OPTIMIZATION ON STANDARD WEBPACK CHUNK');

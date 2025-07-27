@@ -45,33 +45,49 @@ describe('SWC Macro Optimization', () => {
     });
     
     it('should handle Module Federation share-usage.json format', () => {
+      // New share-usage.json format with treeShake at top level
       const shareUsage = {
-        consume_shared_modules: {
+        treeShake: {
           'lodash-es': {
-            used_exports: ['sortBy', 'uniq', 'default'],
-            unused_exports: ['map', 'filter', 'reduce'],
-            entry_module_id: '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js'
+            sortBy: true,
+            uniq: true,
+            default: true,
+            map: false,
+            filter: false,
+            reduce: false,
+            chunk_characteristics: {
+              entry_module_id: '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js',
+              is_runtime_chunk: false,
+              has_runtime: false,
+              is_entrypoint: false,
+              can_be_initial: false,
+              is_only_initial: false,
+              chunk_format: 'async-node',
+              chunk_loading_type: null,
+              runtime_names: ['main'],
+              entry_name: null,
+              has_async_chunks: false,
+              chunk_files: ['vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js'],
+              is_shared_chunk: false,
+              shared_modules: []
+            }
           }
         }
       };
       
-      // Convert share usage to tree shake config
-      const usedExports = shareUsage.consume_shared_modules['lodash-es'].used_exports;
-      const unusedExports = shareUsage.consume_shared_modules['lodash-es'].unused_exports;
-      const entryModuleId = shareUsage.consume_shared_modules['lodash-es'].entry_module_id;
+      // Extract entry module from chunk_characteristics
+      const entryModuleId = shareUsage.treeShake['lodash-es'].chunk_characteristics.entry_module_id;
       
-      const treeShakeConfig = {};
-      usedExports.forEach(exp => { treeShakeConfig[exp] = true; });
-      unusedExports.forEach(exp => { treeShakeConfig[exp] = false; });
-      
+      // The treeShake config is already in the correct format
       const config = {
-        treeShake: { 'lodash-es': treeShakeConfig },
+        treeShake: shareUsage.treeShake,
         entryModules: { 'lodash-es': entryModuleId }
       };
       
       expect(config.entryModules['lodash-es']).toBe(entryModuleId);
       expect(config.treeShake['lodash-es'].sortBy).toBe(true);
       expect(config.treeShake['lodash-es'].map).toBe(false);
+      expect(config.treeShake['lodash-es'].chunk_characteristics).toBeDefined();
     });
   });
   

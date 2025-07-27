@@ -51,75 +51,59 @@ function readShareUsageFiles() {
 
 /**
  * Merge usage data from multiple apps into combined tree-shake flags
+ * The new schema already contains treeShake structure with boolean values
  */
 function mergeUsageData(files) {
-  const combined = {};
+  const mergedTreeShake = {};
   const entryModules = {};
   
   files.forEach(({ name, data }) => {
-    // Handle new structure where modules are at top level
-    Object.entries(data).forEach(([moduleKey, moduleData]) => {
-      // Skip non-module entries
-      if (!moduleData || typeof moduleData !== 'object' || !moduleData.used_exports) {
-        return;
-      }
-      
-      if (!combined[moduleKey]) {
-        combined[moduleKey] = {
-          used_exports: new Set(),
-          unused_exports: new Set(moduleData.unused_exports || []),
-          apps: []
-        };
-      }
-      
-      // Add used exports from this app
-      (moduleData.used_exports || []).forEach(exportName => {
-        combined[moduleKey].used_exports.add(exportName);
-        combined[moduleKey].unused_exports.delete(exportName);
+    // Handle new structure where treeShake is at top level
+    if (data.treeShake) {
+      Object.entries(data.treeShake).forEach(([moduleKey, moduleExports]) => {
+        if (!mergedTreeShake[moduleKey]) {
+          mergedTreeShake[moduleKey] = {};
+        }
+        
+        // Merge export usage - if any app uses an export, mark it as true
+        Object.entries(moduleExports).forEach(([exportName, isUsed]) => {
+          // Skip chunk_characteristics metadata
+          if (exportName === 'chunk_characteristics') {
+            // Extract entry module ID if present
+            if (moduleExports.chunk_characteristics?.entry_module_id) {
+              entryModules[moduleKey] = moduleExports.chunk_characteristics.entry_module_id;
+            }
+            return;
+          }
+          
+          // If this export is already marked as used, keep it as true
+          // Otherwise, use the current app's value
+          if (mergedTreeShake[moduleKey][exportName] !== true) {
+            mergedTreeShake[moduleKey][exportName] = isUsed;
+          }
+        });
       });
-      
-      // Store entry module ID if present
-      if (moduleData.entry_module_id) {
-        entryModules[moduleKey] = moduleData.entry_module_id;
-      }
-      
-      combined[moduleKey].apps.push(name);
-    });
-  });
-  
-  // Convert to tree-shake format
-  const treeShakeConfig = {};
-  
-  Object.entries(combined).forEach(([moduleKey, data]) => {
-    treeShakeConfig[moduleKey] = {};
-    
-    // Mark used exports as true (keep), unused as false (remove)
-    data.used_exports.forEach(exportName => {
-      treeShakeConfig[moduleKey][exportName] = true;
-    });
-    
-    data.unused_exports.forEach(exportName => {
-      treeShakeConfig[moduleKey][exportName] = false;
-    });
+    }
   });
   
   return {
-    treeShake: treeShakeConfig,
+    treeShake: mergedTreeShake,
     entryModules: entryModules,
     metadata: {
       timestamp: new Date().toISOString(),
       apps: files.map(f => f.name),
-      modules: Object.keys(treeShakeConfig)
+      modules: Object.keys(mergedTreeShake)
     }
   };
 }
 
 /**
- * Find lodash chunk files in dist directories
+ * Find shared library chunk files in dist directories
  */
-function findLodashChunks() {
+function findSharedChunks() {
   const chunks = [];
   const distDirs = ['../host/dist', '../remote/dist'];
+  const sharedLibraries = ['lodash-es', 'ramda', 'date-fns'];
   
   distDirs.forEach(distDir => {
     const fullPath = path.resolve(__dirname, distDir);
@@ -127,12 +111,15 @@ function findLodashChunks() {
     
     const files = fs.readdirSync(fullPath);
     files.forEach(file => {
-      if (file.includes('lodash-es') && file.endsWith('.js') && !file.endsWith('.map')) {
+      // Check if file contains any of our shared libraries
+      const matchedLibrary = sharedLibraries.find(lib => file.includes(lib));
+      if (matchedLibrary && file.endsWith('.js') && !file.endsWith('.map') && !file.endsWith('.original') && !file.endsWith('.optimized.js')) {
         chunks.push({
           path: path.join(fullPath, file),
           mapPath: path.join(fullPath, file + '.map'),
           app: distDir.includes('host') ? 'host' : 'remote',
-          filename: file
+          filename: file,
+          library: matchedLibrary
         });
       }
     });
@@ -142,34 +129,42 @@ function findLodashChunks() {
 }
 
 /**
- * Optimize a lodash chunk using SWC macro with tree-shake flags
+ * Optimize a shared library chunk using SWC macro with tree-shake flags
  */
-async function optimizeChunk(chunkPath, treeShakeConfig, entryModules, optimizer) {
+async function optimizeChunk(chunkPath, library, treeShakeConfig, entryModules, optimizer) {
   console.log(`Optimizing chunk: ${path.basename(chunkPath)}`);
   
   try {
     const sourceCode = fs.readFileSync(chunkPath, 'utf8');
     
-    // Create optimization config for lodash-es
+    // Create optimization config for the library - only include exports marked as true
+    const libraryConfig = {};
+    if (treeShakeConfig[library]) {
+      Object.entries(treeShakeConfig[library]).forEach(([exportName, shouldKeep]) => {
+        if (shouldKeep === true) {
+          libraryConfig[exportName] = true;
+        }
+      });
+    }
+    
     const config = {
-      treeShake: {
-        'lodash-es': treeShakeConfig['lodash-es'] || {}
-      },
+      treeShake: treeShakeConfig,  // Pass the full treeShake config
       entryModules: entryModules || {}
     };
     
     const configJson = JSON.stringify(config);
-    console.log(`Tree-shake config for lodash-es:`, Object.keys(config.treeShake['lodash-es']).length, 'exports configured');
+    console.log(`Tree-shake config for ${library}:`, Object.keys(libraryConfig).length, 'exports to keep');
     console.log(`Entry modules:`, JSON.stringify(config.entryModules, null, 2));
-    console.log('Config JSON preview:', configJson.substring(0, 200) + '...');
-    console.log('Sample flags:', JSON.stringify(Object.fromEntries(Object.entries(config.treeShake['lodash-es']).slice(0, 5)), null, 2));
+    console.log('Exports to keep:', Object.keys(libraryConfig).join(', '));
     
     // Run SWC macro optimization
     const result = optimizer.optimize(sourceCode, configJson);
     
     if (result && typeof result === 'string' && result !== sourceCode) {
       // Backup original
-      fs.writeFileSync(chunkPath + '.original', sourceCode);
+      if (!fs.existsSync(chunkPath + '.original')) {
+        fs.writeFileSync(chunkPath + '.original', sourceCode);
+      }
       
       // Write optimized code
       fs.writeFileSync(chunkPath, result);
@@ -224,26 +219,40 @@ async function main() {
     fs.writeFileSync(configPath, JSON.stringify(mergedConfig, null, 2));
     console.log(`✅ Saved merged config to: ${path.relative(process.cwd(), configPath)}\n`);
     
-    // Find lodash chunks
-    console.log('Finding lodash chunks...');
-    const chunks = findLodashChunks();
-    console.log(`✅ Found ${chunks.length} lodash chunks\n`);
+    // Find shared library chunks
+    console.log('Finding shared library chunks...');
+    const chunks = findSharedChunks();
+    console.log(`✅ Found ${chunks.length} shared library chunks\n`);
     
     if (chunks.length === 0) {
-      console.log('No lodash chunks found to optimize.');
+      console.log('No shared library chunks found to optimize.');
       return;
     }
+    
+    // Group chunks by library
+    const chunksByLibrary = chunks.reduce((acc, chunk) => {
+      if (!acc[chunk.library]) acc[chunk.library] = [];
+      acc[chunk.library].push(chunk);
+      return acc;
+    }, {});
+    
+    console.log('Chunks by library:');
+    Object.entries(chunksByLibrary).forEach(([lib, libChunks]) => {
+      console.log(`  ${lib}: ${libChunks.length} chunks`);
+    });
+    console.log();
     
     // Optimize each chunk
     console.log('Optimizing chunks...');
     const results = [];
     
     for (const chunk of chunks) {
-      const result = await optimizeChunk(chunk.path, mergedConfig.treeShake, mergedConfig.entryModules, optimizer);
+      const result = await optimizeChunk(chunk.path, chunk.library, mergedConfig.treeShake, mergedConfig.entryModules, optimizer);
       if (result) {
         results.push({
           app: chunk.app,
           filename: chunk.filename,
+          library: chunk.library,
           ...result
         });
       }
@@ -258,9 +267,19 @@ async function main() {
       const totalOptimized = results.reduce((sum, r) => sum + r.optimized_size, 0);
       const totalReduction = ((totalOriginal - totalOptimized) / totalOriginal * 100);
       
-      results.forEach(result => {
-        console.log(`${result.app}/${result.filename}:`);
-        console.log(`  Size reduction: ${result.reduction.toFixed(2)}% (${result.original_size} → ${result.optimized_size} bytes)`);
+      // Group results by library for better display
+      const resultsByLibrary = results.reduce((acc, result) => {
+        if (!acc[result.library]) acc[result.library] = [];
+        acc[result.library].push(result);
+        return acc;
+      }, {});
+      
+      Object.entries(resultsByLibrary).forEach(([library, libResults]) => {
+        console.log(`\n${library}:`);
+        libResults.forEach(result => {
+          console.log(`  ${result.app}/${result.filename}:`);
+          console.log(`    Size reduction: ${result.reduction.toFixed(2)}% (${result.original_size.toLocaleString()} → ${result.optimized_size.toLocaleString()} bytes)`);
+        });
       });
       
       console.log(`\nTotal size reduction: ${totalReduction.toFixed(2)}% (${totalOriginal} → ${totalOptimized} bytes)`);

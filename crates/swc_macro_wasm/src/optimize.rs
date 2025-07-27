@@ -119,10 +119,26 @@ fn has_macro_processing_config(config: &serde_json::Value) -> bool {
 
 /// Extract chunk characteristics from config or create default ones
 fn get_chunk_characteristics(config: &serde_json::Value, source: &str) -> ChunkCharacteristics {
-    // Check if chunk_characteristics is provided in config
+    // First check if chunk_characteristics is at the root level (old format)
     if let Some(chars_value) = config.get("chunk_characteristics") {
         if let Ok(characteristics) = serde_json::from_value::<ChunkCharacteristics>(chars_value.clone()) {
             return characteristics;
+        }
+    }
+    
+    // Check if chunk_characteristics is nested within treeShake (new format)
+    if let Some(tree_shake_config) = config.get("treeShake") {
+        if let Some(tree_shake_obj) = tree_shake_config.as_object() {
+            // Look for chunk_characteristics in any of the modules
+            for (_, module_config) in tree_shake_obj {
+                if let Some(module_obj) = module_config.as_object() {
+                    if let Some(chars_value) = module_obj.get("chunk_characteristics") {
+                        if let Ok(characteristics) = serde_json::from_value::<ChunkCharacteristics>(chars_value.clone()) {
+                            return characteristics;
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -258,6 +274,55 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                                 let entry_atom = Atom::from(entry_str);
                                 if chunk.modules.contains_key(&entry_atom) {
                                     entry_points.push(entry_atom);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // IMPORTANT: Also add modules with preserved exports as entry points
+                // This ensures their dependencies are preserved during tree shaking
+                if let Some(tree_shake_config) = config.get("treeShake") {
+                    if let Some(tree_shake_obj) = tree_shake_config.as_object() {
+                        // For each package in the treeShake config
+                        for (package_name, exports_config) in tree_shake_obj {
+                            if let Some(exports_obj) = exports_config.as_object() {
+                                // For each export marked as true (to be preserved)
+                                for (export_name, should_preserve) in exports_obj {
+                                    // Skip chunk_characteristics as it's not an export
+                                    if export_name == "chunk_characteristics" {
+                                        continue;
+                                    }
+                                    
+                                    if should_preserve.as_bool() == Some(true) {
+                                        // Special handling for "default" export - it means preserve the main module
+                                        if export_name == "default" {
+                                            continue; // The main module is already added as entry point
+                                        }
+                                        
+                                        // Find the module that provides this export
+                                        // For lodash-es, the pattern is: .../lodash-es/exportName.js
+                                        for module_id in chunk.modules.keys() {
+                                            let module_str = module_id.as_str();
+                                            
+                                            // Check if this module is from the package
+                                            if module_str.contains(package_name) {
+                                                // Check if this module matches the export name
+                                                // Handle both /capitalize.js and /capitalize/index.js patterns
+                                                let matches_export = 
+                                                    module_str.ends_with(&format!("/{}.js", export_name)) ||
+                                                    module_str.contains(&format!("/{}/", export_name)) ||
+                                                    module_str.ends_with(&format!("/{}/index.js", export_name));
+                                                
+                                                if matches_export {
+                                                    // This module provides the preserved export, add it as an entry point
+                                                    if !entry_points.contains(module_id) {
+                                                        entry_points.push(module_id.clone());
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

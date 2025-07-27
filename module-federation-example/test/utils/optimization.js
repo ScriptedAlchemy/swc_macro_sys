@@ -36,30 +36,8 @@ export function analyzeChunk(chunkPath) {
  * Converts share-usage.json to optimization config
  */
 export function shareUsageToConfig(shareUsagePath) {
-  const shareUsage = JSON.parse(fs.readFileSync(shareUsagePath, 'utf-8'));
-  const config = {
-    treeShake: {},
-    entryModules: {}
-  };
-  
-  Object.entries(shareUsage.consume_shared_modules).forEach(([lib, usage]) => {
-    const treeShake = {};
-    
-    // Mark used exports as true
-    usage.used_exports.forEach(exp => {
-      treeShake[exp] = true;
-    });
-    
-    // Mark unused exports as false
-    usage.unused_exports.forEach(exp => {
-      treeShake[exp] = false;
-    });
-    
-    config.treeShake[lib] = treeShake;
-    config.entryModules[lib] = usage.entry_module_id;
-  });
-  
-  return config;
+  // The new schema already has the correct structure, so just return it directly
+  return JSON.parse(fs.readFileSync(shareUsagePath, 'utf-8'));
 }
 
 /**
@@ -96,33 +74,33 @@ export function compareChunks(originalPath, optimizedPath) {
  * Merges usage data from multiple apps
  */
 export function mergeUsageData(...shareUsagePaths) {
-  const mergedUsage = {};
+  const mergedConfig = {
+    treeShake: {}
+  };
   
   shareUsagePaths.forEach(usagePath => {
     const usage = JSON.parse(fs.readFileSync(usagePath, 'utf-8'));
     
-    Object.entries(usage.consume_shared_modules).forEach(([lib, data]) => {
-      if (!mergedUsage[lib]) {
-        mergedUsage[lib] = {
-          used_exports: new Set(),
-          unused_exports: new Set(data.unused_exports),
-          entry_module_id: data.entry_module_id
-        };
+    Object.entries(usage.treeShake).forEach(([lib, exports]) => {
+      if (!mergedConfig.treeShake[lib]) {
+        // Clone the exports object for this library
+        mergedConfig.treeShake[lib] = { ...exports };
+      } else {
+        // Merge exports: if any app uses an export, mark it as true
+        Object.entries(exports).forEach(([exportName, isUsed]) => {
+          if (exportName === 'chunk_characteristics') {
+            // Keep the chunk_characteristics from the first occurrence
+            if (!mergedConfig.treeShake[lib].chunk_characteristics) {
+              mergedConfig.treeShake[lib].chunk_characteristics = isUsed;
+            }
+          } else if (isUsed === true) {
+            // If any app uses this export, mark it as used
+            mergedConfig.treeShake[lib][exportName] = true;
+          }
+        });
       }
-      
-      // Add used exports
-      data.used_exports.forEach(exp => {
-        mergedUsage[lib].used_exports.add(exp);
-        mergedUsage[lib].unused_exports.delete(exp);
-      });
     });
   });
   
-  // Convert sets back to arrays
-  Object.keys(mergedUsage).forEach(lib => {
-    mergedUsage[lib].used_exports = Array.from(mergedUsage[lib].used_exports);
-    mergedUsage[lib].unused_exports = Array.from(mergedUsage[lib].unused_exports);
-  });
-  
-  return mergedUsage;
+  return mergedConfig;
 }

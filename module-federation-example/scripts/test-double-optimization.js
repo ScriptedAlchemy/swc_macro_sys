@@ -35,27 +35,34 @@ async function main() {
   const hostUsage = JSON.parse(fs.readFileSync(mfUsagePath, 'utf8'));
   const remoteUsage = JSON.parse(fs.readFileSync(remoteUsagePath, 'utf8'));
 
-  const hostUsed = hostUsage.consume_shared_modules['lodash-es'].used_exports;
-  const remoteUsed = remoteUsage.consume_shared_modules['lodash-es'].used_exports;
-  const mfCombinedUsed = [...new Set([...hostUsed, ...remoteUsed])];
-  const mfUnusedExports = hostUsage.consume_shared_modules['lodash-es'].unused_exports;
+  let config;
+  if (hostUsage.treeShake && hostUsage.treeShake['lodash-es']) {
+    // Already in new dot notation format
+    config = hostUsage;
+  } else {
+    // Convert from old format
+    const hostUsed = hostUsage.consume_shared_modules['lodash-es'].used_exports;
+    const remoteUsed = remoteUsage.consume_shared_modules['lodash-es'].used_exports;
+    const mfCombinedUsed = [...new Set([...hostUsed, ...remoteUsed])];
+    const mfUnusedExports = hostUsage.consume_shared_modules['lodash-es'].unused_exports;
 
-  // Create tree-shake config using MF's usage pattern
-  const treeShakeConfig = {};
-  mfCombinedUsed.forEach(exportName => {
-    treeShakeConfig[exportName] = true;
-  });
-  mfUnusedExports.forEach(exportName => {
-    if (!mfCombinedUsed.includes(exportName)) {
-      treeShakeConfig[exportName] = false;
-    }
-  });
+    // Create tree-shake config using MF's usage pattern
+    const treeShakeConfig = {};
+    mfCombinedUsed.forEach(exportName => {
+      treeShakeConfig[exportName] = true;
+    });
+    mfUnusedExports.forEach(exportName => {
+      if (!mfCombinedUsed.includes(exportName)) {
+        treeShakeConfig[exportName] = false;
+      }
+    });
 
-  const config = {
-    treeShake: {
-      'lodash-es': treeShakeConfig
-    }
-  };
+    config = {
+      treeShake: {
+        'lodash-es': treeShakeConfig
+      }
+    };
+  }
   const configStr = JSON.stringify(config);
 
   console.log('='.repeat(80));

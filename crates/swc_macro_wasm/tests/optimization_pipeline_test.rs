@@ -31,33 +31,64 @@ fn test_optimization_pipeline_on_real_chunk() {
         &fs::read_to_string(remote_usage_path).expect("Failed to read remote usage")
     ).expect("Failed to parse remote usage JSON");
     
-    // Extract usage patterns exactly like the scripts
-    let host_used = host_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
-    let remote_used = remote_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
-    let unused_exports = host_usage["consume_shared_modules"]["lodash-es"]["unused_exports"].as_array().unwrap();
+    // Extract usage patterns - handle both old and new formats
+    let (host_used, remote_used, unused_exports) = if host_usage.get("treeShake").is_some() {
+        // New format
+        let host_lodash = &host_usage["treeShake"]["lodash-es"];
+        let remote_lodash = &remote_usage["treeShake"]["lodash-es"];
+        
+        let host_lodash_obj = host_lodash.as_object().expect("host_lodash should be object");
+        let remote_lodash_obj = remote_lodash.as_object().expect("remote_lodash should be object");
+        
+        // Extract used exports (where value is true)
+        let host_used: Vec<String> = host_lodash_obj.iter()
+            .filter(|(k, v)| k.as_str() != "chunk_characteristics" && v.as_bool() == Some(true))
+            .map(|(k, _)| k.clone())
+            .collect();
+        let remote_used: Vec<String> = remote_lodash_obj.iter()
+            .filter(|(k, v)| k.as_str() != "chunk_characteristics" && v.as_bool() == Some(true))
+            .map(|(k, _)| k.clone())
+            .collect();
+        let unused_exports: Vec<String> = host_lodash_obj.iter()
+            .filter(|(k, v)| k.as_str() != "chunk_characteristics" && v.as_bool() == Some(false))
+            .map(|(k, _)| k.clone())
+            .collect();
+        
+        (host_used, remote_used, unused_exports)
+    } else {
+        // Old format
+        let host_used_arr = host_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
+        let remote_used_arr = remote_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
+        let unused_exports_arr = host_usage["consume_shared_modules"]["lodash-es"]["unused_exports"].as_array().unwrap();
+        
+        let host_used: Vec<String> = host_used_arr.iter().map(|v| v.as_str().unwrap().to_string()).collect();
+        let remote_used: Vec<String> = remote_used_arr.iter().map(|v| v.as_str().unwrap().to_string()).collect();
+        let unused_exports: Vec<String> = unused_exports_arr.iter().map(|v| v.as_str().unwrap().to_string()).collect();
+        
+        (host_used, remote_used, unused_exports)
+    };
     
-    println!("Host exports: {:?}", host_used.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>());
-    println!("Remote exports: {:?}", remote_used.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>());
+    println!("Host exports: {:?}", host_used);
+    println!("Remote exports: {:?}", remote_used);
     
     // === TEST 1: Direct optimize() call (like our successful test) ===
     println!("\n--- TEST 1: Direct optimize() call ---");
     
     let mut all_used_exports = std::collections::HashSet::new();
-    for export in host_used {
-        all_used_exports.insert(export.as_str().unwrap().to_string());
+    for export in &host_used {
+        all_used_exports.insert(export.clone());
     }
-    for export in remote_used {
-        all_used_exports.insert(export.as_str().unwrap().to_string());
+    for export in &remote_used {
+        all_used_exports.insert(export.clone());
     }
     
     let mut tree_shake_config = serde_json::Map::new();
     for export in &all_used_exports {
         tree_shake_config.insert(export.clone(), serde_json::Value::Bool(true));
     }
-    for export in unused_exports {
-        let export_name = export.as_str().unwrap();
-        if !all_used_exports.contains(export_name) {
-            tree_shake_config.insert(export_name.to_string(), serde_json::Value::Bool(false));
+    for export in &unused_exports {
+        if !all_used_exports.contains(export) {
+            tree_shake_config.insert(export.clone(), serde_json::Value::Bool(false));
         }
     }
     

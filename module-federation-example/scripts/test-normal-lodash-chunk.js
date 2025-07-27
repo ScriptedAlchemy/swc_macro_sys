@@ -114,8 +114,21 @@ async function main() {
 
   // Read the normal usage pattern (4 exports: map, filter, VERSION, default)
   const standardUsage = JSON.parse(fs.readFileSync(standardUsagePath, 'utf8'));
-  const standardUsed = standardUsage.consume_shared_modules['lodash-es'].used_exports;
-  const standardUnused = standardUsage.consume_shared_modules['lodash-es'].unused_exports;
+  
+  let standardUsed, standardUnused;
+  if (standardUsage.treeShake && standardUsage.treeShake['lodash-es']) {
+    // New dot notation format
+    standardUsed = Object.entries(standardUsage.treeShake['lodash-es'])
+      .filter(([key, value]) => value === true && key !== 'chunk_characteristics')
+      .map(([key]) => key);
+    standardUnused = Object.entries(standardUsage.treeShake['lodash-es'])
+      .filter(([key, value]) => value === false)
+      .map(([key]) => key);
+  } else {
+    // Old format
+    standardUsed = standardUsage.consume_shared_modules['lodash-es'].used_exports;
+    standardUnused = standardUsage.consume_shared_modules['lodash-es'].unused_exports;
+  }
 
   console.log('='.repeat(80));
   console.log('📊 CONFIGURATION 1: NORMAL LODASH USAGE PATTERN');

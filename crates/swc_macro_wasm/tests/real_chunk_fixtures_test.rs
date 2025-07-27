@@ -31,39 +31,81 @@ fn test_real_module_federation_chunk_optimization() {
         &fs::read_to_string(remote_usage_path).expect("Failed to read remote usage")
     ).expect("Failed to parse remote usage JSON");
     
-    // Extract lodash usage patterns
-    let host_used = host_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
-    let remote_used = remote_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
-    let unused_exports = host_usage["consume_shared_modules"]["lodash-es"]["unused_exports"].as_array().unwrap();
-    
-    // Merge used exports (union)
-    let mut all_used_exports = std::collections::HashSet::new();
-    for export in host_used {
-        all_used_exports.insert(export.as_str().unwrap().to_string());
-    }
-    for export in remote_used {
-        all_used_exports.insert(export.as_str().unwrap().to_string());
-    }
-    
-    println!("Host app uses {} lodash exports: {:?}", host_used.len(), 
-        host_used.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>());
-    println!("Remote app uses {} lodash exports: {:?}", remote_used.len(),
-        remote_used.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>());
-    println!("Combined used exports: {} total", all_used_exports.len());
-    
-    // Create tree shake config
-    let mut tree_shake_config = serde_json::Map::new();
-    
-    // Mark used exports as true, unused as false
-    for export in &all_used_exports {
-        tree_shake_config.insert(export.clone(), serde_json::Value::Bool(true));
-    }
-    for export in unused_exports {
-        let export_name = export.as_str().unwrap();
-        if !all_used_exports.contains(export_name) {
-            tree_shake_config.insert(export_name.to_string(), serde_json::Value::Bool(false));
+    // Extract lodash usage patterns - handle both old and new formats
+    let (host_used, remote_used, tree_shake_config) = if host_usage.get("treeShake").is_some() {
+        // New format
+        let host_lodash = &host_usage["treeShake"]["lodash-es"];
+        let remote_lodash = &remote_usage["treeShake"]["lodash-es"];
+        
+        let host_lodash_obj = host_lodash.as_object().expect("host_lodash should be object");
+        let remote_lodash_obj = remote_lodash.as_object().expect("remote_lodash should be object");
+        
+        // Extract used exports (where value is true)
+        let host_used: Vec<&str> = host_lodash_obj.iter()
+            .filter(|(k, v)| k.as_str() != "chunk_characteristics" && v.as_bool() == Some(true))
+            .map(|(k, _)| k.as_str())
+            .collect();
+        let remote_used: Vec<&str> = remote_lodash_obj.iter()
+            .filter(|(k, v)| k.as_str() != "chunk_characteristics" && v.as_bool() == Some(true))
+            .map(|(k, _)| k.as_str())
+            .collect();
+        
+        // Create merged config
+        let mut tree_shake_config = serde_json::Map::new();
+        for (key, value) in host_lodash_obj {
+            if key != "chunk_characteristics" {
+                tree_shake_config.insert(key.clone(), value.clone());
+            }
         }
-    }
+        for (key, value) in remote_lodash_obj {
+            if key != "chunk_characteristics" && value.as_bool() == Some(true) {
+                tree_shake_config.insert(key.clone(), serde_json::Value::Bool(true));
+            }
+        }
+        
+        (host_used, remote_used, tree_shake_config)
+    } else {
+        // Old format
+        let host_used = host_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
+        let remote_used = remote_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
+        let unused_exports = host_usage["consume_shared_modules"]["lodash-es"]["unused_exports"].as_array().unwrap();
+        
+        let host_used_strs: Vec<&str> = host_used.iter().map(|v| v.as_str().unwrap()).collect();
+        let remote_used_strs: Vec<&str> = remote_used.iter().map(|v| v.as_str().unwrap()).collect();
+        
+        // Merge used exports (union)
+        let mut all_used_exports = std::collections::HashSet::new();
+        for export in &host_used_strs {
+            all_used_exports.insert(export.to_string());
+        }
+        for export in &remote_used_strs {
+            all_used_exports.insert(export.to_string());
+        }
+        
+        // Create tree shake config
+        let mut tree_shake_config = serde_json::Map::new();
+        
+        // Mark used exports as true, unused as false
+        for export in &all_used_exports {
+            tree_shake_config.insert(export.clone(), serde_json::Value::Bool(true));
+        }
+        for export in unused_exports {
+            let export_name = export.as_str().unwrap();
+            if !all_used_exports.contains(export_name) {
+                tree_shake_config.insert(export_name.to_string(), serde_json::Value::Bool(false));
+            }
+        }
+        
+        (host_used_strs, remote_used_strs, tree_shake_config)
+    };
+    
+    println!("Host app uses {} lodash exports: {:?}", host_used.len(), host_used);
+    println!("Remote app uses {} lodash exports: {:?}", remote_used.len(), remote_used);
+    
+    let all_used_count = tree_shake_config.iter()
+        .filter(|(_, v)| v.as_bool() == Some(true))
+        .count();
+    println!("Combined used exports: {} total", all_used_count);
     
     let config = serde_json::json!({
         "treeShake": {
@@ -76,8 +118,8 @@ fn test_real_module_federation_chunk_optimization() {
     
     println!("Tree shake config includes {} exports ({} used, {} unused)",
         tree_shake_config.len(),
-        all_used_exports.len(),
-        tree_shake_config.len() - all_used_exports.len()
+        all_used_count,
+        tree_shake_config.len() - all_used_count
     );
     
     // Run optimization
