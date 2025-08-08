@@ -306,7 +306,6 @@ fn test_chunk_reconstruction() {
     
     // Basic validation that it has the right structure
     // Note: Full parsing validation would require more sophisticated reconstruction
-    println!("Reconstructed chunk:\n{}", reconstructed);
 }
 
 /// Test optimization strategies

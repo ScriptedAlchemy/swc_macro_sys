@@ -51,8 +51,8 @@ swc_macro_sys/
 │   ├── webpack_graph/           # Webpack bundle parsing and dependency graph
 │   ├── webpack_analyzer_v2/     # Advanced webpack chunk analysis
 │   └── webpack_chunk_tree_shaker/  # Tree shaking implementation
-├── module-federation-example/    # Complete Module Federation demo
 ├── examples/                    # Various usage examples
+│   └── module-federation-example/    # Complete Module Federation demo
 ├── test-cases/                  # Real-world test bundles
 └── TESTING.md                   # Comprehensive testing guide
 ```
@@ -72,7 +72,7 @@ Complete example demonstrating Module Federation with advanced tree shaking:
 
 ```bash
 # Navigate to the example
-cd module-federation-example
+cd examples/module-federation-example
 
 # Install dependencies
 pnpm install

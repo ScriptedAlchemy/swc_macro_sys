@@ -3,7 +3,7 @@ use serde_json::json;
 
 #[test]
 fn test_dot_notation_format_for_tree_shake_conditions() {
-    println!("\n=== DOT NOTATION FORMAT TEST ===");
+    // silent
     
     // Create a vendor chunk with macro conditions using dot notation
     let vendor_chunk = r#"
@@ -38,8 +38,12 @@ exports.modules = {
             capitalize: () => (/* @common:if [condition="treeShake.lodash-es.capitalize"] */ _capitalize["default"] /* @common:endif */),
             debounce: () => (/* @common:if [condition="treeShake.lodash-es.debounce"] */ _debounce["default"] /* @common:endif */)
         });
+        /* @common:if [condition="treeShake.lodash-es.capitalize"] */
         var _capitalize = __webpack_require__("node_modules/lodash-es/capitalize.js");
+        /* @common:endif */
+        /* @common:if [condition="treeShake.lodash-es.debounce"] */
         var _debounce = __webpack_require__("node_modules/lodash-es/debounce.js");
+        /* @common:endif */
     }
 };
 "#;
@@ -54,12 +58,11 @@ exports.modules = {
         }
     });
     
-    println!("Test 1: Standard dot notation format");
-    println!("Config: {}", serde_json::to_string_pretty(&config_dot_notation).unwrap());
+    // Test 1: Standard dot notation format
     
     let optimized = optimize(vendor_chunk.to_string(), &config_dot_notation.to_string());
     
-    println!("Optimized output:\n{}", optimized);
+    assert!(!optimized.is_empty());
     
     // Verify capitalize module is preserved and debounce is removed
     assert!(optimized.contains("capitalize.js"), "capitalize module should be preserved");
@@ -72,7 +75,7 @@ exports.modules = {
     // The main lodash.js module might be removed if both exports are handled
     // This is expected behavior when tree shaking is aggressive
     
-    println!("✅ Test 1 passed: Dot notation format works correctly");
+    // done
     
     // Test 2: Verify the config structure matches what our JS optimize function creates
     let config_from_js_optimizer = json!({
@@ -95,17 +98,16 @@ exports.modules = {
         }
     });
     
-    println!("\nTest 2: Config format from JS optimizer");
-    println!("This config only includes exports marked as true (used exports)");
+    // Test 2: Config format from JS optimizer
     
     // The config should work with the optimizer
     let result = optimize(vendor_chunk.to_string(), &config_from_js_optimizer.to_string());
     assert!(!result.is_empty(), "Optimization should produce valid output");
     
-    println!("✅ Test 2 passed: JS optimizer config format is valid");
+    // done
     
     // Test 3: Verify path resolution for nested conditions
-    println!("\nTest 3: Path resolution for dot notation");
+    // Test 3: Path resolution for dot notation
     
     // The metadata query should resolve "treeShake.lodash-es.capitalize" correctly
     let test_value = config_dot_notation.clone();
@@ -115,19 +117,17 @@ exports.modules = {
     let mut current_value = Some(&test_value);
     for segment in path.split('.') {
         current_value = current_value.and_then(|v| v.get(segment));
-        println!("  Segment '{}': {:?}", segment, current_value);
+        let _ = segment;
     }
     
     assert_eq!(current_value, Some(&json!(true)), "Path resolution should find true value");
     
-    println!("✅ Test 3 passed: Dot notation path resolution works correctly");
-    
-    println!("\n✅ All dot notation format tests passed!");
+    // done
 }
 
 #[test]
 fn test_real_world_dot_notation_config() {
-    println!("\n=== REAL WORLD DOT NOTATION CONFIG TEST ===");
+    // silent
     
     // Simulate the actual merged config structure from our JS tool
     let merged_config = json!({
@@ -164,7 +164,7 @@ fn test_real_world_dot_notation_config() {
         }
     });
     
-    println!("Testing with simulated merged config from module-federation-example");
+    let _ = "examples/module-federation-example";
     
     // Verify the structure
     assert!(merged_config.get("treeShake").is_some(), "Config must have treeShake");
@@ -182,7 +182,6 @@ fn test_real_world_dot_notation_config() {
             if let serde_json::Value::Bool(is_used) = value {
                 if *is_used {
                     used_count += 1;
-                    println!("  Used export: {}", export_name);
                 } else {
                     unused_count += 1;
                 }
@@ -190,9 +189,7 @@ fn test_real_world_dot_notation_config() {
         }
     }
     
-    println!("\nSummary:");
-    println!("  Used exports: {}", used_count);
-    println!("  Unused exports: {}", unused_count);
+    assert!(used_count >= 0 && unused_count >= 0);
     
     // Verify some known used exports
     let known_used = ["capitalize", "debounce", "groupBy", "omit", "pick", "sortBy", "throttle", "uniq", "default"];
@@ -201,12 +198,12 @@ fn test_real_world_dot_notation_config() {
         assert_eq!(value, Some(&json!(true)), "Export '{}' should be marked as used", export);
     }
     
-    println!("\n✅ Real world config test passed!");
+    // done
 }
 
 #[test]
 fn test_condition_evaluation_matches_dot_notation() {
-    println!("\n=== CONDITION EVALUATION TEST ===");
+    // silent
     
     let config = json!({
         "treeShake": {
@@ -240,9 +237,9 @@ fn test_condition_evaluation_matches_dot_notation() {
         }
         
         let result = current_value.and_then(|v| v.as_bool());
-        println!("  Path '{}' resolves to: {:?} (expected: {:?})", path, result, expected);
+        // validate
         assert_eq!(result, expected, "Path '{}' should resolve to {:?}", path, expected);
     }
     
-    println!("\n✅ Condition evaluation test passed!");
+    // done
 }

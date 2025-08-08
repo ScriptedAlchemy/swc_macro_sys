@@ -5,20 +5,16 @@ use serde_json::json;
 
 #[test]
 fn test_webpack_tree_shaker_on_standard_webpack_chunk() {
-    println!("\n=== TESTING WEBPACK TREE SHAKER ON STANDARD WEBPACK CHUNK ===");
+    // silent
     
     let standard_chunk_path = Path::new("../../test-cases/rspack-annotated-output/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js");
     
-    if !standard_chunk_path.exists() {
-        println!("⚠️  Standard webpack chunk not found: {}", standard_chunk_path.display());
-        return;
-    }
+    assert!(standard_chunk_path.exists(), "Standard webpack chunk missing at {}", standard_chunk_path.display());
     
     let original_code = fs::read_to_string(standard_chunk_path).expect("Failed to read standard chunk");
     let original_size = original_code.len();
     
-    println!("Original standard chunk size: {} bytes ({:.2} KB)", 
-        original_size, original_size as f64 / 1024.0);
+    assert!(original_size > 0, "Standard chunk should not be empty");
     
     // Test with minimal tree shaking config (only keep 'default' export)
     let config = serde_json::json!({
@@ -41,37 +37,29 @@ fn test_webpack_tree_shaker_on_standard_webpack_chunk() {
         -((optimized_size - original_size) as f64 / original_size as f64) * 100.0
     };
     
-    println!("Optimized standard chunk size: {} bytes ({:.2} KB)", 
-        optimized_size, optimized_size as f64 / 1024.0);
-    println!("Size reduction: {:.2}%", reduction);
+    assert!(optimized_size > 0, "Optimized standard chunk should not be empty");
     
     // This is actually a split chunk format, so modules are preserved
-    println!("Note: Detected split chunk format - modules preserved for on-demand loading");
     
     // Check that the optimized code still contains webpack runtime structure
     assert!(optimized_code.contains("webpackChunk") || optimized_code.contains("__webpack"),
         "Optimized standard chunk should maintain webpack structure");
     
-    println!("✅ Standard webpack chunk optimization successful!");
+    assert!(optimized_size <= original_size);
 }
 
 #[test]
 fn test_webpack_tree_shaker_on_module_federation_chunk() {
-    println!("\n=== TESTING WEBPACK TREE SHAKER ON MODULE FEDERATION CHUNK ===");
+    // silent
     
-    let mf_chunk_path = Path::new("../../module-federation-example/host/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original");
+    let mf_chunk_path = Path::new("../../examples/module-federation-example/host/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original");
     
-    if !mf_chunk_path.exists() {
-        println!("⚠️  Module Federation chunk not found: {}", mf_chunk_path.display());
-        println!("Run 'pnpm run build' in module-federation-example first.");
-        return;
-    }
+    assert!(mf_chunk_path.exists(), "Module Federation chunk missing at {} (build examples/module-federation-example)", mf_chunk_path.display());
     
     let original_code = fs::read_to_string(mf_chunk_path).expect("Failed to read MF chunk");
     let original_size = original_code.len();
     
-    println!("Original MF chunk size: {} bytes ({:.2} KB)", 
-        original_size, original_size as f64 / 1024.0);
+    assert!(original_size > 0, "MF chunk should not be empty");
     
     // Test with same minimal config as standard webpack test
     let config = serde_json::json!({
@@ -102,18 +90,13 @@ fn test_webpack_tree_shaker_on_module_federation_chunk() {
         -((optimized_size - original_size) as f64 / original_size as f64) * 100.0
     };
     
-    println!("Optimized MF chunk size: {} bytes ({:.2} KB)", 
-        optimized_size, optimized_size as f64 / 1024.0);
-    println!("Size reduction: {:.2}%", reduction);
+    assert!(optimized_size > 0, "Optimized MF chunk should not be empty");
     
     // Check that the optimized code maintains CommonJS structure
     assert!(optimized_code.contains("exports.modules") || optimized_code.contains("exports.ids"),
         "Optimized MF chunk should maintain CommonJS exports structure");
     
-    println!("✅ Module Federation chunk optimization completed!");
-    
-    // Print analysis of chunk format detection
-    analyze_chunk_format(&original_code, "Module Federation");
+    assert!(reduction < 100.0);
 }
 
 #[test]
@@ -175,13 +158,11 @@ fn test_chunk_format_detection_and_parsing() {
         -((mf_optimized.len() - mf_sample.len()) as f64 / mf_sample.len() as f64) * 100.0
     };
     
-    println!("Standard webpack reduction: {:.1}%", webpack_reduction);
-    println!("Module Federation reduction: {:.1}%", mf_reduction);
+    assert!(webpack_reduction.abs() <= 100.0);
+    assert!(mf_reduction.abs() <= 100.0);
     
     // Split chunks may not show reduction as they preserve modules
-    println!("Note: Split chunks may preserve modules for on-demand loading");
-    
-    println!("✅ Chunk format detection and parsing test completed!");
+    // Note: Split chunks may preserve modules for on-demand loading
 }
 
 #[test]
@@ -218,8 +199,7 @@ fn test_commonjs_exports_module_detection() {
         )
     ];
     
-    for (test_name, code) in test_cases {
-        println!("Testing: {}", test_name);
+    for (_test_name, code) in test_cases {
         
         let config = serde_json::json!({
             "treeShake": {
@@ -240,9 +220,9 @@ fn test_commonjs_exports_module_detection() {
         -((optimized_size - original_size) as f64 / original_size as f64) * 100.0
     };
         
-        println!("  Original: {} bytes", original_size);
-        println!("  Optimized: {} bytes", optimized_size);
-        println!("  Reduction: {:.1}%", reduction);
+        assert!(original_size > 0);
+        assert!(optimized_size > 0);
+        assert!(reduction.abs() <= 100.0);
         
         // Should maintain exports.modules structure
         if code.contains("exports.modules") {
@@ -250,10 +230,10 @@ fn test_commonjs_exports_module_detection() {
                 "Should maintain exports.modules structure in optimized code");
         }
         
-        println!("  ✅ Test passed\n");
+        // test passed
     }
     
-    println!("✅ CommonJS exports module detection test completed!");
+    // done
 }
 
 #[test]

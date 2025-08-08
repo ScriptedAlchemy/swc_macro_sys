@@ -151,7 +151,7 @@ exports.modules = {
     println!("  exports.filter: {}", if optimized.contains("exports.filter") { "❌ (should be removed)" } else { "✅ Removed" });
     println!("  exports.map: {}", if optimized.contains("exports.map") { "❌ (should be removed)" } else { "✅ Removed" });
     
-    // The main lodash.js should always be preserved
+    // The main lodash.js should be preserved when exports are used
     assert!(optimized.contains("lodash.js"), "Main lodash module should be preserved");
     
     // Enabled exports should have their content

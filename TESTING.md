@@ -74,13 +74,13 @@ Located in `crates/*/src` and `crates/*/tests`:
 - Run with: `pnpm test:root`
 
 #### Module Federation Tests
-- Location: `module-federation-example/test/`
+- Location: `examples/module-federation-example/test/`
 - Categories:
   - `unit/` - Optimization logic tests
   - `integration/` - Build process tests
   - `e2e/` - Browser-based tests
   - `performance/` - Benchmarks
-- Run with: `cd module-federation-example && pnpm test`
+- Run with: `cd examples/module-federation-example && pnpm test`
 
 #### JSX Server Demo Tests
 - Location: `examples/jsx-server-demo/test/`
@@ -220,7 +220,7 @@ cargo test
 
 ### module-federation-example
 ```bash
-cd module-federation-example
+cd examples/module-federation-example
 pnpm test        # All tests
 pnpm test:unit   # Unit only
 pnpm test:e2e    # E2E only

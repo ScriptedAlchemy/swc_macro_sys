@@ -254,28 +254,52 @@ fn test_javascript_integration_simulation() {
         &fs::read_to_string(remote_usage_path).unwrap()
     ).unwrap();
     
-    // Extract usage exactly like JS code
-    let host_used = host_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
-    let remote_used = remote_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
-    let unused_exports = host_usage["consume_shared_modules"]["lodash-es"]["unused_exports"].as_array().unwrap();
+    // Extract usage supporting both legacy and new share-usage formats
+    let (host_used_vec, remote_used_vec, unused_exports_vec): (Vec<String>, Vec<String>, Vec<String>) = if host_usage.get("treeShake").is_some() {
+        let host_obj = host_usage["treeShake"]["lodash-es"].as_object().expect("host lodash-es should be object");
+        let remote_obj = remote_usage["treeShake"]["lodash-es"].as_object().expect("remote lodash-es should be object");
+        let mut host_used = Vec::new();
+        let mut remote_used = Vec::new();
+        let mut unused = Vec::new();
+        for (k, v) in host_obj {
+            if k == "chunk_characteristics" { continue; }
+            match v.as_bool() {
+                Some(true) => host_used.push(k.clone()),
+                Some(false) => unused.push(k.clone()),
+                _ => {}
+            }
+        }
+        for (k, v) in remote_obj {
+            if k == "chunk_characteristics" { continue; }
+            if v.as_bool() == Some(true) { remote_used.push(k.clone()); }
+        }
+        (host_used, remote_used, unused)
+    } else {
+        let host_used = host_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap()
+            .iter().map(|v| v.as_str().unwrap().to_string()).collect();
+        let remote_used = remote_usage["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap()
+            .iter().map(|v| v.as_str().unwrap().to_string()).collect();
+        let unused = host_usage["consume_shared_modules"]["lodash-es"]["unused_exports"].as_array().unwrap()
+            .iter().map(|v| v.as_str().unwrap().to_string()).collect();
+        (host_used, remote_used, unused)
+    };
     
     // Create the same tree-shake config structure as JS
     let mut combined_used = std::collections::HashSet::new();
-    for export in host_used {
-        combined_used.insert(export.as_str().unwrap().to_string());
+    for export in &host_used_vec {
+        combined_used.insert(export.clone());
     }
-    for export in remote_used {
-        combined_used.insert(export.as_str().unwrap().to_string());
+    for export in &remote_used_vec {
+        combined_used.insert(export.clone());
     }
     
     let mut tree_shake_config = serde_json::Map::new();
     for export in &combined_used {
         tree_shake_config.insert(export.clone(), serde_json::Value::Bool(true));
     }
-    for export in unused_exports {
-        let export_name = export.as_str().unwrap();
-        if !combined_used.contains(export_name) {
-            tree_shake_config.insert(export_name.to_string(), serde_json::Value::Bool(false));
+    for export_name in unused_exports_vec {
+        if !combined_used.contains(&export_name) {
+            tree_shake_config.insert(export_name, serde_json::Value::Bool(false));
         }
     }
     

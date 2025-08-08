@@ -11,16 +11,12 @@ fn test_real_module_federation_chunk_optimization() {
     let host_usage_path = Path::new("tests/fixtures/module_federation_usage.json");
     let remote_usage_path = Path::new("tests/fixtures/module_federation_remote_usage.json");
     
-    if !mf_chunk_path.exists() {
-        println!("⚠️  Real MF chunk fixture not found: {}", mf_chunk_path.display());
-        panic!("Run 'pnpm run build' in module-federation-example and copy fixtures first");
-    }
+    assert!(mf_chunk_path.exists(), "Real MF chunk fixture not found at {}. Build examples/module-federation-example and copy fixtures first", mf_chunk_path.display());
     
     let original_code = fs::read_to_string(mf_chunk_path).expect("Failed to read MF chunk fixture");
     let original_size = original_code.len();
     
-    println!("Real MF chunk size: {} bytes ({:.2} KB)", 
-        original_size, original_size as f64 / 1024.0);
+    assert!(original_size > 0);
     
     // Load and merge usage data
     let host_usage: serde_json::Value = serde_json::from_str(
@@ -129,10 +125,7 @@ fn test_real_module_federation_chunk_optimization() {
     let optimized_size = optimized_code.len();
     let reduction = ((original_size - optimized_size) as f64 / original_size as f64) * 100.0;
     
-    println!("Real MF chunk optimization results:");
-    println!("  Original size: {} bytes ({:.2} KB)", original_size, original_size as f64 / 1024.0);
-    println!("  Optimized size: {} bytes ({:.2} KB)", optimized_size, optimized_size as f64 / 1024.0);
-    println!("  Size reduction: {:.2}% ({} bytes saved)", reduction, original_size - optimized_size);
+    assert!(optimized_size > 0);
     
     // Analyze the chunk format
     analyze_real_chunk_structure(&original_code, "Original MF Chunk");
@@ -173,21 +166,32 @@ fn test_real_standard_webpack_chunk_optimization() {
         &fs::read_to_string(std_usage_path).expect("Failed to read standard usage")
     ).expect("Failed to parse standard usage JSON");
     
-    let used_exports = usage_data["consume_shared_modules"]["lodash-es"]["used_exports"].as_array().unwrap();
-    let unused_exports = usage_data["consume_shared_modules"]["lodash-es"]["unused_exports"].as_array().unwrap();
+    // Support both legacy and new share-usage formats
+    let (used_exports_vec, unused_exports_vec): (Vec<String>, Vec<String>) = if usage_data.get("treeShake").is_some() {
+        let obj = usage_data["treeShake"]["lodash-es"].as_object().expect("lodash-es should be object");
+        let mut used = Vec::new();
+        let mut unused = Vec::new();
+        for (k, v) in obj {
+            if k == "chunk_characteristics" { continue; }
+            if v.as_bool() == Some(true) { used.push(k.clone()); } else { unused.push(k.clone()); }
+        }
+        (used, unused)
+    } else {
+        let used = usage_data["consume_shared_modules"]["lodash-es"]["used_exports"]
+            .as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
+        let unused = usage_data["consume_shared_modules"]["lodash-es"]["unused_exports"]
+            .as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
+        (used, unused)
+    };
     
     println!("Standard webpack chunk size: {} bytes ({:.2} KB)", 
         original_size, original_size as f64 / 1024.0);
-    println!("Used exports: {:?}", used_exports.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>());
+    println!("Used exports: {:?}", used_exports_vec);
     
     // Create tree shake config
     let mut tree_shake_config = serde_json::Map::new();
-    for export in used_exports {
-        tree_shake_config.insert(export.as_str().unwrap().to_string(), serde_json::Value::Bool(true));
-    }
-    for export in unused_exports {
-        tree_shake_config.insert(export.as_str().unwrap().to_string(), serde_json::Value::Bool(false));
-    }
+    for export in used_exports_vec { tree_shake_config.insert(export, serde_json::Value::Bool(true)); }
+    for export in unused_exports_vec { tree_shake_config.insert(export, serde_json::Value::Bool(false)); }
     
     let config = serde_json::json!({
         "treeShake": {

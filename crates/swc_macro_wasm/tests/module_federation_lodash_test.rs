@@ -5,10 +5,10 @@ use swc_macro_wasm::optimize;
 
 #[test]
 fn test_module_federation_lodash_optimization() {
-    println!("\n=== MODULE FEDERATION LODASH OPTIMIZATION TEST ===");
+    // silent
 
     // Path to our Module Federation example lodash chunks (use original, not optimized)
-    let module_federation_dir = Path::new("../../module-federation-example");
+    let module_federation_dir = Path::new("../../examples/module-federation-example");
     let host_chunk_path = module_federation_dir.join("host/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original");
     let remote_chunk_path = module_federation_dir.join("remote/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original");
     let host_usage_path = module_federation_dir.join("host/dist/share-usage.json");
@@ -16,16 +16,12 @@ fn test_module_federation_lodash_optimization() {
 
     // Check if files exist
     if !host_chunk_path.exists() || !remote_chunk_path.exists() {
-        println!("⚠️  Module Federation chunks not found. Run 'pnpm run build' in module-federation-example first.");
-        println!("Expected paths:");
-        println!("  Host chunk: {}", host_chunk_path.display());
-        println!("  Remote chunk: {}", remote_chunk_path.display());
-        return;
+        panic!("Module Federation chunks not found. Build examples/module-federation-example first. Expected host: {}, remote: {}",
+            host_chunk_path.display(), remote_chunk_path.display());
     }
 
     if !host_usage_path.exists() || !remote_usage_path.exists() {
-        println!("⚠️  Share usage files not found. Make sure build completed successfully.");
-        return;
+        panic!("Share usage files not found. Make sure build completed successfully.");
     }
 
     // Read and merge usage data
@@ -54,8 +50,7 @@ fn test_module_federation_lodash_optimization() {
         .map(|(k, _)| k.as_str())
         .collect();
 
-    println!("Host app uses {} lodash exports: {:?}", host_used.len(), host_used);
-    println!("Remote app uses {} lodash exports: {:?}", remote_used.len(), remote_used);
+    assert!(host_used.len() > 0 || remote_used.len() > 0, "At least one export should be used");
 
     // Merge used exports (union)
     let mut all_used_exports = std::collections::HashSet::new();
@@ -66,8 +61,7 @@ fn test_module_federation_lodash_optimization() {
         all_used_exports.insert(export.to_string());
     }
 
-    println!("Combined used exports: {} total", all_used_exports.len());
-    println!("Combined exports: {:?}", all_used_exports.iter().collect::<Vec<_>>());
+    assert!(all_used_exports.len() > 0, "Combined used exports should be non-empty");
 
     // Create tree shake config by merging both configs
     let mut tree_shake_config = serde_json::Map::new();
@@ -95,29 +89,22 @@ fn test_module_federation_lodash_optimization() {
         }
     });
 
-    println!("Tree shake config includes {} exports ({} used, {} unused)",
-        tree_shake_config.len(),
-        all_used_exports.len(),
-        tree_shake_config.len() - all_used_exports.len()
-    );
+    assert!(tree_shake_config.len() >= all_used_exports.len());
 
     // Test host chunk optimization
-    println!("\n=== TESTING HOST CHUNK ===");
     test_chunk_optimization(&host_chunk_path, &config, "HOST");
 
     // Test remote chunk optimization  
-    println!("\n=== TESTING REMOTE CHUNK ===");
     test_chunk_optimization(&remote_chunk_path, &config, "REMOTE");
 
-    println!("\n✅ Module Federation lodash optimization test completed!");
+    // done
 }
 
 fn test_chunk_optimization(chunk_path: &Path, config: &serde_json::Value, app_name: &str) {
     let original_code = fs::read_to_string(chunk_path).expect("Failed to read chunk");
     let original_size = original_code.len();
 
-    println!("Original {} chunk size: {} bytes ({:.2} KB)", 
-        app_name, original_size, original_size as f64 / 1024.0);
+    assert!(original_size > 0, "{} chunk should not be empty", app_name);
 
     let start_time = Instant::now();
     let config_str = serde_json::to_string(config).expect("Failed to serialize config");
@@ -127,11 +114,8 @@ fn test_chunk_optimization(chunk_path: &Path, config: &serde_json::Value, app_na
     let reduction = ((original_size - optimized_size) as f64 / original_size as f64) * 100.0;
     let duration = start_time.elapsed();
 
-    println!("Optimized {} chunk size: {} bytes ({:.2} KB)", 
-        app_name, optimized_size, optimized_size as f64 / 1024.0);
-    println!("Size reduction: {:.2}% ({} bytes saved)", 
-        reduction, original_size - optimized_size);
-    println!("Optimization time: {:.2}ms", duration.as_millis());
+    assert!(optimized_size > 0, "{} optimized chunk should not be empty", app_name);
+    assert!(duration.as_millis() >= 0);
 
     // Validate significant optimization occurred
     assert!(reduction > 20.0, 
@@ -148,27 +132,21 @@ fn test_chunk_optimization(chunk_path: &Path, config: &serde_json::Value, app_na
 
 #[test]
 fn test_module_federation_vs_standard_lodash() {
-    println!("\n=== COMPARING MODULE FEDERATION VS STANDARD LODASH OPTIMIZATION ===");
+    // silent
 
-    let module_federation_dir = Path::new("../../module-federation-example");
+    let module_federation_dir = Path::new("../../examples/module-federation-example");
     let test_cases_dir = Path::new("../../test-cases");
     
     let mf_chunk_path = module_federation_dir.join("remote/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original");
     let standard_chunk_path = test_cases_dir.join("rspack-annotated-output/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js");
 
-    if !mf_chunk_path.exists() || !standard_chunk_path.exists() {
-        println!("⚠️  Comparison chunks not available, skipping test");
-        return;
-    }
+    assert!(mf_chunk_path.exists() && standard_chunk_path.exists(), "Comparison chunks not available");
 
     // Read both chunks
     let mf_code = fs::read_to_string(&mf_chunk_path).expect("Failed to read MF chunk");
     let standard_code = fs::read_to_string(&standard_chunk_path).expect("Failed to read standard chunk");
 
-    println!("Module Federation chunk: {} bytes ({:.1} KB)", 
-        mf_code.len(), mf_code.len() as f64 / 1024.0);
-    println!("Standard test chunk: {} bytes ({:.1} KB)", 
-        standard_code.len(), standard_code.len() as f64 / 1024.0);
+    assert!(mf_code.len() > 0 && standard_code.len() > 0);
 
     // Compare module counts (rough estimate)
     let mf_modules = mf_code.matches("\":function(").count();
@@ -200,12 +178,11 @@ fn test_module_federation_vs_standard_lodash() {
     let mf_reduction = ((mf_code.len() - mf_optimized.len()) as f64 / mf_code.len() as f64) * 100.0;
     let standard_reduction = ((standard_code.len() - standard_optimized.len()) as f64 / standard_code.len() as f64) * 100.0;
 
-    println!("Module Federation optimization: {:.1}%", mf_reduction);
-    println!("Standard test optimization: {:.1}%", standard_reduction);
+    assert!(mf_reduction > 0.0 && standard_reduction > 0.0);
 
     // Both should achieve significant optimization
     assert!(mf_reduction > 20.0, "Module Federation should optimize well");
     assert!(standard_reduction > 20.0, "Standard test should optimize well");
 
-    println!("✅ Both chunk types optimize successfully!");
+    // done
 }

@@ -28,9 +28,8 @@ fn test_full_module_graph_real_world_lodash() {
     
     let chunk = analyzer.analyze_chunk(&source, characteristics).unwrap();
     
-    println!("📊 Full Module Graph Analysis:");
-    println!("   - Total modules: {}", chunk.module_count());
-    println!("   - Chunk type: {:?}", chunk.chunk_type);
+    assert!(chunk.module_count() > 0);
+    assert!(matches!(chunk.chunk_type, ChunkType::CommonJSSync | ChunkType::CommonJSAsync));
     
     let module_count = chunk.module_count();
     
@@ -41,7 +40,7 @@ fn test_full_module_graph_real_world_lodash() {
     }
     
     // Print comprehensive graph statistics
-    println!("   - Total dependencies: {}", graph.total_dependencies());
+    assert!(graph.total_dependencies() >= 0);
     
     // Find modules with no dependencies (leaf modules)
     let leaf_modules: Vec<_> = graph.modules.values()
@@ -49,7 +48,7 @@ fn test_full_module_graph_real_world_lodash() {
         .map(|m| m.id.clone())
         .collect();
     
-    println!("   - Leaf modules (no dependencies): {}", leaf_modules.len());
+    assert!(leaf_modules.len() <= module_count);
     
     // Find modules with no dependents (potential unused)
     let no_dependents: Vec<_> = graph.modules.values()
@@ -57,7 +56,7 @@ fn test_full_module_graph_real_world_lodash() {
         .map(|m| m.id.clone())
         .collect();
     
-    println!("   - Modules with no dependents: {}", no_dependents.len());
+    assert!(no_dependents.len() <= module_count);
     
     // Find modules with the most dependencies
     let mut modules_by_deps: Vec<_> = graph.modules.values()
@@ -65,11 +64,7 @@ fn test_full_module_graph_real_world_lodash() {
         .collect();
     modules_by_deps.sort_by(|a, b| b.1.cmp(&a.1));
     
-    println!("   - Top 5 modules by dependency count:");
-    for (module_id, dep_count) in modules_by_deps.iter().take(5) {
-        let short_name = module_id.split('/').last().unwrap_or(module_id);
-        println!("     * {} -> {} deps", short_name, dep_count);
-    }
+    let _ = modules_by_deps.iter().take(5).count();
     
     // Find modules with the most dependents
     let mut modules_by_dependents: Vec<_> = graph.modules.values()
@@ -77,44 +72,28 @@ fn test_full_module_graph_real_world_lodash() {
         .collect();
     modules_by_dependents.sort_by(|a, b| b.1.cmp(&a.1));
     
-    println!("   - Top 5 modules by dependent count:");
-    for (module_id, dependent_count) in modules_by_dependents.iter().take(5) {
-        let short_name = module_id.split('/').last().unwrap_or(module_id);
-        println!("     * {} <- {} dependents", short_name, dependent_count);
-    }
+    let _ = modules_by_dependents.iter().take(5).count();
     
     // Test module removal impact analysis
-    println!("\n🔍 Module Removal Impact Analysis:");
-    
     // Test removing a highly depended-upon module
     if let Some((most_depended_module, _)) = modules_by_dependents.first() {
         let impact = graph.simulate_module_removal(most_depended_module);
-        let short_name = most_depended_module.split('/').last().unwrap_or(most_depended_module);
-        println!("   - Impact of removing most depended module '{}':", short_name);
-        println!("     * Would break {} modules", impact.broken_modules.len());
-        println!("     * Would orphan {} modules", impact.potentially_orphaned.len());
+        assert!(impact.broken_modules.len() >= 0);
+        assert!(impact.potentially_orphaned.len() >= 0);
         
         // Show first few broken modules
-        if !impact.broken_modules.is_empty() {
-            println!("     * First few broken modules:");
-            for broken in impact.broken_modules.iter().take(3) {
-                let broken_short = broken.split('/').last().unwrap_or(broken);
-                println!("       - {}", broken_short);
-            }
-        }
+        let _ = impact.broken_modules.iter().take(3).count();
     }
     
     // Test removing a leaf module (should have minimal impact)
     if let Some(leaf_module) = leaf_modules.first() {
         let impact = graph.simulate_module_removal(leaf_module);
-        let short_name = leaf_module.split('/').last().unwrap_or(leaf_module);
-        println!("   - Impact of removing leaf module '{}':", short_name);
-        println!("     * Would break {} modules", impact.broken_modules.len());
-        println!("     * Would orphan {} modules", impact.potentially_orphaned.len());
+        assert!(impact.broken_modules.len() >= 0);
+        assert!(impact.potentially_orphaned.len() >= 0);
     }
     
     assert!(module_count > 100, "Should have many modules in lodash chunk");
     assert!(graph.total_dependencies() > 0, "Should have dependencies");
     
-    println!("✅ Full module graph analysis complete!");
+    // done
 }

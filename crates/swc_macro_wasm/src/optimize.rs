@@ -295,10 +295,8 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                                     }
                                     
                                     if should_preserve.as_bool() == Some(true) {
-                                        // Special handling for "default" export - it means preserve the main module
-                                        if export_name == "default" {
-                                            continue; // The main module is already added as entry point
-                                        }
+                                        // Special handling for "default" export - ensure aggregator stays
+                                        // We still continue to add specific export modules below
                                         
                                         // Find the module that provides this export
                                         // For lodash-es, the pattern is: .../lodash-es/exportName.js
@@ -320,6 +318,22 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                                                         entry_points.push(module_id.clone());
                                                     }
                                                 }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Also ensure the library aggregator (entry) module is preserved
+                                // Typical patterns: .../<pkg>/index.js, .../<pkg>/<pkg>.js, or .../lodash.js
+                                for module_id in chunk.modules.keys() {
+                                    let module_str = module_id.as_str();
+                                    if module_str.contains(package_name) {
+                                        let is_index = module_str.ends_with("/index.js");
+                                        let is_pkg_named = module_str.ends_with(&format!("/{pkg}.js", pkg = package_name));
+                                        let is_common_aggregator = module_str.ends_with("/lodash.js") || module_str.ends_with("lodash.js");
+                                        if is_index || is_pkg_named || is_common_aggregator {
+                                            if !entry_points.contains(module_id) {
+                                                entry_points.push(module_id.clone());
                                             }
                                         }
                                     }
@@ -375,6 +389,7 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                     }
                 }
             } else {
+                // No macro config: do not remove modules in split chunks
                 Vec::new()
             }
         } else {

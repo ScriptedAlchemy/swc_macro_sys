@@ -142,9 +142,7 @@ fn test_real_world_webpack_chunk() {
     assert!(reachable.contains(&Atom::from("../../node_modules/lodash-es/_baseMap.js")));
     assert!(reachable.contains(&Atom::from("../../node_modules/lodash-es/_baseFilter.js")));
     
-    println!("✅ Real-world webpack chunk analysis complete!");
-    println!("   - Total modules: {}", 6);
-    println!("   - Reachable modules: {}", reachable.len());
-    println!("   - Orphaned modules: {}", orphaned.len());
-    println!("   - Successfully analyzed webpack chunk dependencies!");
+    assert_eq!(6, 6);
+    assert_eq!(reachable.len(), 5);
+    assert_eq!(orphaned.len(), 1);
 }

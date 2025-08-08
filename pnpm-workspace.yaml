@@ -1,7 +1,10 @@
 packages:
   - 'examples/jsx-server-demo'
-  - 'module-federation-example'
-  - 'module-federation-example/*'
+  - 'examples/module-federation-example'
+  - 'examples/module-federation-example/*'
+  - 'examples/module-federation-web-example'
+  - 'examples/module-federation-web-example/*'
+  - 'examples/rsbuild-project'
   - 'crates/swc_macro_wasm/pkg'
 onlyBuiltDependencies:
   - '@swc/core'

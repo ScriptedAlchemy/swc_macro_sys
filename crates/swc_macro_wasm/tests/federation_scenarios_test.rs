@@ -5,11 +5,11 @@ use std::fs;
 #[test]
 #[ignore] // TODO: Update these tests to match the current optimization behavior
 fn test_real_federation_lodash_chunk_with_host_usage() {
-    println!("\n=== REAL FEDERATION LODASH CHUNK TEST - HOST USAGE ===");
+    // silent
     
     // Read the actual original vendor chunk
     let vendor_chunk = fs::read_to_string(
-        "../../module-federation-example/remote/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original"
+        "../../examples/module-federation-example/remote/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original"
     ).expect("Failed to read original vendor chunk");
     
     // Create config based on host's actual usage (only uniq, sortBy, and default)
@@ -41,17 +41,14 @@ fn test_real_federation_lodash_chunk_with_host_usage() {
         }
     });
     
-    println!("Original chunk size: {} bytes", vendor_chunk.len());
-    println!("Testing with host usage: uniq, sortBy, default");
+    assert!(vendor_chunk.len() > 0);
     
     let optimized = optimize(vendor_chunk.clone(), &config.to_string());
     
-    println!("Optimized chunk size: {} bytes", optimized.len());
-    println!("Size reduction: {:.2}%", 
-        (vendor_chunk.len() - optimized.len()) as f64 / vendor_chunk.len() as f64 * 100.0);
+    assert!(optimized.len() > 0);
     
     // Verify specific modules
-    println!("\nVerifying module presence/absence:");
+    // verify module presence/absence
     
     // Modules that should be KEPT
     let kept_modules = vec![
@@ -67,11 +64,6 @@ fn test_real_federation_lodash_chunk_with_host_usage() {
     
     for (module, desc) in kept_modules {
         let present = optimized.contains(module);
-        println!("  {} - {}: {}", 
-            if present { "✅" } else { "❌" },
-            desc,
-            if present { "KEPT (correct)" } else { "REMOVED (error)" }
-        );
         assert!(present, "{} should be kept but was removed", desc);
     }
     
@@ -93,11 +85,6 @@ fn test_real_federation_lodash_chunk_with_host_usage() {
     
     for (module, desc) in removed_modules {
         let present = optimized.contains(module);
-        println!("  {} - {}: {}", 
-            if present { "❌" } else { "✅" },
-            desc,
-            if present { "KEPT (error)" } else { "REMOVED (correct)" }
-        );
         assert!(!present, "{} should be removed but was kept", desc);
     }
     
@@ -131,7 +118,7 @@ fn test_real_federation_lodash_chunk_with_remote_usage() {
     
     // Read the actual original vendor chunk
     let vendor_chunk = fs::read_to_string(
-        "../../module-federation-example/remote/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original"
+        "../../examples/module-federation-example/remote/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original"
     ).expect("Failed to read original vendor chunk");
     
     // Create config based on remote's actual usage
@@ -229,12 +216,12 @@ fn test_real_federation_lodash_chunk_with_merged_usage() {
     
     // Read the actual original vendor chunk
     let vendor_chunk = fs::read_to_string(
-        "../../module-federation-example/remote/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original"
+        "../../examples/module-federation-example/remote/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original"
     ).expect("Failed to read original vendor chunk");
     
     // Read the actual merged config
     let merged_config = fs::read_to_string(
-        "../../module-federation-example/dist/merged-tree-shake-config.json"
+        "../../examples/module-federation-example/dist/merged-tree-shake-config.json"
     ).expect("Failed to read merged config");
     
     let config: serde_json::Value = serde_json::from_str(&merged_config)
@@ -1014,12 +1001,12 @@ fn test_real_federation_with_host_share_usage_json() {
     
     // Read the actual original vendor chunk
     let vendor_chunk = fs::read_to_string(
-        "../../module-federation-example/remote/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original"
+        "../../examples/module-federation-example/remote/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original"
     ).expect("Failed to read original vendor chunk");
     
     // Read the actual host share-usage.json
     let host_usage = fs::read_to_string(
-        "../../module-federation-example/host/dist/share-usage.json"
+        "../../examples/module-federation-example/host/dist/share-usage.json"
     ).expect("Failed to read host share-usage.json");
     
     let usage_data: serde_json::Value = serde_json::from_str(&host_usage)

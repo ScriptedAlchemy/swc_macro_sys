@@ -110,7 +110,22 @@ fn test_lodash_orphan_detection_with_minimal_usage() {
                 "default": true,
                 "map": false,
                 "filter": false,
-                "reduce": false
+                "reduce": false,
+                "chunk_characteristics": {
+                    "is_runtime_chunk": false,
+                    "has_runtime": false,
+                    "is_entrypoint": false,
+                    "can_be_initial": false,
+                    "is_only_initial": false,
+                    "chunk_format": "async-node",
+                    "chunk_loading_type": null,
+                    "runtime_names": ["vendors-lodash"],
+                    "entry_name": null,
+                    "has_async_chunks": false,
+                    "chunk_files": ["vendors-lodash.js"],
+                    "is_shared_chunk": false,
+                    "shared_modules": []
+                }
             }
         },
         "entryModules": {
@@ -160,7 +175,22 @@ fn test_lodash_orphan_detection_with_minimal_usage() {
                 "default": true,
                 "map": false,
                 "filter": false,
-                "reduce": false
+                "reduce": false,
+                "chunk_characteristics": {
+                    "is_runtime_chunk": false,
+                    "has_runtime": false,
+                    "is_entrypoint": false,
+                    "can_be_initial": false,
+                    "is_only_initial": false,
+                    "chunk_format": "async-node",
+                    "chunk_loading_type": null,
+                    "runtime_names": ["vendors-lodash"],
+                    "entry_name": null,
+                    "has_async_chunks": false,
+                    "chunk_files": ["vendors-lodash.js"],
+                    "is_shared_chunk": false,
+                    "shared_modules": []
+                }
             }
         },
         "entryModules": {
@@ -232,11 +262,11 @@ fn test_real_world_lodash_aggressive_tree_shaking() {
     println!("\n=== TESTING REAL-WORLD LODASH AGGRESSIVE TREE SHAKING ===");
     
     // Read the actual lodash chunk from the module federation example
-    let chunk_path = "../../../module-federation-example/host/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original";
+    let chunk_path = "../../../examples/module-federation-example/host/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original";
     
     if std::path::Path::new(chunk_path).exists() {
         let chunk = std::fs::read_to_string(chunk_path).unwrap();
-        println!("Real lodash chunk size: {} KB", chunk.len() / 1024);
+        assert!(chunk.len() > 0);
         
         // Count modules
         let original_modules = chunk.matches(".js\":").count();
@@ -295,7 +325,22 @@ fn test_real_world_lodash_aggressive_tree_shaking() {
                     "without": false,
                     "zip": false,
                     "zipObject": false,
-                    "zipWith": false
+                    "zipWith": false,
+                    "chunk_characteristics": {
+                        "is_runtime_chunk": false,
+                        "has_runtime": false,
+                        "is_entrypoint": false,
+                        "can_be_initial": false,
+                        "is_only_initial": false,
+                        "chunk_format": "async-node",
+                        "chunk_loading_type": null,
+                        "runtime_names": ["vendors-lodash"],
+                        "entry_name": null,
+                        "has_async_chunks": false,
+                        "chunk_files": ["vendors-lodash.js"],
+                        "is_shared_chunk": false,
+                        "shared_modules": []
+                    }
                 }
             },
             "entryModules": {
@@ -304,15 +349,12 @@ fn test_real_world_lodash_aggressive_tree_shaking() {
         }"#;
         
         let optimized = optimize(chunk.to_string(), minimal_config_str);
-        println!("Optimized size: {} KB", optimized.len() / 1024);
-        
         let reduction = ((chunk.len() - optimized.len()) as f64 / chunk.len() as f64) * 100.0;
-        println!("Reduction: {:.1}%", reduction);
+        assert!(reduction >= 0.0);
         
         // Count optimized modules
         let optimized_modules = optimized.matches(".js\":").count();
-        println!("Optimized modules: {}", optimized_modules);
-        println!("Modules removed: {}", original_modules - optimized_modules);
+        assert!(optimized_modules <= original_modules);
         
         // With enhanced parser, we should see significant module removal
         // Even if not 90%+, we should see meaningful reduction
@@ -320,25 +362,15 @@ fn test_real_world_lodash_aggressive_tree_shaking() {
         
         // The enhanced parser should remove SOME modules
         if optimized_modules < original_modules {
-            println!("✅ Enhanced parser successfully removed {} orphaned modules", original_modules - optimized_modules);
+            assert!(original_modules - optimized_modules > 0);
         } else {
-            println!("⚠️  Enhanced parser did not remove any modules - investigating...");
-            
-            // Let's check if the issue is in the parser or the test
             let has_lodash_js = optimized.contains("lodash.js");
             let has_sortby_js = optimized.contains("sortBy.js");
             let has_map_js = optimized.contains("map.js");
-            
-            println!("Debug - modules present:");
-            println!("- lodash.js: {}", has_lodash_js);
-            println!("- sortBy.js: {}", has_sortby_js);
-            println!("- map.js: {}", has_map_js);
-            
-            // This indicates the parser needs further investigation
-            println!("🔍 The enhanced parser may need additional work for real-world chunks");
+            assert!(has_lodash_js && (has_sortby_js || has_map_js));
         }
     } else {
-        println!("⚠️  Real lodash chunk not found at {}", chunk_path);
-        println!("   Run the module federation example first to generate the chunk");
+        // Skip test when real chunk is not available
+        return;
     }
 }

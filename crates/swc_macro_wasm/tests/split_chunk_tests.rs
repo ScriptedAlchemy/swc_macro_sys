@@ -290,22 +290,35 @@ fn test_real_world_cjs_chunk() {
     println!("Testing actual CJS vendor chunk from test-cases");
     println!("Original size: {} KB", chunk_content.len() / 1024);
     
-    // Parse share usage to build config
+    // Parse share usage to build config (supports legacy and new schemas)
     let usage: serde_json::Value = serde_json::from_str(share_usage).unwrap();
-    let lodash_usage = &usage["consume_shared_modules"]["lodash-es"];
-    let used_exports = lodash_usage["used_exports"].as_array().unwrap();
-    let unused_exports = lodash_usage["unused_exports"].as_array().unwrap();
-    
-    println!("Used exports: {:?}", used_exports.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>());
-    println!("Unused exports: {}", unused_exports.len());
-    
-    // Build config
     let mut lodash_config = serde_json::Map::new();
-    for export in used_exports {
-        lodash_config.insert(export.as_str().unwrap().to_string(), json!(true));
-    }
-    for export in unused_exports {
-        lodash_config.insert(export.as_str().unwrap().to_string(), json!(false));
+    if usage.get("treeShake").is_some() {
+        let obj = usage["treeShake"]["lodash-es"].as_object().expect("lodash-es object expected");
+        let mut used_names: Vec<String> = Vec::new();
+        let mut unused_count = 0usize;
+        for (k, v) in obj {
+            if k == "chunk_characteristics" { continue; }
+            match v.as_bool() {
+                Some(true) => { lodash_config.insert(k.clone(), json!(true)); used_names.push(k.clone()); }
+                Some(false) => { lodash_config.insert(k.clone(), json!(false)); unused_count += 1; }
+                _ => {}
+            }
+        }
+        println!("Used exports: {:?}", used_names);
+        println!("Unused exports: {}", unused_count);
+    } else {
+        let lodash_usage = &usage["consume_shared_modules"]["lodash-es"];
+        let used_exports = lodash_usage["used_exports"].as_array().unwrap();
+        let unused_exports = lodash_usage["unused_exports"].as_array().unwrap();
+        println!("Used exports: {:?}", used_exports.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>());
+        println!("Unused exports: {}", unused_exports.len());
+        for export in used_exports {
+            lodash_config.insert(export.as_str().unwrap().to_string(), json!(true));
+        }
+        for export in unused_exports {
+            lodash_config.insert(export.as_str().unwrap().to_string(), json!(false));
+        }
     }
     
     let config = json!({
