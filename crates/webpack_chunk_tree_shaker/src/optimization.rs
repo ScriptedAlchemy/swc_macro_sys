@@ -16,8 +16,6 @@ pub struct OptimizationStrategy {
     pub remove_no_exports: bool,
     /// Remove duplicate modules
     pub remove_duplicates: bool,
-    /// Merge small modules
-    pub merge_small_modules: bool,
     /// Remove debug-only modules
     pub remove_debug_modules: bool,
     /// Optimize for production
@@ -30,7 +28,6 @@ impl Default for OptimizationStrategy {
             remove_unused: true,
             remove_no_exports: true,
             remove_duplicates: true,
-            merge_small_modules: false,
             remove_debug_modules: true,
             production_mode: false,
         }
@@ -56,7 +53,6 @@ pub enum OptimizationType {
     UnusedModuleRemoval,
     NoExportsRemoval,
     DuplicateRemoval,
-    SmallModuleMerging,
     DebugModuleRemoval,
 }
 
@@ -131,13 +127,6 @@ impl ChunkOptimizer {
             working_chunk = optimized;
             applied_optimizations.push(OptimizationType::DebugModuleRemoval);
             removed_by_optimization.insert(OptimizationType::DebugModuleRemoval, removed);
-        }
-        
-        if strategy.merge_small_modules {
-            let (optimized, removed) = self.merge_small_modules(&working_chunk)?;
-            working_chunk = optimized;
-            applied_optimizations.push(OptimizationType::SmallModuleMerging);
-            removed_by_optimization.insert(OptimizationType::SmallModuleMerging, removed);
         }
         
         let optimization_time = start_time.elapsed();
@@ -240,18 +229,6 @@ impl ChunkOptimizer {
         let result = self.tree_shaker.remove_modules(chunk, &modules_to_remove)?;
         
         Ok((result.optimized_chunk, result.removed_modules))
-    }
-
-    /// Merge small modules together (placeholder implementation)
-    fn merge_small_modules(&self, chunk: &WebpackChunk) -> Result<(WebpackChunk, Vec<ModuleId>)> {
-        // For now, just return the original chunk
-        // In a real implementation, you would:
-        // 1. Find modules smaller than a threshold
-        // 2. Group them by dependency relationships
-        // 3. Merge compatible modules
-        // 4. Update dependency references
-        
-        Ok((chunk.clone(), Vec::new()))
     }
 
     /// Find potential entry points in the chunk
@@ -421,9 +398,6 @@ impl OptimizationResult {
                     }
                     OptimizationType::DuplicateRemoval => {
                         format!("Duplicate removal: {} modules", removed_count)
-                    }
-                    OptimizationType::SmallModuleMerging => {
-                        format!("Small module merging: {} modules", removed_count)
                     }
                     OptimizationType::DebugModuleRemoval => {
                         format!("Debug module removal: {} modules", removed_count)
