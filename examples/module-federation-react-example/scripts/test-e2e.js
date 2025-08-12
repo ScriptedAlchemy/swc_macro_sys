@@ -126,9 +126,9 @@ async function runE2ETests() {
     const testArgs = process.argv.slice(2);
     const playwrightArgs = ['playwright', 'test'];
     
-    // Add common args
-    if (!testArgs.includes('--headed') && !testArgs.includes('--ui')) {
-      playwrightArgs.push('--reporter=html');
+    // Add common args: default to concise list reporter unless user overrides
+    if (!testArgs.some(arg => arg.startsWith('--reporter='))) {
+      playwrightArgs.push('--reporter=list');
     }
     
     // Add user args
@@ -137,7 +137,7 @@ async function runE2ETests() {
     await runCommand('npx', playwrightArgs, { cwd: projectRoot });
     
     console.log('\n✅ E2E tests completed successfully!');
-    console.log('\n📊 View the test report at: playwright-report/index.html');
+    // HTML report serving disabled; using non-HTML reporter by default
     
   } catch (error) {
     console.error('\n❌ E2E tests failed:', error.message);

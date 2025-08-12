@@ -111,9 +111,7 @@ fn perform_dce(m: &mut Program, comments: SingleThreadedComments, unresolved_mar
 fn has_macro_processing_config(config: &serde_json::Value) -> bool {
     // Check if there are macro processing directives like features, treeShake, etc.
     // Also check for entryModules which enables tree shaking with specific entry points
-    config.get("features").is_some() || 
     config.get("treeShake").is_some() ||
-    config.get("api").is_some() ||
     config.get("entryModules").is_some()
 }
 
@@ -655,22 +653,34 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
         return;
     }
     
-    // Find all module IDs in exports.modules
-    let module_pattern = regex::Regex::new(r#""([^"]+\.js)":\s*"#).unwrap();
+    // Find all module IDs in exports.modules (string or numeric keys)
+    let module_pattern_str = regex::Regex::new(r#""([^"]+)"\s*:\s*"#).unwrap();
+    let module_pattern_num = regex::Regex::new(r#"(?m)^\s*(\d+)\s*:\s*"#).unwrap();
     let mut all_modules: Vec<String> = Vec::new();
     
-    for cap in module_pattern.captures_iter(&current_code) {
+    for cap in module_pattern_str.captures_iter(&current_code) {
+        if let Some(module_id) = cap.get(1) {
+            all_modules.push(module_id.as_str().to_string());
+        }
+    }
+    for cap in module_pattern_num.captures_iter(&current_code) {
         if let Some(module_id) = cap.get(1) {
             all_modules.push(module_id.as_str().to_string());
         }
     }
     
     
-    // Find all __webpack_require__ calls to see which modules are still referenced
-    let require_pattern = regex::Regex::new(r#"__webpack_require__\s*\(\s*"([^"]+\.js)""#).unwrap();
+    // Find all __webpack_require__ calls (string or numeric module ids)
+    let require_pattern_str = regex::Regex::new(r#"__webpack_require__\s*\(\s*"([^"]+)"\s*\)"#).unwrap();
+    let require_pattern_num = regex::Regex::new(r#"__webpack_require__\s*\(\s*(\d+)\s*\)"#).unwrap();
     let mut referenced_modules: std::collections::HashSet<String> = std::collections::HashSet::new();
     
-    for cap in require_pattern.captures_iter(&current_code) {
+    for cap in require_pattern_str.captures_iter(&current_code) {
+        if let Some(module_id) = cap.get(1) {
+            referenced_modules.insert(module_id.as_str().to_string());
+        }
+    }
+    for cap in require_pattern_num.captures_iter(&current_code) {
         if let Some(module_id) = cap.get(1) {
             referenced_modules.insert(module_id.as_str().to_string());
         }
@@ -695,21 +705,33 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
     let mut removed_count = 0;
     
     for module_id in &orphaned_modules {
-        // Create a pattern to match the entire module entry
-        // Pattern: "module_id": \n/*!...*/\n(function...}),
-        let module_entry_pattern = format!(
-            r#""{}":\s*\n/\*![^*]*\*+(?:[^/*][^*]*\*+)*/\s*\n\(function[^{{]*\{{.*?\n\}}\),"#,
+        // Build regexes for string-keyed and numeric-keyed module entries
+        let string_entry = format!(
+            r#""{}"\s*:\s*\n(?:/\*![^*]*\*+(?:[^/*][^*]*\*+)*/\s*\n)?\(function[\s\S]*?\n\}}\),"#,
             regex::escape(module_id)
         );
-        
-        let entry_re = match regex::Regex::new(&module_entry_pattern) {
-            Ok(re) => re,
-            Err(_) => continue,
-        };
-        
-        if entry_re.is_match(&modified_code) {
-            modified_code = entry_re.replace(&modified_code, "").to_string();
-            removed_count += 1;
+        let numeric_entry = format!(
+            r#"(?m)^\s*{}\s*:\s*\n(?:/\*![^*]*\*+(?:[^/*][^*]*\*+)*/\s*\n)?\(function[\s\S]*?\n\}}\),"#,
+            regex::escape(module_id)
+        );
+        let re_str = regex::Regex::new(&string_entry).ok();
+        let re_num = regex::Regex::new(&numeric_entry).ok();
+
+        let mut removed_local = false;
+        if let Some(re) = re_str.as_ref() {
+            if re.is_match(&modified_code) {
+                modified_code = re.replace(&modified_code, "").to_string();
+                removed_count += 1;
+                removed_local = true;
+            }
+        }
+        if !removed_local {
+            if let Some(re) = re_num.as_ref() {
+                if re.is_match(&modified_code) {
+                    modified_code = re.replace(&modified_code, "").to_string();
+                    removed_count += 1;
+                }
+            }
         }
     }
     
