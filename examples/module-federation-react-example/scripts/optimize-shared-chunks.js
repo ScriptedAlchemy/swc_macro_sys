@@ -178,9 +178,9 @@ async function optimizeChunk(chunkPath, library, treeShakeConfig, entryModules, 
     if (treeShakeConfig[library]) {
       const exports = Object.entries(treeShakeConfig[library]).filter(([key]) => key !== 'chunk_characteristics');
       
-      // If no export data is available (pure runtime dependency like React), skip optimization
-      if (exports.length === 0) {
-        console.log(`Skipping optimization for ${library} - no export data (likely runtime dependency)`);
+      // Skip optimization for core React libraries and pure runtime dependencies
+      if (exports.length === 0 || ['react', 'react-dom', 'react-router', 'react-router-dom'].includes(library)) {
+        console.log(`Skipping optimization for ${library} - core React library or runtime dependency`);
         return null;
       }
       

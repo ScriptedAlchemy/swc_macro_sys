@@ -122,7 +122,9 @@ export default defineConfig({
     port: 3001,
     hot: false,
     historyApiFallback: true,
-    writeToDisk: true,
+    devMiddleware: {
+      writeToDisk: true
+    },
     headers: {
       'Access-Control-Allow-Origin': '*'
     }

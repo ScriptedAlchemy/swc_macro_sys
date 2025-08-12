@@ -124,7 +124,9 @@ export default defineConfig({
   devServer: {
     port: 3002,
     hot: false,
-    writeToDisk: true,
+    devMiddleware: {
+      writeToDisk: true
+    },
     headers: {
       'Access-Control-Allow-Origin': '*'
     }
