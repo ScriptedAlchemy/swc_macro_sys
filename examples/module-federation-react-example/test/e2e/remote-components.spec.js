@@ -1,13 +1,47 @@
 import { test, expect, E2E_CONFIG } from './setup.js';
+test.describe.configure({ mode: 'serial' });
 
 test.describe('Remote Components Integration', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/remote-components');
-  });
+test.beforeEach(async ({ page }) => {
+  // Debug listeners
+  page.on('console', (msg) => { if (msg.type() === 'error') console.log('Browser console error:', msg.text()); });
+  page.on('pageerror', (err) => console.log('Browser page error:', err.message));
 
-  test('should verify remote entry is accessible', async ({ moduleFederation }) => {
+  // Navigate via app shell, then fall back to direct route if needed
+  await page.goto('/');
+  await page.waitForSelector('.app-layout', { timeout: 15000 }).catch(() => {});
+
+  try {
+    const menuItem = page.getByRole('menuitem', { name: /Remote Components/i }).first();
+    await menuItem.waitFor({ state: 'visible', timeout: 5000 });
+    await menuItem.click();
+    await page.waitForURL('**/remote-components', { timeout: 10000 });
+  } catch {
+    await page.goto('/remote-components');
+  }
+
+  // Final ensure content present
+  await page.waitForSelector('h2:has-text("Remote Components Showcase")', { timeout: 15000 });
+});
+
+  test('should verify remote entry is accessible', async ({ page, moduleFederation }) => {
     const isLoaded = await moduleFederation.isRemoteEntryLoaded();
+    console.log('remoteEntry.js HTTP 200:', isLoaded);
+    const probe = await page.evaluate(() => {
+      const r = (window).remote;
+      return {
+        hasRemote: !!r,
+        type: r ? typeof r : 'undefined',
+        hasGet: r ? typeof r.get === 'function' : false,
+        hasInit: r ? typeof r.init === 'function' : false,
+        keys: r ? Object.keys(r) : []
+      };
+    });
+    console.log('Remote container probe:', probe);
     expect(isLoaded).toBe(true);
+    expect(probe.hasRemote).toBe(true);
+    expect(probe.hasGet).toBe(true);
+    expect(probe.hasInit).toBe(true);
   });
 
   test('should load remote components showcase page', async ({ page }) => {
@@ -15,9 +49,9 @@ test.describe('Remote Components Integration', () => {
     await expect(page.locator('text=Module Federation in Action')).toBeVisible();
   });
 
-  test('should display UserCard component from remote', async ({ page }) => {
+test('should display UserCard component from remote', async ({ page, moduleFederation }) => {
     // Click on User Card tab
-    await page.click('[role="tab"]:has-text("User Card")');
+  await moduleFederation.switchToRemoteTab('User Card');
     
     // Wait for remote component to load
     await moduleFederation.waitForRemoteComponent('.ant-card:has-text("User Profile Card Component")');
@@ -29,9 +63,9 @@ test.describe('Remote Components Integration', () => {
     await expect(page.locator('text=Engineering Department')).toBeVisible();
   });
 
-  test('should display DataTable component from remote', async ({ page }) => {
+test('should display DataTable component from remote', async ({ page, moduleFederation }) => {
     // Click on Data Table tab
-    await page.click('[role="tab"]:has-text("Data Table")');
+  await moduleFederation.switchToRemoteTab('Data Table');
     
     // Wait for remote component to load
     await page.waitForSelector('.ant-table', { timeout: 15000 });
@@ -48,9 +82,9 @@ test.describe('Remote Components Integration', () => {
     await expect(page.locator('text=MacBook Pro M3')).toBeVisible();
   });
 
-  test('should display ChartWidget component from remote', async ({ page }) => {
+test('should display ChartWidget component from remote', async ({ page, moduleFederation }) => {
     // Click on Charts tab
-    await page.click('[role="tab"]:has-text("Charts")');
+  await moduleFederation.switchToRemoteTab('Charts');
     
     // Wait for remote component to load
     await page.waitForSelector('canvas', { timeout: 15000 });
@@ -63,9 +97,9 @@ test.describe('Remote Components Integration', () => {
     await expect(page.locator('text=Chart Widgets')).toBeVisible();
   });
 
-  test('should display FormBuilder component from remote', async ({ page }) => {
+test('should display FormBuilder component from remote', async ({ page, moduleFederation }) => {
     // Click on Form Builder tab
-    await page.click('[role="tab"]:has-text("Form Builder")');
+  await moduleFederation.switchToRemoteTab('Form Builder');
     
     // Wait for remote component to load
     await page.waitForSelector('.ant-form', { timeout: 15000 });
@@ -86,9 +120,9 @@ test.describe('Remote Components Integration', () => {
     await expect(page.locator('button:has-text("Reset")')).toBeVisible();
   });
 
-  test('should handle remote component loading states', async ({ page }) => {
+test('should handle remote component loading states', async ({ page, moduleFederation }) => {
     // Check for loading indicators when switching tabs
-    await page.click('[role="tab"]:has-text("User Card")');
+  await moduleFederation.switchToRemoteTab('User Card');
     
     // Should show loading initially
     const loadingText = page.locator('text=Loading remote component...');
@@ -100,7 +134,7 @@ test.describe('Remote Components Integration', () => {
     await expect(loadingText).not.toBeVisible();
   });
 
-  test('should demonstrate shared dependencies', async ({ page }) => {
+test('should demonstrate shared dependencies', async ({ page, moduleFederation }) => {
     // Switch between different remote components to verify they all use shared Ant Design
     const tabs = [
       { name: 'User Card', selector: '.ant-avatar' },
@@ -108,8 +142,8 @@ test.describe('Remote Components Integration', () => {
       { name: 'Form Builder', selector: '.ant-form' }
     ];
 
-    for (const tab of tabs) {
-      await page.click(`[role="tab"]:has-text("${tab.name}")`);
+  for (const tab of tabs) {
+    await moduleFederation.switchToRemoteTab(tab.name);
       await page.waitForSelector(tab.selector, { timeout: 15000 });
       await expect(page.locator(tab.selector)).toBeVisible();
     }

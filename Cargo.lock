@@ -1796,8 +1796,6 @@ name = "webpack_chunk_tree_shaker"
 version = "0.1.0"
 dependencies = [
  "regex",
- "rustc-hash",
- "serde",
  "serde_json",
  "swc_core",
  "thiserror",

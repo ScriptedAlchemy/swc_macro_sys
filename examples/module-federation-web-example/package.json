@@ -8,7 +8,9 @@
     "remote"
   ],
   "scripts": {
-    "dev": "pnpm run --parallel dev",
+    "dev": "bash -c \"pnpm -C host dev & pnpm -C remote dev & wait\"",
+    "dev:host": "pnpm -C host dev",
+    "dev:remote": "pnpm -C remote dev",
     "build": "pnpm -C host build && pnpm -C remote build",
     "build:optimized": "pnpm run build && node --experimental-wasm-modules scripts/optimize-shared-chunks.js",
     "optimize": "node --experimental-wasm-modules scripts/optimize-shared-chunks.js",

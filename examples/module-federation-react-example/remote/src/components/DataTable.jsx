@@ -1,16 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Table, Input, Button, Space, Tag } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { debounce, orderBy } from 'lodash-es';
 import dayjs from 'dayjs';
 
-const DataTable = ({ data: propData, columns: propColumns }) => {
-  const [filteredData, setFilteredData] = useState([]);
-  const [searchText, setSearchText] = useState('');
-  const [searchedColumn, setSearchedColumn] = useState('');
-
-  // Default sample data if none provided
-  const defaultData = [
+// Default sample data if none provided - moved outside component to prevent re-creation
+const DEFAULT_DATA = [
     {
       key: '1',
       product: 'iPhone 14 Pro',
@@ -49,22 +44,30 @@ const DataTable = ({ data: propData, columns: propColumns }) => {
     },
   ];
 
-  const data = propData || defaultData;
+const DataTable = ({ data: propData, columns: propColumns }) => {
+  const [filteredData, setFilteredData] = useState([]);
+  const [searchText, setSearchText] = useState('');
+  const [searchedColumn, setSearchedColumn] = useState('');
+
+  const data = useMemo(() => propData || DEFAULT_DATA, [propData]);
 
   useEffect(() => {
     setFilteredData(data);
   }, [data]);
 
-  const handleSearch = debounce((selectedKeys, confirm, dataIndex) => {
-    confirm();
-    setSearchText(selectedKeys[0]);
-    setSearchedColumn(dataIndex);
-  }, 300);
+  const handleSearch = useCallback(
+    debounce((selectedKeys, confirm, dataIndex) => {
+      confirm();
+      setSearchText(selectedKeys[0]);
+      setSearchedColumn(dataIndex);
+    }, 300),
+    []
+  );
 
-  const handleReset = (clearFilters) => {
+  const handleReset = useCallback((clearFilters) => {
     clearFilters();
     setSearchText('');
-  };
+  }, []);
 
   const getColumnSearchProps = (dataIndex) => ({
     filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (

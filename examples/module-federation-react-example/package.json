@@ -9,7 +9,9 @@
     "remote"
   ],
   "scripts": {
-    "dev": "pnpm run --parallel dev",
+    "dev": "bash -c \"pnpm -C host dev & pnpm -C remote dev & wait\"",
+    "dev:host": "pnpm -C host dev",
+    "dev:remote": "pnpm -C remote dev",
     "build": "pnpm -C host build && pnpm -C remote build",
     "build:optimized": "pnpm run build && node --experimental-wasm-modules scripts/optimize-shared-chunks.js",
     "optimize": "node --experimental-wasm-modules scripts/optimize-shared-chunks.js",
@@ -35,9 +37,12 @@
     "@rspack/plugin-react-refresh": "^1.0.0",
     "@vitest/coverage-v8": "^1.2.0",
     "@vitest/ui": "^1.2.0",
+    "css-loader": "^7.1.2",
     "jsdom": "^24.0.0",
+    "less-loader": "^12.3.0",
     "playwright": "^1.48.2",
     "puppeteer": "^22.0.0",
+    "style-loader": "^4.0.0",
     "swc_macro_wasm": "workspace:*",
     "vite": "^5.0.0",
     "vite-plugin-top-level-await": "^1.5.0",

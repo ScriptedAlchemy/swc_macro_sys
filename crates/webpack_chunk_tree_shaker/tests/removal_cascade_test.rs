@@ -487,16 +487,11 @@ fn test_complete_workflow() {
     ).unwrap();
     println!("  - Post-validation: {}", if validation_after.is_valid() { "✅ PASSED" } else { "❌ FAILED" });
     
-    println!("\n🔄 STEP 5: Reconstruct Optimized Chunk");
-    let reconstructor = ChunkReconstructor::new();
-    let optimized_source = reconstructor.reconstruct_chunk(
-        &result.optimized_chunk,
-        &result.optimized_chunk.modules,
-    ).unwrap();
-    
-    println!("  - Reconstructed chunk size: {} chars", optimized_source.len());
-    println!("  - Contains lodash/map: {}", optimized_source.contains("lodash/map"));
-    println!("  - Contains lodash/filter: {}", optimized_source.contains("lodash/filter"));
+    println!("\n🔄 STEP 5: Verify Optimized Chunk");
+    println!("  - Final module count: {}", result.optimized_chunk.module_count());
+    println!("  - Modules removed: {}", result.removed_modules.len());
+    println!("  - Contains lodash/map: {}", result.optimized_chunk.modules.contains_key(&Atom::from("lodash/map")));
+    println!("  - Contains lodash/filter: {}", result.optimized_chunk.modules.contains_key(&Atom::from("lodash/filter")));
     
     // Verify final state
     assert!(result.optimized_chunk.modules.contains_key(&Atom::from("lodash/map")));

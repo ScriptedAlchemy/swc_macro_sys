@@ -6,7 +6,28 @@ import { test as base, expect } from '@playwright/test';
 export const test = base.extend({
   // Custom fixture for Module Federation testing
   moduleFederation: async ({ page }, use) => {
+    // Reduce UI flakiness by disabling animations/transitions
+    await page.addStyleTag({ content: '* { transition: none !important; animation: none !important; }' });
     const mf = {
+      // Robust tab click helper to avoid detachment during AntD re-renders
+      async clickTab(tabName) {
+        // Ensure some tab container is present (robust to markup differences)
+        await page.waitForSelector('[role="tab"], .ant-tabs-tab', { timeout: 10000 });
+        const tab = page.getByRole('tab', { name: tabName }).first();
+        await tab.scrollIntoViewIfNeeded();
+        await tab.waitFor({ state: 'visible' });
+        // Attempt click with small retries in case of React re-render
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            await tab.click({ timeout: 3000 });
+            return;
+          } catch (err) {
+            await page.waitForTimeout(150);
+          }
+        }
+        // Final forced click as fallback
+        await tab.click({ force: true });
+      },
       // Helper to wait for remote components to load
       async waitForRemoteComponent(selector, timeout = 15000) {
         await page.waitForSelector(selector, { timeout });
@@ -22,7 +43,7 @@ export const test = base.extend({
 
       // Helper to switch remote component tabs
       async switchToRemoteTab(tabName) {
-        await page.click(`[role="tab"]:has-text("${tabName}")`);
+        await this.clickTab(tabName);
         await this.waitForRemoteComponent('.remote-component-wrapper, .ant-card, .ant-table, .ant-form');
       },
 

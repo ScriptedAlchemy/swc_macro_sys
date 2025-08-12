@@ -341,17 +341,12 @@ impl WebpackTreeShaker {
     }
 
     /// Check if a module is a webpack runtime module
-    fn is_runtime_module(&self, chunk: &WebpackChunk, module_id: &ModuleId) -> bool {
-        // Prefer chunk characteristics over heuristics when available
+    fn is_runtime_module(&self, chunk: &WebpackChunk, _module_id: &ModuleId) -> bool {
+        // Determine runtime strictly from chunk characteristics
         if let Some(chars) = &chunk.characteristics {
-            if chars.is_runtime() {
-                return true;
-            }
+            return chars.is_runtime();
         }
-        // Fallback heuristic by module ID
-        module_id.contains("webpack/runtime") || 
-        module_id.contains("webpack/bootstrap") ||
-        module_id.starts_with("webpack/")
+        false
     }
 }
 

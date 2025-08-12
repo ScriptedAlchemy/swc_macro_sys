@@ -7,8 +7,8 @@
 //!
 //! - **Module Removal**: Remove specific modules by ID
 //! - **Tree Shaking**: Remove unused modules based on dependency analysis
-//! - **Chunk Reconstruction**: Rebuild webpack chunks with optimized module set
-//! - **Format Preservation**: Maintains original webpack chunk format (CommonJS/JSONP)
+//! - **Module Filtering**: Filter out unused modules from chunks
+//! - **Format Agnostic**: Works with all webpack chunk formats (CommonJS/JSONP/WebpackModules)
 //! - **Safety Checks**: Validates removal safety before applying changes
 //!
 //! ## Usage
@@ -53,13 +53,11 @@
 
 pub mod error;
 pub mod shaker;
-pub mod reconstruction;
 pub mod optimization;
 pub mod validation;
 
 pub use error::*;
 pub use shaker::*;
-pub use reconstruction::*;
 pub use optimization::*;
 pub use validation::*;
 

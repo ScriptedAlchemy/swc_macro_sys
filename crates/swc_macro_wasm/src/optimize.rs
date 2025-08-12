@@ -154,12 +154,8 @@ fn get_chunk_characteristics(config: &serde_json::Value, source: &str) -> ChunkC
     };
     
     // Create default characteristics based on detected format
-    // For standard webpack bundles with __webpack_modules__, set as entrypoint to trigger WebpackModules type
-    let (is_entrypoint, has_runtime) = if chunk_format == "webpack" {
-        (true, true) // This will make determine_chunk_type() return WebpackModules
-    } else {
-        (false, false)
-    };
+    // We no longer infer runtime or entrypoint; chunk_format drives type selection
+    let (is_entrypoint, has_runtime) = (false, false);
 
     ChunkCharacteristics {
         is_runtime_chunk: false,
@@ -237,13 +233,7 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
             println!("Tree shaking debug: Chunk has {} modules", chunk.modules.len());
         }
 
-        // Step 3: Check if this is a split chunk before tree shaking
-        // For webpack chunks, we assume it's a split chunk if it has modules but no clear entry points
-        // Check if this is a split chunk (no direct entry point calls) vs a bundle with entry points
-        let _has_entry_point_calls = current_code.contains("__webpack_require__(") && 
-            !current_code.contains("__webpack_require__.d(") && 
-            !current_code.contains("__webpack_require__.r(");
-            
+        // Prefer provided characteristics to decide split vs entry bundles
         let is_split_chunk = match chunk.chunk_type {
             ChunkType::CommonJSAsync | ChunkType::CommonJSSync => true,  // CommonJS exports.modules are always split chunks
             ChunkType::JSONP => true,     // JSONP chunks are always split chunks
@@ -393,16 +383,46 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                 Vec::new()
             }
         } else {
-            // Standard bundle with entry points - perform tree shaking
-            // Extract entry points from webpack require calls in the source
-            let entry_points = extract_entry_points_from_source(&current_code);
+            // Standard bundle with entry points - use explicit entry modules from config/characteristics,
+            // then fall back to extracting from source, then finally all modules
+            // Try config entryModules first
+            let mut entry_points: Vec<Atom> = Vec::new();
+            if let Some(entry_modules) = config.get("entryModules") {
+                if let Some(entry_obj) = entry_modules.as_object() {
+                    for (_, entry_module) in entry_obj {
+                        if let Some(entry_str) = entry_module.as_str() {
+                            let entry_atom = Atom::from(entry_str);
+                            if chunk.modules.contains_key(&entry_atom) { entry_points.push(entry_atom); }
+                        }
+                    }
+                }
+            }
+            // If still empty and characteristics entry_name is present, try that
+            if entry_points.is_empty() {
+                if let Some(chars) = &chunk.characteristics {
+                    if let Some(entry_name) = &chars.entry_name {
+                        let atom = Atom::from(entry_name.as_str());
+                        if chunk.modules.contains_key(&atom) { entry_points.push(atom); }
+                    }
+                }
+            }
+            // If still empty, attempt to extract entry points from source calls
+            if entry_points.is_empty() {
+                let extracted = extract_entry_points_from_source(&current_code);
+                for ep in extracted {
+                    if chunk.modules.contains_key(&ep) {
+                        entry_points.push(ep);
+                    }
+                }
+            }
+
+            // Fallback to all modules if no explicit entries are found
             let entry_module_refs: Vec<&str> = if entry_points.is_empty() {
-                // Fallback: assume all modules are entry points if we can't determine entry points
                 chunk.modules.keys().map(|s| s.as_str()).collect()
             } else {
                 entry_points.iter().map(|s| s.as_str()).collect()
             };
-            
+
             match shaker.shake_tree(&chunk, &entry_module_refs) {
                 Ok(result) => {
                     result.removed_modules

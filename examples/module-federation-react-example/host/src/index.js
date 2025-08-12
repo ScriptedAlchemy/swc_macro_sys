@@ -1,2 +1,2 @@
-// Use dynamic import for async chunks to avoid top-level await
-export default import('./bootstrap.js');
+// Module Federation async boundary - dynamic import to bootstrap
+import('./bootstrap.jsx').catch(err => console.error('Error loading bootstrap:', err));

@@ -40,9 +40,7 @@ fn test_full_module_graph_real_world_lodash() {
     }
     
     // Print comprehensive graph statistics
-    assert!(graph.total_dependencies() >= 0);
-    
-    // Find modules with no dependencies (leaf modules)
+    // Basic graph structure validation
     let leaf_modules: Vec<_> = graph.modules.values()
         .filter(|m| !m.has_dependencies())
         .map(|m| m.id.clone())
@@ -50,7 +48,6 @@ fn test_full_module_graph_real_world_lodash() {
     
     assert!(leaf_modules.len() <= module_count);
     
-    // Find modules with no dependents (potential unused)
     let no_dependents: Vec<_> = graph.modules.values()
         .filter(|m| !m.has_dependents())
         .map(|m| m.id.clone())
@@ -58,38 +55,26 @@ fn test_full_module_graph_real_world_lodash() {
     
     assert!(no_dependents.len() <= module_count);
     
-    // Find modules with the most dependencies
-    let mut modules_by_deps: Vec<_> = graph.modules.values()
-        .map(|m| (m.id.clone(), m.dependencies.len()))
-        .collect();
-    modules_by_deps.sort_by(|a, b| b.1.cmp(&a.1));
-    
-    let _ = modules_by_deps.iter().take(5).count();
-    
-    // Find modules with the most dependents
+    // Find modules with the most dependents for impact testing
     let mut modules_by_dependents: Vec<_> = graph.modules.values()
         .map(|m| (m.id.clone(), m.dependents.len()))
         .collect();
     modules_by_dependents.sort_by(|a, b| b.1.cmp(&a.1));
     
-    let _ = modules_by_dependents.iter().take(5).count();
-    
     // Test module removal impact analysis
-    // Test removing a highly depended-upon module
     if let Some((most_depended_module, _)) = modules_by_dependents.first() {
         let impact = graph.simulate_module_removal(most_depended_module);
-        assert!(impact.broken_modules.len() >= 0);
-        assert!(impact.potentially_orphaned.len() >= 0);
-        
-        // Show first few broken modules
-        let _ = impact.broken_modules.iter().take(3).count();
+        // Impact counts are always valid by definition
+        let _ = impact.broken_modules.len();
+        let _ = impact.potentially_orphaned.len();
     }
     
     // Test removing a leaf module (should have minimal impact)
     if let Some(leaf_module) = leaf_modules.first() {
         let impact = graph.simulate_module_removal(leaf_module);
-        assert!(impact.broken_modules.len() >= 0);
-        assert!(impact.potentially_orphaned.len() >= 0);
+        // Impact counts are always valid by definition
+        let _ = impact.broken_modules.len();
+        let _ = impact.potentially_orphaned.len();
     }
     
     assert!(module_count > 100, "Should have many modules in lodash chunk");

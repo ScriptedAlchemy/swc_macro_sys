@@ -1,6 +1,6 @@
 import { defineConfig } from '@rspack/cli';
 import { rspack } from '@rspack/core';
-import refreshPlugin from '@rspack/plugin-react-refresh';
+// import refreshPlugin from '@rspack/plugin-react-refresh';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -9,7 +9,7 @@ const isDev = process.env.NODE_ENV === 'development';
 
 export default defineConfig({
   context: __dirname,
-  entry: './src/index.jsx',
+  entry: './src/index.js',
   target: 'web',
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
@@ -30,34 +30,9 @@ export default defineConfig({
                 transform: {
                   react: {
                     development: isDev,
-                    refresh: isDev
+                    refresh: false
                   }
                 }
-              },
-              rspackExperiments: {
-                import: [{
-                  libraryName: 'antd',
-                  style: false
-                }]
-              }
-            }
-          }
-        ]
-      },
-      {
-        test: /\.css$/,
-        use: ['style-loader', 'css-loader']
-      },
-      {
-        test: /\.less$/,
-        use: [
-          'style-loader',
-          'css-loader',
-          {
-            loader: 'less-loader',
-            options: {
-              lessOptions: {
-                javascriptEnabled: true
               }
             }
           }
@@ -78,80 +53,77 @@ export default defineConfig({
       shared: {
         react: {
           singleton: true,
-          requiredVersion: '^18.3.1'
+          requiredVersion: '^18.3.1',
+          eager: true
         },
         'react-dom': {
           singleton: true,
-          requiredVersion: '^18.3.1'
+          requiredVersion: '^18.3.1',
+          eager: true
         },
         'react-router-dom': {
           singleton: true,
-          requiredVersion: '^7.1.1'
+          requiredVersion: '^7.1.1',
+          eager: true
         },
         antd: {
           singleton: true,
-          requiredVersion: '^5.21.8'
+          requiredVersion: '^5.21.8',
+          eager: true
         },
         '@ant-design/icons': {
           singleton: true,
-          requiredVersion: '^5.5.2'
+          requiredVersion: '^5.5.2',
+          eager: true
         },
         '@reduxjs/toolkit': {
           singleton: true,
-          requiredVersion: '^2.5.0'
+          requiredVersion: '^2.5.0',
+          eager: true
         },
         'react-redux': {
           singleton: true,
-          requiredVersion: '^9.2.0'
+          requiredVersion: '^9.2.0',
+          eager: true
         },
         'lodash-es': {
           singleton: true,
-          requiredVersion: '^4.17.21'
+          requiredVersion: '^4.17.21',
+          eager: true
         },
         'chart.js': {
           singleton: true,
-          requiredVersion: '^4.4.7'
+          requiredVersion: '^4.4.7',
+          eager: true
         },
         'react-chartjs-2': {
           singleton: true,
-          requiredVersion: '^5.2.0'
+          requiredVersion: '^5.2.0',
+          eager: true
         },
         dayjs: {
           singleton: true,
-          requiredVersion: '^1.11.13'
+          requiredVersion: '^1.11.13',
+          eager: true
         }
       }
     }),
     new rspack.HtmlRspackPlugin({
       template: './src/index.html'
     }),
-    isDev && refreshPlugin()
+    // isDev && new refreshPlugin() // Disabled
   ].filter(Boolean),
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: '[name].[contenthash].js',
-    chunkFilename: '[name].[contenthash].js',
     publicPath: 'http://localhost:3001/',
     clean: true
   },
   devServer: {
     port: 3001,
-    hot: true,
+    hot: false,
     historyApiFallback: true,
     headers: {
       'Access-Control-Allow-Origin': '*'
-    }
-  },
-  optimization: {
-    splitChunks: {
-      chunks: 'all',
-      cacheGroups: {
-        vendor: {
-          test: /[\\/]node_modules[\\/]/,
-          name: 'vendors',
-          priority: 10
-        }
-      }
     }
   }
 });

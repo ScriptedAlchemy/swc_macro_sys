@@ -108,6 +108,7 @@ impl ChunkCharacteristics {
             "jsonp" => ChunkType::JSONP,
             "async-node" => ChunkType::CommonJSAsync,
             "require" => ChunkType::CommonJSSync,
+            "webpack" => ChunkType::WebpackModules,
             "module" => ChunkType::ESModules,
             _ => {
                 // Fall back to heuristics for unknown formats

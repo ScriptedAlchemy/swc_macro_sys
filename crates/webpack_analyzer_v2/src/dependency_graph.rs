@@ -87,23 +87,7 @@ impl DependencyGraph {
             .collect()
     }
 
-    /// Find potential entry points (modules with no dependents)
-    pub fn find_potential_entry_points(&self) -> Vec<ModuleId> {
-        self.modules
-            .values()
-            .filter(|module| !module.has_dependents())
-            .map(|module| module.id.clone())
-            .collect()
-    }
 
-    /// Find modules that match a pattern (e.g., main modules)
-    pub fn find_modules_by_pattern(&self, pattern: impl Fn(&ModuleId) -> bool) -> Vec<ModuleId> {
-        self.modules
-            .keys()
-            .filter(|module_id| pattern(module_id))
-            .cloned()
-            .collect()
-    }
 
     /// Get module count
     pub fn module_count(&self) -> usize {

@@ -33,8 +33,7 @@ graph TB
     D --> E[WebpackTreeShaker]
     E --> F[Impact Analysis]
     F --> G[Module Removal]
-    G --> H[ChunkReconstructor]
-    H --> I[Optimized Chunk]
+    G --> I[Optimized Chunk]
     
     J[TreeShakingValidator] --> E
     K[OptimizationStrategy] --> L[ChunkOptimizer]
@@ -61,14 +60,12 @@ graph TB
 ```mermaid
 graph LR
     A[lib.rs] --> B[shaker.rs]
-    A --> C[reconstruction.rs]
     A --> D[optimization.rs]
     A --> E[validation.rs]
     A --> F[error.rs]
     
     B --> G[TreeShakingOptions]
     B --> H[WebpackTreeShaker]
-    C --> I[ChunkReconstructor]
     D --> J[ChunkOptimizer]
     E --> K[TreeShakingValidator]
     F --> L[TreeShakingError]
@@ -98,19 +95,8 @@ impl WebpackTreeShaker {
 }
 ```
 
-#### 2. ChunkReconstructor (reconstruction.rs)
-Rebuilds optimized chunks maintaining original format.
-
-```rust
-pub struct ChunkReconstructor {
-    minify: bool,
-    preserve_formatting: bool,
-}
-
-impl ChunkReconstructor {
-    pub fn reconstruct_chunk(&self, chunk: &WebpackChunk, modules: &FxHashMap<ModuleId, WebpackModule>) -> Result<String>
-}
-```
+#### 2. Optimized Chunk Representation
+The shaker returns an optimized `WebpackChunk` with filtered module metadata. The original source is preserved; no source reconstruction is performed.
 
 #### 3. TreeShakingValidator (validation.rs)
 Ensures tree shaking operations maintain chunk integrity.
@@ -443,9 +429,7 @@ graph TB
     F --> I[Optimized Module Set]
     G --> J[Removal Impact Report]
     H --> K[Validation Results]
-    
-    I --> L[ChunkReconstructor]
-    L --> M[Optimized Webpack Chunk]
+    M[Optimized Webpack Chunk]
     
     style A fill:#e3f2fd
     style M fill:#c8e6c9
@@ -934,12 +918,8 @@ fn optimize_webpack_chunk(chunk_source: &str) -> Result<String> {
         return Err("Validation failed".into());
     }
     
-    // Step 6: Reconstruct optimized chunk
-    let reconstructor = ChunkReconstructor::new();
-    let optimized_source = reconstructor.reconstruct_chunk(
-        &result.optimized_chunk,
-        &result.optimized_chunk.modules,
-    )?;
+    // Step 6: Use optimized chunk metadata (no reconstruction)
+    let optimized_modules = &result.optimized_chunk.modules;
     
     Ok(optimized_source)
 }
@@ -1049,12 +1029,8 @@ fn batch_optimize_chunks(input_dir: &Path, output_dir: &Path) -> Result<()> {
             // Optimize chunk
             let result = shaker.shake_tree(&chunk, &["main"])?;
             
-            // Reconstruct and save
-            let reconstructor = ChunkReconstructor::new();
-            let optimized = reconstructor.reconstruct_chunk(
-                &result.optimized_chunk,
-                &result.optimized_chunk.modules,
-            )?;
+            // Persist optimized module list (no reconstruction)
+            let optimized = format!("Optimized modules: {}", result.optimized_chunk.modules.len());
             
             let output_path = output_dir.join(path.file_name().unwrap());
             fs::write(output_path, optimized)?;

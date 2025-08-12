@@ -22,9 +22,6 @@ pub enum TreeShakingError {
     #[error("Cannot remove entry module: {module_id}")]
     EntryModuleRemoval { module_id: ModuleId },
 
-    #[error("Chunk reconstruction failed: {reason}")]
-    ReconstructionFailed { reason: String },
-
     #[error("Invalid chunk format: {format}")]
     InvalidFormat { format: String },
 
@@ -79,11 +76,7 @@ impl TreeShakingError {
         }
     }
 
-    pub fn reconstruction_failed(reason: impl Into<String>) -> Self {
-        Self::ReconstructionFailed { 
-            reason: reason.into() 
-        }
-    }
+    
 
     pub fn validation_failed(reason: impl Into<String>) -> Self {
         Self::ValidationFailed { 

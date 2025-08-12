@@ -23,7 +23,10 @@ test.describe('Performance Tests', () => {
     const startTime = Date.now();
     
     // Click on User Card tab to trigger remote component loading
-    await page.click('[role="tab"]:has-text("User Card")');
+    // Use robust tab click to avoid detachment during animations
+    const tab = page.getByRole('tab', { name: 'User Card' }).first();
+    await tab.waitFor({ state: 'visible' });
+    await tab.click();
     
     // Wait for remote component to fully load
     await page.waitForSelector('.ant-card:has-text("User Profile Card Component")', { timeout: 15000 });
@@ -81,8 +84,10 @@ test.describe('Performance Tests', () => {
     // Rapidly switch between tabs to test concurrent loading
     const tabs = ['User Card', 'Data Table', 'Charts', 'Form Builder'];
     
-    for (const tab of tabs) {
-      await page.click(`[role="tab"]:has-text("${tab}")`);
+    for (const tabName of tabs) {
+      const t = page.getByRole('tab', { name: tabName }).first();
+      await t.waitFor({ state: 'visible' });
+      await t.click();
       // Small delay to allow tab switch
       await page.waitForTimeout(100);
     }
@@ -120,7 +125,7 @@ test.describe('Performance Tests', () => {
     
     // Navigate to remote components to load all chunks
     await page.click('text=Remote Components');
-    await page.click('[role="tab"]:has-text("User Card")');
+    await page.getByRole('tab', { name: 'User Card' }).first().click();
     await page.waitForSelector('.ant-card', { timeout: 15000 });
     
     await page.waitForLoadState('networkidle');

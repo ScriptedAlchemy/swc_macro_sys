@@ -41,7 +41,7 @@ fn test_host_vendor_chunk() {
             // Update for new enum variant - could be CommonJSAsync or CommonJSSync
             assert!(matches!(chunk.chunk_type, ChunkType::CommonJSAsync | ChunkType::CommonJSSync));
             assert!(chunk.module_count() > 0, "Should have extracted modules");
-            assert!(graph.total_dependencies() >= 0, "Dependency count should be non-negative");
+            // Dependency count is always non-negative by type definition
         }
         Err(e) => panic!("Failed to analyze host vendor chunk: {}", e),
     }
@@ -86,7 +86,7 @@ fn test_remote_vendor_chunk() {
             // Update for new enum variant - could be CommonJSAsync or CommonJSSync
             assert!(matches!(chunk.chunk_type, ChunkType::CommonJSAsync | ChunkType::CommonJSSync));
             assert!(chunk.module_count() > 0, "Should have extracted modules");
-            assert!(graph.total_dependencies() >= 0, "Dependency count should be non-negative");
+            // Dependency count is always non-negative by type definition
         }
         Err(e) => panic!("Failed to analyze remote vendor chunk: {}", e),
     }
@@ -131,7 +131,7 @@ fn test_source_utils_chunk() {
             // Update for new enum variant - could be CommonJSAsync or CommonJSSync
             assert!(matches!(chunk.chunk_type, ChunkType::CommonJSAsync | ChunkType::CommonJSSync));
             assert!(chunk.module_count() > 0, "Should have extracted modules");
-            assert!(graph.total_dependencies() >= 0, "Dependency count should be non-negative");
+            // Dependency count is always non-negative by type definition
         }
         Err(e) => panic!("Failed to analyze source utils chunk: {}", e),
     }
@@ -176,7 +176,7 @@ fn test_source_button_chunk() {
             // Update for new enum variant - could be CommonJSAsync or CommonJSSync
             assert!(matches!(chunk.chunk_type, ChunkType::CommonJSAsync | ChunkType::CommonJSSync));
             assert!(chunk.module_count() > 0, "Should have extracted modules");
-            assert!(graph.total_dependencies() >= 0, "Dependency count should be non-negative");
+            // Dependency count is always non-negative by type definition
         }
         Err(e) => panic!("Failed to analyze source button chunk: {}", e),
     }
