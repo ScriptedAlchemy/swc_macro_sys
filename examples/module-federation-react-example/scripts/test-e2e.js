@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -8,20 +8,65 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 
-console.log('🚀 Module Federation React E2E Test Runner\n');
+console.log('🚀 Module Federation React E2E Test Runner (Dev Mode)\n');
 
-// Check if applications are built
-function checkBuilds() {
-  const hostDist = path.join(projectRoot, 'host/dist');
-  const remoteDist = path.join(projectRoot, 'remote/dist');
-  
-  if (!fs.existsSync(hostDist) || !fs.existsSync(remoteDist)) {
-    console.log('❌ Missing build artifacts. Running build first...');
+// Check if dev servers are running
+async function checkDevServers() {
+  try {
+    const hostResponse = await fetch('http://localhost:3001/');
+    const remoteResponse = await fetch('http://localhost:3002/remoteEntry.js');
+    return hostResponse.ok && remoteResponse.ok;
+  } catch {
     return false;
   }
+}
+
+// Start dev servers
+function startDevServers() {
+  console.log('🚀 Starting dev servers...');
   
-  console.log('✅ Build artifacts found');
-  return true;
+  const hostProcess = spawn('pnpm', ['-C', 'host', 'dev'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: projectRoot,
+    detached: true
+  });
+  
+  const remoteProcess = spawn('pnpm', ['-C', 'remote', 'dev'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: projectRoot,
+    detached: true
+  });
+  
+  return { hostProcess, remoteProcess };
+}
+
+// Wait for servers to be ready
+async function waitForServers(timeout = 60000) {
+  const start = Date.now();
+  
+  while (Date.now() - start < timeout) {
+    if (await checkDevServers()) {
+      console.log('✅ Dev servers are ready');
+      return true;
+    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  
+  throw new Error('Dev servers failed to start within timeout');
+}
+
+// Run optimization
+function runOptimization() {
+  console.log('⚡ Running optimization...');
+  try {
+    execSync('node --experimental-wasm-modules scripts/optimize-shared-chunks.js', {
+      cwd: projectRoot,
+      stdio: 'inherit'
+    });
+    console.log('✅ Optimization completed');
+  } catch (error) {
+    console.warn('⚠️  Optimization failed, continuing with unoptimized bundles:', error.message);
+  }
 }
 
 // Run command and return promise
@@ -48,27 +93,34 @@ function runCommand(command, args, options = {}) {
 
 // Main test runner
 async function runE2ETests() {
+  let serverProcesses = null;
+  
   try {
-    // Step 1: Check builds
-    if (!checkBuilds()) {
-      console.log('Building applications...');
-      await runCommand('pnpm', ['build'], { cwd: projectRoot });
-      
-      console.log('Running optimization...');
-      await runCommand('pnpm', ['optimize'], { cwd: projectRoot });
+    // Step 1: Check if dev servers are already running
+    const serversRunning = await checkDevServers();
+    
+    if (!serversRunning) {
+      console.log('🚀 Starting dev servers...');
+      serverProcesses = startDevServers();
+      await waitForServers();
+    } else {
+      console.log('✅ Dev servers already running');
     }
     
-    // Step 2: Install Playwright if needed
+    // Step 2: Run optimization after servers are ready
+    runOptimization();
+    
+    // Step 3: Install Playwright if needed
     console.log('Ensuring Playwright is installed...');
     try {
-      await runCommand('npx', ['playwright', 'install'], { cwd: projectRoot });
+      await runCommand('npx', ['playwright', 'install', '--with-deps'], { cwd: projectRoot });
     } catch (error) {
       console.log('Installing Playwright...');
       await runCommand('pnpm', ['add', '-D', '@playwright/test'], { cwd: projectRoot });
-      await runCommand('npx', ['playwright', 'install'], { cwd: projectRoot });
+      await runCommand('npx', ['playwright', 'install', '--with-deps'], { cwd: projectRoot });
     }
     
-    // Step 3: Run E2E tests
+    // Step 4: Run E2E tests
     console.log('\n🧪 Running Playwright E2E tests...');
     
     const testArgs = process.argv.slice(2);
@@ -90,6 +142,16 @@ async function runE2ETests() {
   } catch (error) {
     console.error('\n❌ E2E tests failed:', error.message);
     process.exit(1);
+  } finally {
+    // Cleanup: Kill dev servers if we started them
+    if (serverProcesses && !await checkDevServers()) {
+      console.log('🧹 Cleaning up dev servers...');
+      try {
+        if (serverProcesses.hostProcess) serverProcesses.hostProcess.kill('SIGTERM');
+        if (serverProcesses.remoteProcess) serverProcesses.remoteProcess.kill('SIGTERM');
+        execSync('npx -y kill-port 3001 3002', { stdio: 'ignore' });
+      } catch {}
+    }
   }
 }
 
@@ -108,6 +170,9 @@ switch (mode) {
   case 'debug':
     console.log('Running tests in debug mode...');
     process.argv.push('--debug');
+    break;
+  case 'dev':
+    console.log('Running in development mode (will start/use existing servers)...');
     break;
   default:
     console.log('Running tests in headless mode...');

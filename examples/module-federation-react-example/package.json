@@ -22,13 +22,18 @@
     "test:coverage": "pnpm run build && pnpm run optimize && vitest run --coverage",
     "test:unit": "pnpm run build && pnpm run optimize && vitest run test/unit",
     "test:integration": "pnpm run build && pnpm run optimize && vitest run test/integration",
-    "test:e2e": "node scripts/test-e2e.js",
-    "test:e2e:ui": "node scripts/test-e2e.js ui",
-    "test:e2e:headed": "node scripts/test-e2e.js headed",
-    "test:e2e:debug": "node scripts/test-e2e.js debug",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:e2e:headed": "npx playwright test --headed",
+    "test:e2e:debug": "npx playwright test --debug",
+    "test:e2e:dev": "pnpm run dev & sleep 10 && pnpm run optimize:dev && npx playwright test && kill %1",
     "test:watch": "pnpm run build && pnpm run optimize && vitest --watch",
     "clean": "rimraf dist coverage host/dist remote/dist node_modules/.cache",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "build:dev": "pnpm -C host build --mode development && pnpm -C remote build --mode development",
+    "optimize:dev": "node --experimental-wasm-modules scripts/optimize-shared-chunks.js",
+    "dev:optimized": "pnpm run build:dev && pnpm run optimize:dev && pnpm run serve",
+    "dev:watch": "node scripts/dev-with-optimization.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.2",

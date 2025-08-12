@@ -72,7 +72,9 @@ function mergeUsageData(files, targetApp) {
     });
   });
 
-  // Pull entry modules strictly from the target app's chunk_characteristics
+  // Populate entry modules
+  // - If targetApp is provided, use its chunk_characteristics exclusively
+  // - Otherwise, fall back to the first available entry_module_id across apps (prefers order of files)
   const entryModules = {};
   if (targetApp) {
     const target = files.find(f => f.name === targetApp);
@@ -84,6 +86,16 @@ function mergeUsageData(files, targetApp) {
         }
       });
     }
+  } else {
+    files.forEach(({ data }) => {
+      if (!data?.treeShake) return;
+      Object.entries(data.treeShake).forEach(([moduleKey, moduleExports]) => {
+        const entryId = moduleExports?.chunk_characteristics?.entry_module_id;
+        if (entryId && !entryModules[moduleKey]) {
+          entryModules[moduleKey] = entryId;
+        }
+      });
+    });
   }
 
   return {
@@ -100,31 +112,43 @@ function mergeUsageData(files, targetApp) {
 /**
  * Find shared library chunk files in dist directories
  */
-function findSharedChunks() {
+function findSharedChunks(files) {
   const chunks = [];
-  const distDirs = ['../host/dist', '../remote/dist'];
-  const sharedLibraries = ['lodash-es', 'antd', '@ant-design/icons', 'react', 'react-dom', '@reduxjs/toolkit', 'chart.js', 'react-chartjs-2'];
-  
-  distDirs.forEach(distDir => {
-    const fullPath = path.resolve(__dirname, distDir);
-    if (!fs.existsSync(fullPath)) return;
-    
-    const files = fs.readdirSync(fullPath);
-    files.forEach(file => {
-      // Check if file contains any of our shared libraries
-      const matchedLibrary = sharedLibraries.find(lib => file.includes(lib));
-      if (matchedLibrary && file.endsWith('.js') && !file.endsWith('.map') && !file.endsWith('.original') && !file.endsWith('.optimized.js')) {
+  const distDirs = {
+    host: path.resolve(__dirname, '../host/dist'),
+    remote: path.resolve(__dirname, '../remote/dist')
+  };
+
+  files.forEach(({ name: app, data }) => {
+    const distDir = distDirs[app];
+    if (!distDir || !fs.existsSync(distDir)) return;
+
+    if (!data.treeShake) return;
+
+    Object.entries(data.treeShake).forEach(([library, moduleData]) => {
+      const chunkFiles = moduleData?.chunk_characteristics?.chunk_files;
+      if (!Array.isArray(chunkFiles)) return;
+
+      chunkFiles.forEach(chunkFile => {
+        if (typeof chunkFile !== 'string' || !chunkFile.endsWith('.js')) return;
+
+        const fullPath = path.join(distDir, chunkFile);
+        if (!fs.existsSync(fullPath)) return;
+
+        // Skip maps, originals, optimized
+        if (chunkFile.endsWith('.map') || chunkFile.endsWith('.original') || chunkFile.endsWith('.optimized.js')) return;
+
         chunks.push({
-          path: path.join(fullPath, file),
-          mapPath: path.join(fullPath, file + '.map'),
-          app: distDir.includes('host') ? 'host' : 'remote',
-          filename: file,
-          library: matchedLibrary
+          path: fullPath,
+          mapPath: fullPath + '.map',
+          app,
+          filename: chunkFile,
+          library
         });
-      }
+      });
     });
   });
-  
+
   return chunks;
 }
 
@@ -135,6 +159,18 @@ async function optimizeChunk(chunkPath, library, treeShakeConfig, entryModules, 
   console.log(`Optimizing chunk: ${path.basename(chunkPath)}`);
   
   try {
+    // Enforce: require chunk characteristics and entry module for this library
+    const entryIdForLibrary = entryModules?.[library];
+    const hasChunkCharacteristics = Boolean(chunkCharacteristics?.entry_module_id);
+    if (!entryIdForLibrary || !hasChunkCharacteristics) {
+      console.log(
+        `Skipping ${path.basename(chunkPath)} for '${library}' - missing ${
+          !entryIdForLibrary ? 'entry module id' : 'chunk characteristics'
+        }`
+      );
+      return null;
+    }
+
     const sourceCode = fs.readFileSync(chunkPath, 'utf8');
     
     // Create optimization config for the library - only include exports marked as true
@@ -224,7 +260,17 @@ async function main() {
     
     // Find shared library chunks
     console.log('Finding shared library chunks...');
-    const chunks = findSharedChunks();
+    const chunks = findSharedChunks(files);
+
+    // Group by unique path and collect libraries per chunk
+    const uniqueChunks = new Map();
+    chunks.forEach(chunk => {
+      const key = chunk.path;
+      if (!uniqueChunks.has(key)) {
+        uniqueChunks.set(key, { ...chunk, libraries: [] });
+      }
+      uniqueChunks.get(key).libraries.push(chunk.library);
+    });
     console.log(`✅ Found ${chunks.length} shared library chunks\n`);
     
     if (chunks.length === 0) {
@@ -245,28 +291,54 @@ async function main() {
     });
     console.log();
     
-    // Optimize each chunk
+    // Optimize each unique chunk
     console.log('Optimizing chunks...');
     const results = [];
     
-    for (const chunk of chunks) {
+    for (const uniqueChunk of uniqueChunks.values()) {
       // Build per-app config dynamically: OR-merged exports + app-specific entry modules
-      const { entryModules } = mergeUsageData(files, chunk.app);
-      const appData = files.find(f => f.name === chunk.app)?.data;
-      const chunkCharacteristics = appData?.treeShake?.[chunk.library]?.chunk_characteristics;
+      const { entryModules } = mergeUsageData(files, uniqueChunk.app);
+      
+      // Collect chunkCharacteristics - use first library's as representative
+      const appData = files.find(f => f.name === uniqueChunk.app)?.data;
+      const firstLibrary = uniqueChunk.libraries[0];
+      const chunkCharacteristics = appData?.treeShake?.[firstLibrary]?.chunk_characteristics;
+
+      // Merge treeShake configs for all libraries in this chunk
+      const mergedLibraryConfig = {};
+      uniqueChunk.libraries.forEach(lib => {
+        if (mergedFlags[lib]) {
+          Object.entries(mergedFlags[lib]).forEach(([exportName, shouldKeep]) => {
+            if (shouldKeep) {
+              mergedLibraryConfig[exportName] = true;
+            }
+          });
+        }
+      });
+
+      // For treeShakeWithMeta, include all libraries' flags
+      const treeShakeWithMeta = { ...mergedFlags };
+      if (chunkCharacteristics) {
+        // Attach to first library
+        treeShakeWithMeta[firstLibrary] = {
+          ...(treeShakeWithMeta[firstLibrary] || {}),
+          chunk_characteristics: chunkCharacteristics
+        };
+      }
+
       const result = await optimizeChunk(
-        chunk.path,
-        chunk.library,
-        mergedFlags,
+        uniqueChunk.path,
+        uniqueChunk.libraries.join(', '),  // For logging
+        treeShakeWithMeta,
         entryModules,
         optimizer,
         chunkCharacteristics
       );
       if (result) {
         results.push({
-          app: chunk.app,
-          filename: chunk.filename,
-          library: chunk.library,
+          app: uniqueChunk.app,
+          filename: uniqueChunk.filename,
+          library: uniqueChunk.libraries.join(', '),
           ...result
         });
       }

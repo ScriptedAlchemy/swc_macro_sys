@@ -44,6 +44,7 @@ module.exports = {
           singleton: true,
           strictVersion: true,
           requiredVersion: '^4.17.21',
+          eager: false,
         },
       },
     }),

@@ -54,57 +54,57 @@ export default defineConfig({
         react: {
           singleton: true,
           requiredVersion: '^18.3.1',
-          eager: true
+          eager: false
         },
         'react-dom': {
           singleton: true,
           requiredVersion: '^18.3.1',
-          eager: true
+          eager: false
         },
         'react-router-dom': {
           singleton: true,
           requiredVersion: '^7.1.1',
-          eager: true
+          eager: false
         },
         antd: {
           singleton: true,
           requiredVersion: '^5.21.8',
-          eager: true
+          eager: false
         },
         '@ant-design/icons': {
           singleton: true,
           requiredVersion: '^5.5.2',
-          eager: true
+          eager: false
         },
         '@reduxjs/toolkit': {
           singleton: true,
           requiredVersion: '^2.5.0',
-          eager: true
+          eager: false
         },
         'react-redux': {
           singleton: true,
           requiredVersion: '^9.2.0',
-          eager: true
+          eager: false
         },
         'lodash-es': {
           singleton: true,
           requiredVersion: '^4.17.21',
-          eager: true
+          eager: false
         },
         'chart.js': {
           singleton: true,
           requiredVersion: '^4.4.7',
-          eager: true
+          eager: false
         },
         'react-chartjs-2': {
           singleton: true,
           requiredVersion: '^5.2.0',
-          eager: true
+          eager: false
         },
         dayjs: {
           singleton: true,
           requiredVersion: '^1.11.13',
-          eager: true
+          eager: false
         }
       }
     }),

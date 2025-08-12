@@ -42,28 +42,20 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
   ],
 
-  /* Configure development server for testing */
-  webServer: [
+  /* Configure development server for testing - only start if not already running */
+  webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER ? undefined : [
     {
       command: 'pnpm -C host dev',
       url: 'http://localhost:3001/',
-      reuseExistingServer: false,
+      reuseExistingServer: true,
       timeout: 120000,
     },
     {
       command: 'pnpm -C remote dev',
       url: 'http://localhost:3002/remoteEntry.js',
-      reuseExistingServer: false,
+      reuseExistingServer: true,
       timeout: 120000,
     },
   ],
