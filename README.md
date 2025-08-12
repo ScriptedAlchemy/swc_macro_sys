@@ -47,8 +47,9 @@ rustup target add wasm32-unknown-unknown
 ```
 swc_macro_sys/
 ├── crates/
+│   ├── swc_macro_condition_transform/  # Conditional macro transformation
+│   ├── swc_macro_parser/        # Macro parsing capabilities
 │   ├── swc_macro_wasm/          # WASM bindings for JavaScript integration
-│   ├── webpack_graph/           # Webpack bundle parsing and dependency graph
 │   ├── webpack_analyzer_v2/     # Advanced webpack chunk analysis
 │   └── webpack_chunk_tree_shaker/  # Tree shaking implementation
 ├── examples/                    # Various usage examples
@@ -59,8 +60,9 @@ swc_macro_sys/
 
 ### Core Crates
 
+- **`swc_macro_condition_transform`**: Conditional macro transformation for compile-time optimizations
+- **`swc_macro_parser`**: Macro parsing capabilities for JavaScript/TypeScript code
 - **`swc_macro_wasm`**: WASM bindings for JavaScript integration with macro processing
-- **`webpack_graph`**: Webpack bundle parsing and dependency graph construction
 - **`webpack_analyzer_v2`**: Advanced webpack chunk analysis with AST parsing
 - **`webpack_chunk_tree_shaker`**: Tree shaking implementation for webpack bundles
 

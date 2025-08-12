@@ -358,19 +358,14 @@ fn test_optimization_strategies() {
     };
     let chunk = analyzer.analyze_chunk(chunk_source, chunk_characteristics).unwrap();
     
-    // Create optimizer with options that allow removing entry modules and aggressive mode
-    let mut options = TreeShakingOptions::default();
-    options.preserve_entry_modules = false;
-    options.aggressive_mode = true;
-    let optimizer = ChunkOptimizer::with_tree_shaker_options(options);
+    // Create optimizer
+    let optimizer = ChunkOptimizer::new();
     
-    // Apply optimization strategy - but only remove debug modules to avoid empty chunk
-    let mut strategy = OptimizationStrategy::default();
-    strategy.remove_debug_modules = true;
-    strategy.remove_no_exports = false;  // Keep this to avoid removing too many modules
-    strategy.remove_duplicates = true;
-    
-    let result = optimizer.optimize_chunk(&chunk, &strategy).unwrap();
+    // Apply optimization strategy with explicit entry modules
+    let strategy = OptimizationStrategy::default();
+    let result = optimizer
+        .optimize_chunk_with_entries(&chunk, &strategy, &[Atom::from("main")])
+        .unwrap();
     
     // Verify optimizations were applied
     assert!(result.was_successful());

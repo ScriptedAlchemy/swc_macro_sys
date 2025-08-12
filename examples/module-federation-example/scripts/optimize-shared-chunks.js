@@ -53,42 +53,42 @@ function readShareUsageFiles() {
  * Merge usage data from multiple apps into combined tree-shake flags
  * The new schema already contains treeShake structure with boolean values
  */
-function mergeUsageData(files) {
+function mergeUsageData(files, targetApp) {
   const mergedTreeShake = {};
-  const entryModules = {};
-  
-  files.forEach(({ name, data }) => {
-    // Handle new structure where treeShake is at top level
-    if (data.treeShake) {
-      Object.entries(data.treeShake).forEach(([moduleKey, moduleExports]) => {
-        if (!mergedTreeShake[moduleKey]) {
-          mergedTreeShake[moduleKey] = {};
+
+  // OR merge export usage across all apps
+  files.forEach(({ data }) => {
+    if (!data.treeShake) return;
+    Object.entries(data.treeShake).forEach(([moduleKey, moduleExports]) => {
+      if (!mergedTreeShake[moduleKey]) {
+        mergedTreeShake[moduleKey] = {};
+      }
+      Object.entries(moduleExports).forEach(([exportName, isUsed]) => {
+        if (exportName === 'chunk_characteristics') return; // skip metadata
+        if (mergedTreeShake[moduleKey][exportName] !== true) {
+          mergedTreeShake[moduleKey][exportName] = Boolean(isUsed);
         }
-        
-        // Merge export usage - if any app uses an export, mark it as true
-        Object.entries(moduleExports).forEach(([exportName, isUsed]) => {
-          // Skip chunk_characteristics metadata
-          if (exportName === 'chunk_characteristics') {
-            // Extract entry module ID if present
-            if (moduleExports.chunk_characteristics?.entry_module_id) {
-              entryModules[moduleKey] = moduleExports.chunk_characteristics.entry_module_id;
-            }
-            return;
-          }
-          
-          // If this export is already marked as used, keep it as true
-          // Otherwise, use the current app's value
-          if (mergedTreeShake[moduleKey][exportName] !== true) {
-            mergedTreeShake[moduleKey][exportName] = isUsed;
-          }
-        });
+      });
+    });
+  });
+
+  // Pull entry modules strictly from the target app's chunk_characteristics
+  const entryModules = {};
+  if (targetApp) {
+    const target = files.find(f => f.name === targetApp);
+    if (target?.data?.treeShake) {
+      Object.entries(target.data.treeShake).forEach(([moduleKey, moduleExports]) => {
+        const entryId = moduleExports?.chunk_characteristics?.entry_module_id;
+        if (entryId) {
+          entryModules[moduleKey] = entryId;
+        }
       });
     }
-  });
-  
+  }
+
   return {
     treeShake: mergedTreeShake,
-    entryModules: entryModules,
+    entryModules,
     metadata: {
       timestamp: new Date().toISOString(),
       apps: files.map(f => f.name),
@@ -131,7 +131,7 @@ function findSharedChunks() {
 /**
  * Optimize a shared library chunk using SWC macro with tree-shake flags
  */
-async function optimizeChunk(chunkPath, library, treeShakeConfig, entryModules, optimizer) {
+async function optimizeChunk(chunkPath, library, treeShakeConfig, entryModules, optimizer, chunkCharacteristics) {
   console.log(`Optimizing chunk: ${path.basename(chunkPath)}`);
   
   try {
@@ -147,8 +147,16 @@ async function optimizeChunk(chunkPath, library, treeShakeConfig, entryModules, 
       });
     }
     
+    const treeShakeWithMeta = { ...treeShakeConfig };
+    if (chunkCharacteristics) {
+      treeShakeWithMeta[library] = {
+        ...(treeShakeWithMeta[library] || {}),
+        chunk_characteristics: chunkCharacteristics
+      };
+    }
+
     const config = {
-      treeShake: treeShakeConfig,  // Pass the full treeShake config
+      treeShake: treeShakeWithMeta,  // Pass the full treeShake config
       entryModules: entryModules || {}
     };
     
@@ -208,16 +216,10 @@ async function main() {
     const files = readShareUsageFiles();
     console.log(`✅ Found ${files.length} share-usage files: ${files.map(f => f.name).join(', ')}\n`);
     
-    // Merge usage data
-    console.log('Merging usage data...');
-    const mergedConfig = mergeUsageData(files);
-    console.log(`✅ Merged usage data for modules: ${mergedConfig.metadata.modules.join(', ')}\n`);
-    
-    // Save merged config for reference
-    const configPath = path.resolve(__dirname, '../dist/merged-tree-shake-config.json');
-    fs.mkdirSync(path.dirname(configPath), { recursive: true });
-    fs.writeFileSync(configPath, JSON.stringify(mergedConfig, null, 2));
-    console.log(`✅ Saved merged config to: ${path.relative(process.cwd(), configPath)}\n`);
+    // Precompute merged tree-shake flags once (OR across apps)
+    console.log('Merging usage data (exports only)...');
+    const mergedFlags = mergeUsageData(files).treeShake;
+    console.log(`✅ Prepared merged export flags for modules: ${Object.keys(mergedFlags).join(', ')}\n`);
     
     // Find shared library chunks
     console.log('Finding shared library chunks...');
@@ -247,7 +249,18 @@ async function main() {
     const results = [];
     
     for (const chunk of chunks) {
-      const result = await optimizeChunk(chunk.path, chunk.library, mergedConfig.treeShake, mergedConfig.entryModules, optimizer);
+      // Build per-app config dynamically: OR-merged exports + app-specific entry modules
+      const { entryModules } = mergeUsageData(files, chunk.app);
+      const appData = files.find(f => f.name === chunk.app)?.data;
+      const chunkCharacteristics = appData?.treeShake?.[chunk.library]?.chunk_characteristics;
+      const result = await optimizeChunk(
+        chunk.path,
+        chunk.library,
+        mergedFlags,
+        entryModules,
+        optimizer,
+        chunkCharacteristics
+      );
       if (result) {
         results.push({
           app: chunk.app,

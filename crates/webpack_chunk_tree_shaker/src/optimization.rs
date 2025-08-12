@@ -12,12 +12,6 @@ pub struct ChunkOptimizer {
 pub struct OptimizationStrategy {
     /// Remove unused modules
     pub remove_unused: bool,
-    /// Remove modules with no exports
-    pub remove_no_exports: bool,
-    /// Remove duplicate modules
-    pub remove_duplicates: bool,
-    /// Remove debug-only modules
-    pub remove_debug_modules: bool,
     /// Optimize for production
     pub production_mode: bool,
 }
@@ -26,9 +20,6 @@ impl Default for OptimizationStrategy {
     fn default() -> Self {
         Self {
             remove_unused: true,
-            remove_no_exports: true,
-            remove_duplicates: true,
-            remove_debug_modules: true,
             production_mode: false,
         }
     }
@@ -51,9 +42,6 @@ pub struct OptimizationResult {
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum OptimizationType {
     UnusedModuleRemoval,
-    NoExportsRemoval,
-    DuplicateRemoval,
-    DebugModuleRemoval,
 }
 
 /// Statistics about the optimization process
@@ -88,11 +76,12 @@ impl ChunkOptimizer {
         }
     }
 
-    /// Optimize a chunk using the specified strategy
-    pub fn optimize_chunk(
+    /// Optimize a chunk using the specified strategy and explicit entry modules
+    pub fn optimize_chunk_with_entries(
         &self,
         chunk: &WebpackChunk,
         strategy: &OptimizationStrategy,
+        entry_modules: &[ModuleId],
     ) -> Result<OptimizationResult> {
         let start_time = std::time::Instant::now();
         
@@ -102,32 +91,13 @@ impl ChunkOptimizer {
         
         // Apply optimizations in order
         if strategy.remove_unused {
-            let (optimized, removed) = self.remove_unused_modules(&working_chunk)?;
+            let (optimized, removed) = self.remove_unused_modules(&working_chunk, entry_modules)?;
             working_chunk = optimized;
             applied_optimizations.push(OptimizationType::UnusedModuleRemoval);
             removed_by_optimization.insert(OptimizationType::UnusedModuleRemoval, removed);
         }
         
-        if strategy.remove_no_exports {
-            let (optimized, removed) = self.remove_no_export_modules(&working_chunk)?;
-            working_chunk = optimized;
-            applied_optimizations.push(OptimizationType::NoExportsRemoval);
-            removed_by_optimization.insert(OptimizationType::NoExportsRemoval, removed);
-        }
-        
-        if strategy.remove_duplicates {
-            let (optimized, removed) = self.remove_duplicate_modules(&working_chunk)?;
-            working_chunk = optimized;
-            applied_optimizations.push(OptimizationType::DuplicateRemoval);
-            removed_by_optimization.insert(OptimizationType::DuplicateRemoval, removed);
-        }
-        
-        if strategy.remove_debug_modules {
-            let (optimized, removed) = self.remove_debug_modules(&working_chunk)?;
-            working_chunk = optimized;
-            applied_optimizations.push(OptimizationType::DebugModuleRemoval);
-            removed_by_optimization.insert(OptimizationType::DebugModuleRemoval, removed);
-        }
+        // Only unused module removal is supported now
         
         let optimization_time = start_time.elapsed();
         
@@ -147,174 +117,34 @@ impl ChunkOptimizer {
         })
     }
 
-    /// Remove unused modules using entry point analysis
-    fn remove_unused_modules(&self, chunk: &WebpackChunk) -> Result<(WebpackChunk, Vec<ModuleId>)> {
-        // Find potential entry points (modules with no or minimal dependencies)
-        let entry_modules = self.find_entry_points(chunk);
-        
+    /// Backward-compatible wrapper: optimize without explicit entries (no unused removal applied)
+    pub fn optimize_chunk(
+        &self,
+        chunk: &WebpackChunk,
+        strategy: &OptimizationStrategy,
+    ) -> Result<OptimizationResult> {
+        self.optimize_chunk_with_entries(chunk, strategy, &[])
+    }
+
+    /// Remove unused modules using provided entry modules
+    fn remove_unused_modules(
+        &self,
+        chunk: &WebpackChunk,
+        entry_modules: &[ModuleId],
+    ) -> Result<(WebpackChunk, Vec<ModuleId>)> {
         if entry_modules.is_empty() {
-            // If no clear entry points, preserve all modules
+            // No explicit entry modules; preserve all modules
             return Ok((chunk.clone(), Vec::new()));
         }
-        
-        // Use tree shaker to remove unused modules
-        let result = self.tree_shaker.shake_tree(chunk, &entry_modules)?;
-        
+
+        let result = self.tree_shaker.shake_tree(chunk, entry_modules)?;
+
         Ok((result.optimized_chunk, result.removed_modules))
     }
 
-    /// Remove modules that don't export anything
-    fn remove_no_export_modules(&self, chunk: &WebpackChunk) -> Result<(WebpackChunk, Vec<ModuleId>)> {
-        let mut modules_to_remove = Vec::new();
-        
-        for (module_id, module) in &chunk.modules {
-            if self.has_no_exports(&module.source) {
-                modules_to_remove.push(module_id.clone());
-            }
-        }
-        
-        if modules_to_remove.is_empty() {
-            return Ok((chunk.clone(), Vec::new()));
-        }
-        
-        let result = self.tree_shaker.remove_modules(chunk, &modules_to_remove)?;
-        
-        Ok((result.optimized_chunk, result.removed_modules))
-    }
+    // No-exports and debug-only removal have been removed to focus on unused removal only
 
-    /// Remove duplicate modules (same source code)
-    fn remove_duplicate_modules(&self, chunk: &WebpackChunk) -> Result<(WebpackChunk, Vec<ModuleId>)> {
-        let mut source_to_modules: HashMap<String, Vec<ModuleId>> = HashMap::new();
-        
-        // Group modules by source code
-        for (module_id, module) in &chunk.modules {
-            source_to_modules
-                .entry(module.source.clone())
-                .or_default()
-                .push(module_id.clone());
-        }
-        
-        // Find duplicates (keep first occurrence)
-        let mut modules_to_remove = Vec::new();
-        for (_, module_ids) in source_to_modules {
-            if module_ids.len() > 1 {
-                // Keep the first one, remove the rest
-                modules_to_remove.extend(module_ids.into_iter().skip(1));
-            }
-        }
-        
-        if modules_to_remove.is_empty() {
-            return Ok((chunk.clone(), Vec::new()));
-        }
-        
-        let result = self.tree_shaker.remove_modules(chunk, &modules_to_remove)?;
-        
-        Ok((result.optimized_chunk, result.removed_modules))
-    }
-
-    /// Remove debug-only modules
-    fn remove_debug_modules(&self, chunk: &WebpackChunk) -> Result<(WebpackChunk, Vec<ModuleId>)> {
-        let mut modules_to_remove = Vec::new();
-        
-        for (module_id, module) in &chunk.modules {
-            if self.is_debug_module(module_id, &module.source) {
-                modules_to_remove.push(module_id.clone());
-            }
-        }
-        
-        if modules_to_remove.is_empty() {
-            return Ok((chunk.clone(), Vec::new()));
-        }
-        
-        let result = self.tree_shaker.remove_modules(chunk, &modules_to_remove)?;
-        
-        Ok((result.optimized_chunk, result.removed_modules))
-    }
-
-    /// Find potential entry points in the chunk
-    fn find_entry_points(&self, chunk: &WebpackChunk) -> Vec<ModuleId> {
-        let mut entry_points = Vec::new();
-        
-        // Build dependency graph
-        let mut graph = DependencyGraph::new();
-        for module in chunk.modules.values() {
-            graph.add_module(module.clone());
-        }
-        
-        // Find modules that are likely entry points
-        for (module_id, module) in &chunk.modules {
-            // Consider a module an entry point if:
-            // 1. It has no dependencies, OR
-            // 2. It has many dependents (popular module), OR
-            // 3. It matches common entry point patterns
-            
-            if module.dependencies.is_empty() ||
-               module.dependents.len() > 3 ||
-               self.matches_entry_point_pattern(module_id) {
-                entry_points.push(module_id.clone());
-            }
-        }
-        
-        // If no entry points found, use modules with most dependents
-        if entry_points.is_empty() {
-            let mut modules_with_dependents: Vec<_> = chunk.modules
-                .iter()
-                .filter(|(_, module)| !module.dependents.is_empty())
-                .collect();
-            
-            modules_with_dependents.sort_by(|a, b| 
-                b.1.dependents.len().cmp(&a.1.dependents.len())
-            );
-            
-            if let Some((module_id, _)) = modules_with_dependents.first() {
-                entry_points.push((*module_id).clone());
-            }
-        }
-        
-        entry_points
-    }
-
-    /// Check if a module has no exports
-    fn has_no_exports(&self, source: &str) -> bool {
-        // Simple heuristic: check for common export patterns
-        !source.contains("module.exports") &&
-        !source.contains("exports.") &&
-        !source.contains("export ") &&
-        !source.contains("__webpack_require__.d(")
-    }
-
-    /// Check if a module is debug-only
-    fn is_debug_module(&self, module_id: &str, source: &str) -> bool {
-        // Check module ID patterns
-        if module_id.contains("debug") ||
-           module_id.contains("test") ||
-           module_id.contains("spec") ||
-           module_id.contains("__test__") ||
-           module_id.contains("__debug__") {
-            return true;
-        }
-        
-        // Check source code patterns
-        if source.contains("console.log") ||
-           source.contains("console.debug") ||
-           source.contains("debugger;") ||
-           source.contains("__DEV__") {
-            return true;
-        }
-        
-        false
-    }
-
-    /// Check if a module ID matches common entry point patterns
-    fn matches_entry_point_pattern(&self, module_id: &ModuleId) -> bool {
-        let id_str = module_id.as_str();
-        id_str.contains("index") ||
-        id_str.contains("main") ||
-        id_str.contains("entry") ||
-        id_str.contains("bootstrap") ||
-        id_str.ends_with("/index.js") ||
-        id_str.ends_with("/main.js")
-    }
+    // Entry-point heuristics removed; explicit entries must be provided externally
 
     /// Calculate optimization statistics
     fn calculate_optimization_stats(
@@ -392,15 +222,6 @@ impl OptimizationResult {
                 let detail = match optimization_type {
                     OptimizationType::UnusedModuleRemoval => {
                         format!("Unused module removal: {} modules", removed_count)
-                    }
-                    OptimizationType::NoExportsRemoval => {
-                        format!("No exports removal: {} modules", removed_count)
-                    }
-                    OptimizationType::DuplicateRemoval => {
-                        format!("Duplicate removal: {} modules", removed_count)
-                    }
-                    OptimizationType::DebugModuleRemoval => {
-                        format!("Debug module removal: {} modules", removed_count)
                     }
                 };
                 details.push(detail);

@@ -98,8 +98,8 @@ impl WebpackTreeShaker {
             graph.add_module(module.clone());
         }
 
-        // Validate removal safety
-        self.validate_removal_safety(&graph, &module_ids)?;
+        // Validate removal safety (use chunk characteristics where applicable)
+        self.validate_removal_safety(chunk, &graph, &module_ids)?;
 
         // Perform the removal
         let removed_modules = self.perform_removal(chunk, &graph, &module_ids)?;
@@ -186,6 +186,7 @@ impl WebpackTreeShaker {
     /// Validate that module removal is safe
     fn validate_removal_safety(
         &self,
+        chunk: &WebpackChunk,
         graph: &DependencyGraph,
         modules_to_remove: &[ModuleId],
     ) -> Result<()> {
@@ -195,13 +196,15 @@ impl WebpackTreeShaker {
                 return Err(TreeShakingError::module_not_found(module_id.clone()));
             }
 
-            // Check if it's an entry module and we should preserve it
+            // Check if it's an entry module from chunk characteristics and we should preserve it
             if self.options.preserve_entry_modules {
-                if let Some(module) = graph.modules.get(module_id) {
-                    if module.dependencies.is_empty() {
-                        return Err(TreeShakingError::EntryModuleRemoval {
-                            module_id: module_id.clone(),
-                        });
+                if let Some(chars) = &chunk.characteristics {
+                    if let Some(entry_name) = &chars.entry_name {
+                        if module_id.as_ref() == entry_name {
+                            return Err(TreeShakingError::EntryModuleRemoval {
+                                module_id: module_id.clone(),
+                            });
+                        }
                     }
                 }
             }
@@ -236,7 +239,7 @@ impl WebpackTreeShaker {
             }
 
             // Skip runtime modules if preserve_runtime is enabled
-            if self.options.preserve_runtime && self.is_runtime_module(module_id) {
+            if self.options.preserve_runtime && self.is_runtime_module(chunk, module_id) {
                 continue;
             }
 
@@ -338,7 +341,14 @@ impl WebpackTreeShaker {
     }
 
     /// Check if a module is a webpack runtime module
-    fn is_runtime_module(&self, module_id: &ModuleId) -> bool {
+    fn is_runtime_module(&self, chunk: &WebpackChunk, module_id: &ModuleId) -> bool {
+        // Prefer chunk characteristics over heuristics when available
+        if let Some(chars) = &chunk.characteristics {
+            if chars.is_runtime() {
+                return true;
+            }
+        }
+        // Fallback heuristic by module ID
         module_id.contains("webpack/runtime") || 
         module_id.contains("webpack/bootstrap") ||
         module_id.starts_with("webpack/")

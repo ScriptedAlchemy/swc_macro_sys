@@ -232,7 +232,7 @@ fn test_deep_orphaned_module_chains() {
     
     // The actual results vary due to parser limitations
     // We can't make strong assertions about which modules are removed
-    // TODO: Fix webpack_graph parser to handle complex dependency structures
+    // TODO: Fix webpack_analyzer_v2 parser to handle complex dependency structures
     
     println!("\n⚠️  Test completed with known parser limitations");
     

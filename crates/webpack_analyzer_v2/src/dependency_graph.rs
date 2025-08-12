@@ -145,9 +145,9 @@ impl DependencyGraph {
             for dependency in &module.dependencies {
                 // Check if this dependency would become orphaned
                 if let Some(dep_module) = self.modules.get(dependency) {
-                    // Count how many things depend on this dependency
-                    let remaining_dependents = dep_module.dependents.len() - 
-                        if dep_module.dependents.contains(module_to_remove) { 1 } else { 0 };
+                    // Count how many things depend on this dependency (avoid underflow)
+                    let subtract = usize::from(dep_module.dependents.contains(module_to_remove));
+                    let remaining_dependents = dep_module.dependents.len().saturating_sub(subtract);
                     
                     if remaining_dependents == 0 {
                         impact.potentially_orphaned.push(dependency.clone());
