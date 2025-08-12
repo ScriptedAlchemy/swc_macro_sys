@@ -176,11 +176,23 @@ async function optimizeChunk(chunkPath, library, treeShakeConfig, entryModules, 
     // Create optimization config for the library - only include exports marked as true
     const libraryConfig = {};
     if (treeShakeConfig[library]) {
-      Object.entries(treeShakeConfig[library]).forEach(([exportName, shouldKeep]) => {
+      const exports = Object.entries(treeShakeConfig[library]).filter(([key]) => key !== 'chunk_characteristics');
+      
+      // If no export data is available (pure runtime dependency like React), skip optimization
+      if (exports.length === 0) {
+        console.log(`Skipping optimization for ${library} - no export data (likely runtime dependency)`);
+        return null;
+      }
+      
+      exports.forEach(([exportName, shouldKeep]) => {
         if (shouldKeep === true) {
           libraryConfig[exportName] = true;
         }
       });
+    } else {
+      // No tree-shake config means this is likely a runtime dependency - skip optimization
+      console.log(`Skipping optimization for ${library} - no tree-shake config (likely runtime dependency)`);
+      return null;
     }
     
     // Attach per-app chunk characteristics for this library only
