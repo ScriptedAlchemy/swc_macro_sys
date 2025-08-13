@@ -17,7 +17,7 @@ async function loadOptimizer() {
   } catch (error) {
     console.error('Failed to load SWC macro optimizer:', error.message);
     console.log('Please ensure:');
-    console.log('1. WASM package is built: cd crates/swc_macro_wasm && wasm-pack build --release');
+    console.log('1. WASM package is built: pnpm build:wasm (or pnpm build)');
     console.log('2. Script is run with: node --experimental-wasm-modules');
     process.exit(1);
   }

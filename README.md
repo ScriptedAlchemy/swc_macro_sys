@@ -16,7 +16,7 @@ This project is a comprehensive macro system implementation for [swc macro propo
 # Install dependencies
 pnpm install
 
-# Build all packages (Rust + JavaScript)
+# Build all packages (Rust + WASM + JavaScript)
 pnpm build
 
 # Run all tests
@@ -33,7 +33,10 @@ pnpm test:ci
 rustup target add wasm32-unknown-unknown
 
 # Build the WASM binding
-(cd crates/swc_macro_wasm && wasm-pack build --release)
+pnpm build:wasm
+
+# Or build everything
+pnpm build
 
 # Your wasm file will be in `crates/swc_macro_wasm/pkg/`
 ```
@@ -97,7 +100,7 @@ This demonstrates:
 Test tree-shaking with real webpack bundles:
 
 ```bash
-# Build WASM module first
+# Build WASM module first (included in pnpm build)
 pnpm build
 
 # Run optimization on test cases

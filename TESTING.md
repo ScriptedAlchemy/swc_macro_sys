@@ -53,7 +53,7 @@ pnpm test:ui
 
 | Command | Description |
 |---------|-------------|
-| `pnpm build` | Build all packages (Rust + JS) |
+| `pnpm build` | Build all packages (Rust + WASM + JS) |
 | `pnpm lint` | Lint all code (Rust + JS) |
 | `pnpm clean` | Clean all build artifacts |
 
