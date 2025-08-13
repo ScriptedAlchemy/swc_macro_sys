@@ -26,6 +26,8 @@ pub fn main() {
         }
     });
 
-    let ret = swc_macro_wasm::optimize::optimize(source, config);
-    println!("{}", ret);
+    match swc_macro_wasm::optimize::optimize(source, config) {
+        Ok(output) => println!("{}", output),
+        Err(err) => eprintln!("Optimization failed: {}", err),
+    }
 }
