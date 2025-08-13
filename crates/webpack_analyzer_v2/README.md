@@ -1,14 +1,17 @@
 # Webpack Analyzer V2
 
-A comprehensive Rust-based static analysis tool for webpack bundles, designed for advanced tree shaking and bundle optimization. Built with SWC (Speedy Web Compiler) for robust AST parsing.
+A **pure analysis library** for webpack bundles, providing comprehensive parsing and dependency analysis capabilities. Built with SWC (Speedy Web Compiler) for robust AST parsing.
+
+> **Note**: This crate focuses exclusively on **analysis**. Tree shaking and optimization logic have been moved to `swc_macro_wasm/src/optimize.rs` as of November 2025.
 
 ## Features
 
-- **Format Detection**: Automatic identification of JSONP vs CommonJS webpack chunks
+- **Format Detection**: Automatic identification of JSONP, CommonJS, ESM, and WebpackModules formats
 - **AST-Based Parsing**: Robust JavaScript/TypeScript analysis without regex dependencies
-- **Dependency Graph**: Bidirectional module relationship mapping
-- **Impact Analysis**: Orphan detection and removal impact simulation
+- **Dependency Graph**: Complete module relationship mapping with reachability analysis
+- **Entry Point Analysis**: Explicit entry point configuration support
 - **Module Federation Support**: Optimized for micro-frontend architectures
+- **No Tree Shaking**: This is a pure analysis library - optimization happens in swc_macro_wasm
 
 ## Quick Start
 

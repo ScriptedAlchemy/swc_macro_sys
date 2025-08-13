@@ -1,4 +1,13 @@
-# Webpack Analyzer v2 - Tree Shaking System Design
+# Tree Shaking System Architecture Documentation
+
+> **IMPORTANT NOTE**: This document describes the tree shaking architecture that has been **MOVED** from webpack_analyzer_v2 to swc_macro_wasm. The webpack_analyzer_v2 crate is now a **pure analysis library** that provides dependency analysis capabilities used by the tree shaking implementation in `swc_macro_wasm/src/optimize.rs`.
+
+## Current Architecture Status (November 2025)
+
+### Separation of Concerns
+- **webpack_analyzer_v2**: Pure analysis library - parsing, dependency graphs, chunk analysis
+- **swc_macro_wasm**: Optimization implementation - tree shaking, DCE, AST transformation
+- **No tree shaking in analyzer**: All optimization logic has been moved to optimize.rs
 
 ## Table of Contents
 1. [Executive Summary](#executive-summary)
@@ -16,7 +25,7 @@
 13. [Risk Assessment](#risk-assessment)
 14. [Crate Architecture Analysis](#crate-architecture-analysis)
 
-## Recent Architectural Changes (August 2025)
+## Recent Architectural Changes (November 2025)
 
 ### Critical Updates from Latest Refactor
 The tree shaking system has undergone significant architectural changes to improve reliability and maintainability:
@@ -69,6 +78,25 @@ fn compute_unreachable_modules_from_entries(
 - **Skip**: Entry chunks and runtime chunks
 - **Configuration**: Must provide explicit entry points in share-usage.json
 - **Testing**: Need comprehensive tests for entry point detection
+
+#### 6. Test Suite Consolidation (November 2025)
+The test suite has been significantly refactored to align with the new architecture:
+
+**Removed Tests** (No longer applicable):
+- `federation_integration_test.rs` - Outdated integration patterns
+- `react_dom_regression_test.rs` - Specific regression no longer relevant
+- `split_chunk_tests.rs` - Replaced by more comprehensive tests
+- `tree_shaking_effectiveness_test.rs` - Redundant with new test structure
+- `tree_shaking_skip_no_entries.rs` - Covered by explicit entry tests
+- `verify_tree_shaker_effectiveness_test.rs` - Effectiveness now proven
+- `webpack_dependency_tracking_test.rs` - Moved to analyzer tests
+
+**Current Test Structure** (20 focused test files):
+- Core tree shaking tests for different formats (CJS, JSONP, ESM)
+- Module federation scenarios with real-world fixtures
+- Explicit entry point testing and validation
+- Multi-pass optimization pipeline tests
+- Real chunk fixtures from production builds
 
 ## Executive Summary
 

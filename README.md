@@ -48,23 +48,23 @@ rustup target add wasm32-unknown-unknown
 swc_macro_sys/
 ├── crates/
 │   ├── swc_macro_condition_transform/  # Conditional macro transformation
-│   ├── swc_macro_parser/        # Macro parsing capabilities
-│   ├── swc_macro_wasm/          # WASM bindings for JavaScript integration
-│   ├── webpack_analyzer_v2/     # Advanced webpack chunk analysis
-│   └── webpack_chunk_tree_shaker/  # Tree shaking implementation
-├── examples/                    # Various usage examples
-│   └── module-federation-example/    # Complete Module Federation demo
-├── test-cases/                  # Real-world test bundles
-└── TESTING.md                   # Comprehensive testing guide
+│   ├── swc_macro_parser/               # Macro parsing capabilities
+│   ├── swc_macro_wasm/                 # WASM bindings + tree shaking implementation
+│   └── webpack_analyzer_v2/            # Pure webpack chunk analysis library
+├── examples/                           # Various usage examples
+│   └── module-federation-example/      # Complete Module Federation demo
+├── test-cases/                         # Real-world test bundles
+└── TESTING.md                          # Comprehensive testing guide
 ```
 
 ### Core Crates
 
 - **`swc_macro_condition_transform`**: Conditional macro transformation for compile-time optimizations
 - **`swc_macro_parser`**: Macro parsing capabilities for JavaScript/TypeScript code
-- **`swc_macro_wasm`**: WASM bindings for JavaScript integration with macro processing
-- **`webpack_analyzer_v2`**: Advanced webpack chunk analysis with AST parsing
-- **`webpack_chunk_tree_shaker`**: Tree shaking implementation for webpack bundles
+- **`swc_macro_wasm`**: WASM bindings with complete tree shaking and optimization implementation
+- **`webpack_analyzer_v2`**: Pure analysis library for webpack chunks (parsing, dependency graphs)
+
+> **Note**: The `webpack_chunk_tree_shaker` crate has been removed. All tree shaking logic is now consolidated in `swc_macro_wasm/src/optimize.rs` for better maintainability.
 
 ## Examples
 
