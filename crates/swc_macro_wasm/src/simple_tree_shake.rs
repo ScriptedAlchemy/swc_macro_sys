@@ -6,11 +6,14 @@ use serde_json::Value;
 use std::collections::HashSet;
 
 /// Performs simple tree shaking by removing unused modules based on configuration
-pub fn simple_tree_shake(source: &str, config: &Value) -> String {
+pub(crate) fn simple_tree_shake(source: &str, config: &Value) -> String {
+    // First process @common:if macros
+    let source = process_common_if_macros(source, config);
+    
     // Check if tree shaking is configured
     let tree_shake = match config.get("treeShake") {
         Some(ts) => ts,
-        None => return source.to_string(), // No tree shaking config, return original
+        None => return source, // No tree shaking config, return processed source
     };
     
     // Collect modules to remove
@@ -45,23 +48,23 @@ pub fn simple_tree_shake(source: &str, config: &Value) -> String {
         }
     }
     
-    // If no modules to remove, return original
+    // If no modules to remove, return processed source
     if modules_to_remove.is_empty() {
-        return source.to_string();
+        return source;
     }
     
     // Try to remove modules from CommonJS format (exports.modules)
     if source.contains("exports.modules") {
-        return remove_from_commonjs_format(source, &modules_to_remove);
+        return remove_from_commonjs_format(&source, &modules_to_remove);
     }
     
     // Try to remove modules from Webpack format (__webpack_modules__)
     if source.contains("__webpack_modules__") {
-        return remove_from_webpack_format(source, &modules_to_remove);
+        return remove_from_webpack_format(&source, &modules_to_remove);
     }
     
-    // Unknown format, return original
-    source.to_string()
+    // Unknown format, return processed source
+    source
 }
 
 /// Remove modules from CommonJS format (exports.modules = { ... })
@@ -141,6 +144,75 @@ fn remove_from_webpack_format(source: &str, modules_to_remove: &HashSet<String>)
     result = result.replace(",\n}", "\n}");
     
     result
+}
+
+/// Process @common:if macros based on configuration
+fn process_common_if_macros(source: &str, config: &Value) -> String {
+    let mut result = String::with_capacity(source.len());
+    let mut lines = source.lines().peekable();
+    let mut skip_depth = 0;
+    let mut should_skip = false;
+    
+    while let Some(line) = lines.next() {
+        // Check for @common:if start
+        if line.contains("@common:if") {
+            // Extract condition from the comment
+            let condition_re = Regex::new(r#"condition="([^"]+)""#).unwrap();
+            if let Some(captures) = condition_re.captures(line) {
+                if let Some(condition) = captures.get(1) {
+                    let condition_str = condition.as_str();
+                    let eval_result = evaluate_condition(condition_str, config);
+                    should_skip = !eval_result;
+                    if should_skip {
+                        skip_depth += 1;
+                    }
+                }
+            }
+            // Don't include the @common:if line itself
+            continue;
+        }
+        
+        // Check for @common:endif
+        if line.contains("@common:endif") {
+            if skip_depth > 0 {
+                skip_depth -= 1;
+                if skip_depth == 0 {
+                    should_skip = false;
+                }
+            }
+            // Don't include the @common:endif line itself
+            continue;
+        }
+        
+        // Only include lines if we're not skipping
+        if !should_skip {
+            result.push_str(line);
+            result.push('\n');
+        }
+    }
+    
+    result
+}
+
+/// Evaluate a condition string against the configuration
+fn evaluate_condition(condition: &str, config: &Value) -> bool {
+    // Parse conditions like "treeShake.lodash-es.sortBy"
+    let parts: Vec<&str> = condition.split('.').collect();
+    
+    let mut current = config;
+    for part in parts {
+        match current.get(part) {
+            Some(val) => current = val,
+            None => return false, // Path doesn't exist, condition is false
+        }
+    }
+    
+    // If we reached a boolean value, return it
+    // Otherwise, check if the value exists (truthy)
+    match current.as_bool() {
+        Some(b) => b,
+        None => !current.is_null(),
+    }
 }
 
 #[cfg(test)]

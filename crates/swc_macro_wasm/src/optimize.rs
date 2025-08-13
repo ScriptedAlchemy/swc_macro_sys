@@ -78,14 +78,9 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
 
             perform_dce(&mut program, comments.clone(), unresolved_mark);
 
-            // Run tree shaker but guard against panics from the analyzer in WASM builds
-            // Always attempt tree shaking with panic protection
-            let mut tree_shaker = TreeShaker::new(config.clone());
-            if let Err(err) = catch_unwind(AssertUnwindSafe(|| {
-                tree_shaker.optimize(&mut program, cm.clone(), &comments);
-            })) {
-                tracing::warn!("Tree shaking skipped due to panic: {:?}", err);
-            }
+            // Tree shaking disabled - catch_unwind doesn't prevent all WASM panics
+            // The TreeShaker causes WASM runtime errors that cannot be caught
+            // Using simple_tree_shake as a fallback implementation below
 
             program.mutate(fixer(Some(&comments)));
 

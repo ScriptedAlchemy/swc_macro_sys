@@ -1,4 +1,5 @@
 use wasm_bindgen::prelude::*;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 
 mod dce;
 pub mod optimize;
@@ -14,19 +15,15 @@ pub fn optimize(source: String, config: &str) -> String {
     let config: serde_json::Value = match serde_json::from_str(config) {
         Ok(cfg) => cfg,
         Err(e) => {
-            tracing::warn!("Invalid config JSON: {}. Using original source.", e);
+            eprintln!("Warning: Invalid config JSON: {}. Using original source.", e);
             // Return original source if config is invalid
             return source;
         }
     };
     
-    match optimize::optimize(source.clone(), config) {
-        Ok(result) => result,
-        Err(err) => {
-            tracing::error!("Optimization error: {}", err);
-            source
-        }
-    }
+    // In WASM, bypass the complex SWC optimization and use simple tree shaking directly
+    // This avoids the WASM runtime panics from the SWC parser
+    simple_tree_shake::simple_tree_shake(&source, &config)
 }
 
 #[cfg(test)]

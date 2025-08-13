@@ -920,23 +920,23 @@ impl VisitMut for TreeShaker {
                         ..
                     }) =>
                     {
-                        if f.params.is_empty() && f.body.as_ref().unwrap().stmts.len() == 1 {
-                            if let Stmt::Return(ReturnStmt { arg: Some(arg), .. }) =
-                                &mut f.body.as_mut().unwrap().stmts[0]
-                            {
-                                if let Expr::Object(ObjectLit { props, .. }) = &**arg {
-                                    if props.iter().all(|p| match p {
-                                        PropOrSpread::Spread(_) => false,
-                                        PropOrSpread::Prop(p) => match &**p {
-                                            Prop::Shorthand(_) => true,
-                                            Prop::KeyValue(p) => p.value.is_ident(),
-                                            _ => false,
-                                        },
-                                    }) {
-                                        self.changed = true;
-                                        debug!("Dropping a wrapped esm");
-                                        *n = *arg.take();
-                                        return;
+                        if f.params.is_empty() && f.body.as_ref().map_or(false, |b| b.stmts.len() == 1) {
+                            if let Some(body) = f.body.as_mut() {
+                                if let Some(Stmt::Return(ReturnStmt { arg: Some(arg), .. })) = body.stmts.get_mut(0) {
+                                    if let Expr::Object(ObjectLit { props, .. }) = &**arg {
+                                        if props.iter().all(|p| match p {
+                                            PropOrSpread::Spread(_) => false,
+                                            PropOrSpread::Prop(p) => match &**p {
+                                                Prop::Shorthand(_) => true,
+                                                Prop::KeyValue(p) => p.value.is_ident(),
+                                                _ => false,
+                                            },
+                                        }) {
+                                            self.changed = true;
+                                            debug!("Dropping a wrapped esm");
+                                            *n = *arg.take();
+                                            return;
+                                        }
                                     }
                                 }
                             }
