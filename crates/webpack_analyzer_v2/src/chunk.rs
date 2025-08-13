@@ -2,6 +2,13 @@ use serde::{Deserialize, Serialize};
 use rustc_hash::FxHashMap;
 use crate::module::{ModuleId, WebpackModule};
 
+/// Configuration for share usage that contains explicit entry point information
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShareUsageConfig {
+    /// Explicit entry module IDs - no inference or filename pattern matching
+    pub entry_module_ids: Vec<ModuleId>,
+}
+
 /// Represents chunk characteristics from webpack/rspack build metadata
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChunkCharacteristics {
@@ -18,6 +25,7 @@ pub struct ChunkCharacteristics {
     pub chunk_files: Vec<String>,
     pub is_shared_chunk: bool,
     pub shared_modules: Vec<serde_json::Value>,
+    pub entry_module_id: Option<String>,
 }
 
 /// Represents the different types of webpack chunks
@@ -98,6 +106,92 @@ impl WebpackChunk {
     /// Get the number of modules in this chunk
     pub fn module_count(&self) -> usize {
         self.modules.len()
+    }
+
+    /// Extract explicit entry points from ShareUsageConfig - NO filename inference or heuristics
+    /// 
+    /// This method ONLY uses explicitly defined entry points from configuration.
+    /// It performs NO filename pattern matching, NO heuristics, and NO inference.
+    /// Returns empty Vec if no explicit entry points are found in the configuration.
+    /// 
+    /// # Arguments
+    /// * `config` - ShareUsageConfig containing explicit entry module IDs
+    /// 
+    /// # Returns
+    /// Vec of ModuleId that are explicitly configured as entry points and exist in this chunk
+    pub fn extract_explicit_entry_points(&self, config: &ShareUsageConfig) -> Vec<ModuleId> {
+        let mut entry_points = Vec::new();
+        
+        // Only use explicitly configured entry module IDs
+        for entry_module_id in &config.entry_module_ids {
+            // Check if this explicitly configured entry point exists in the chunk
+            if self.modules.contains_key(entry_module_id) {
+                entry_points.push(entry_module_id.clone());
+            }
+        }
+        
+        // Also check chunk characteristics for entry_module_id if available
+        if let Some(characteristics) = &self.characteristics {
+            if let Some(entry_id) = &characteristics.entry_module_id {
+                let entry_module_id = swc_core::atoms::Atom::from(entry_id.as_str());
+                if self.modules.contains_key(&entry_module_id) && !entry_points.contains(&entry_module_id) {
+                    entry_points.push(entry_module_id);
+                }
+            }
+        }
+        
+        entry_points
+    }
+
+    /// Extract explicit entry points with error handling for missing entry points
+    /// 
+    /// Similar to extract_explicit_entry_points but returns an error if configured
+    /// entry points are missing from the chunk.
+    /// 
+    /// # Arguments
+    /// * `config` - ShareUsageConfig containing explicit entry module IDs
+    /// 
+    /// # Returns
+    /// Result containing Vec of ModuleId or error if configured entry points are missing
+    pub fn extract_explicit_entry_points_strict(&self, config: &ShareUsageConfig) -> crate::Result<Vec<ModuleId>> {
+        let mut entry_points = Vec::new();
+        let mut missing_entries = Vec::new();
+        
+        // Check all explicitly configured entry module IDs
+        for entry_module_id in &config.entry_module_ids {
+            if self.modules.contains_key(entry_module_id) {
+                entry_points.push(entry_module_id.clone());
+            } else {
+                missing_entries.push(entry_module_id.clone());
+            }
+        }
+        
+        // Check chunk characteristics for entry_module_id
+        if let Some(characteristics) = &self.characteristics {
+            if let Some(entry_id) = &characteristics.entry_module_id {
+                let entry_module_id = swc_core::atoms::Atom::from(entry_id.as_str());
+                if self.modules.contains_key(&entry_module_id) {
+                    if !entry_points.contains(&entry_module_id) {
+                        entry_points.push(entry_module_id);
+                    }
+                } else {
+                    missing_entries.push(entry_module_id);
+                }
+            }
+        }
+        
+        // Return error if any configured entry points are missing
+        if !missing_entries.is_empty() {
+            let missing_ids: Vec<String> = missing_entries.iter().map(|id| id.to_string()).collect();
+            return Err(format!("Missing entry points in chunk: {}", missing_ids.join(", ")).into());
+        }
+        
+        // Return error if no entry points found at all
+        if entry_points.is_empty() {
+            return Err("No explicit entry points found in configuration".into());
+        }
+        
+        Ok(entry_points)
     }
 }
 

@@ -15,257 +15,6 @@ use crate::{
 /// This eliminates ~400 lines of duplicated code across visitor implementations
 struct SharedExtractionMethods;
 
-impl SharedExtractionMethods {
-    /// Extract webpack_require calls from function body
-    fn extract_webpack_requires_from_function_body(body: &Option<BlockStmt>) -> String {
-        let mut source = String::new();
-        
-        if let Some(body) = body {
-            for stmt in body.stmts.iter() {
-                Self::extract_webpack_requires_from_stmt(stmt, &mut source);
-            }
-        }
-        
-        source
-    }
-
-    /// Extract webpack_require calls from statements
-    fn extract_webpack_requires_from_stmt(stmt: &Stmt, source: &mut String) {
-        match stmt {
-            Stmt::Expr(expr_stmt) => {
-                Self::extract_webpack_requires_from_expr(&expr_stmt.expr, source, ExtractionMode::Basic);
-            }
-            Stmt::Decl(decl) => {
-                if let Decl::Var(var_decl) = decl {
-                    for decl in &var_decl.decls {
-                        if let Some(init) = &decl.init {
-                            Self::extract_webpack_requires_from_expr(init, source, ExtractionMode::Basic);
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-
-    /// Extract webpack_require calls from expressions with different extraction modes
-    fn extract_webpack_requires_from_expr(expr: &Expr, source: &mut String, mode: ExtractionMode) {
-        match expr {
-            Expr::Call(call) => {
-                Self::handle_call_expr(call, source, mode);
-            }
-            Expr::Member(member) => {
-                // Handle member expressions that might contain __webpack_require__
-                Self::extract_webpack_requires_from_expr(&member.obj, source, mode);
-            }
-            Expr::Assign(assign) => {
-                Self::extract_webpack_requires_from_expr(&assign.right, source, mode);
-            }
-            Expr::Seq(seq) => {
-                for expr in &seq.exprs {
-                    Self::extract_webpack_requires_from_expr(expr, source, mode);
-                }
-            }
-            Expr::Arrow(arrow) => {
-                Self::handle_arrow_expr(arrow, source, mode);
-            }
-            _ => {}
-        }
-    }
-
-    /// Handle call expressions based on extraction mode
-    fn handle_call_expr(call: &CallExpr, source: &mut String, mode: ExtractionMode) {
-        if let Callee::Expr(callee_expr) = &call.callee {
-            if let Expr::Ident(ident) = callee_expr.as_ref() {
-                if ident.sym == "__webpack_require__" {
-                    // Found a webpack_require call
-                    if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
-                        match expr.as_ref() {
-                            Expr::Lit(Lit::Str(s)) => {
-                                source.push_str(&format!("__webpack_require__(\"{}\");\n", s.value));
-                            }
-                            Expr::Lit(Lit::Num(n)) if matches!(mode, ExtractionMode::WithNumericIds) => {
-                                source.push_str(&format!("__webpack_require__({});\n", n.value));
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-            
-            // Handle member expressions and extended features based on mode
-            match mode {
-                ExtractionMode::WithMemberExpr => {
-                    Self::handle_member_expr_calls(callee_expr, call, source);
-                }
-                ExtractionMode::WithWebpackD => {
-                    Self::handle_webpack_d_calls(callee_expr, call, source);
-                }
-                ExtractionMode::WithNumericIds => {
-                    // Basic numeric handling already covered above
-                }
-                ExtractionMode::Basic => {
-                    // Only basic __webpack_require__ calls
-                }
-            }
-        }
-    }
-
-    /// Handle member expression calls like __webpack_require__("...").helper1
-    fn handle_member_expr_calls(callee_expr: &Expr, _call: &CallExpr, source: &mut String) {
-        if let Expr::Member(member) = callee_expr {
-            if let Expr::Call(inner_call) = member.obj.as_ref() {
-                if let Callee::Expr(inner_callee) = &inner_call.callee {
-                    if let Expr::Ident(ident) = inner_callee.as_ref() {
-                        if ident.sym == "__webpack_require__" {
-                            if let Some(ExprOrSpread { expr, .. }) = inner_call.args.first() {
-                                if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
-                                    source.push_str(&format!("__webpack_require__(\"{}\");\n", s.value));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// Handle __webpack_require__.d() calls (JSONP-specific)
-    fn handle_webpack_d_calls(callee_expr: &Expr, call: &CallExpr, source: &mut String) {
-        if let Expr::Member(member) = callee_expr {
-            if let Expr::Ident(ident) = member.obj.as_ref() {
-                if ident.sym == "__webpack_require__" {
-                    if let MemberProp::Ident(prop) = &member.prop {
-                        if prop.sym == "d" {
-                            // This is a __webpack_require__.d() call
-                            source.push_str("__webpack_require__.d(exports, {\n");
-                            
-                            // Extract dependencies from the second argument (object literal)
-                            if call.args.len() >= 2 {
-                                let ExprOrSpread { expr, .. } = &call.args[1];
-                                if let Expr::Object(obj) = expr.as_ref() {
-                                    for prop in &obj.props {
-                                        if let PropOrSpread::Prop(prop) = prop {
-                                            if let Prop::KeyValue(kv) = prop.as_ref() {
-                                                // Extract the property name
-                                                let prop_name = match &kv.key {
-                                                    PropName::Str(s) => s.value.to_string(),
-                                                    PropName::Ident(ident) => ident.sym.to_string(),
-                                                    _ => "unknown".to_string(),
-                                                };
-                                                
-                                                if let Expr::Arrow(arrow) = kv.value.as_ref() {
-                                                    // Extract the module ID from the arrow function
-                                                    let module_id = Self::extract_module_id_from_arrow_function(arrow);
-                                                    if let Some(module_id) = module_id {
-                                                        source.push_str(&format!("  {}: () => __webpack_require__(\"{}\").default,\n", prop_name, module_id));
-                                                    } else {
-                                                        source.push_str(&format!("  {}: () => __webpack_require__(\"unknown\").default,\n", prop_name));
-                                                    }
-                                                    // Also extract individual calls for tracking
-                                                    Self::extract_webpack_requires_from_expr(&kv.value, source, ExtractionMode::WithWebpackD);
-                                                } else {
-                                                    // For non-arrow function values, process normally
-                                                    Self::extract_webpack_requires_from_expr(&kv.value, source, ExtractionMode::WithWebpackD);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            source.push_str("});\n");
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// Handle arrow expressions
-    fn handle_arrow_expr(arrow: &ArrowExpr, source: &mut String, mode: ExtractionMode) {
-        match arrow.body.as_ref() {
-            BlockStmtOrExpr::BlockStmt(block) => {
-                for stmt in &block.stmts {
-                    match mode {
-                        ExtractionMode::WithNumericIds => {
-                            // Handle additional statement types for WebpackModules
-                            match stmt {
-                                Stmt::Expr(expr_stmt) => {
-                                    Self::extract_webpack_requires_from_expr(&expr_stmt.expr, source, mode);
-                                }
-                                Stmt::Return(ret_stmt) => {
-                                    if let Some(arg) = &ret_stmt.arg {
-                                        Self::extract_webpack_requires_from_expr(arg, source, mode);
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                        _ => {
-                            Self::extract_webpack_requires_from_stmt(stmt, source);
-                        }
-                    }
-                }
-            }
-            BlockStmtOrExpr::Expr(expr) => {
-                Self::extract_webpack_requires_from_expr(expr, source, mode);
-            }
-        }
-    }
-
-    /// Extract module ID from arrow function expressions like () => __webpack_require__("module.js").default
-    fn extract_module_id_from_arrow_function(arrow: &ArrowExpr) -> Option<Atom> {
-        match arrow.body.as_ref() {
-            BlockStmtOrExpr::Expr(expr) => {
-                Self::extract_module_id_from_expr(expr)
-            }
-            BlockStmtOrExpr::BlockStmt(_) => {
-                None
-            }
-        }
-    }
-
-    /// Extract module ID from expressions that may contain __webpack_require__ calls
-    fn extract_module_id_from_expr(expr: &Expr) -> Option<Atom> {
-        match expr {
-            Expr::Member(member) => {
-                // Handle __webpack_require__("module.js").default
-                if let Expr::Call(call) = member.obj.as_ref() {
-                    if let Callee::Expr(callee_expr) = &call.callee {
-                        if let Expr::Ident(ident) = callee_expr.as_ref() {
-                            if ident.sym == "__webpack_require__" {
-                                if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
-                                    if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
-                                        return Some(s.value.clone());
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                None
-            }
-            Expr::Call(call) => {
-                // Handle direct __webpack_require__("module.js") calls
-                if let Callee::Expr(callee_expr) = &call.callee {
-                    if let Expr::Ident(ident) = callee_expr.as_ref() {
-                        if ident.sym == "__webpack_require__" {
-                            if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
-                                if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
-                                    return Some(s.value.clone());
-                                }
-                            }
-                        }
-                    }
-                }
-                None
-            }
-            _ => None
-        }
-    }
-}
-
 /// Extraction modes for different visitor types
 #[derive(Clone, Copy)]
 enum ExtractionMode {
@@ -541,7 +290,7 @@ impl CommonJSVisitor {
         match expr {
             // Pattern 1: Direct function expressions
             Expr::Fn(func) => {
-                let result = SharedExtractionMethods::extract_webpack_requires_from_function_body(&func.function.body);
+                let result = self.extract_webpack_requires_from_function_body(&func.function.body);
                 result
             }
             // Pattern 2: Function expressions wrapped in call expressions (real-world case)
@@ -550,7 +299,7 @@ impl CommonJSVisitor {
                     if let Expr::Paren(paren) = callee_expr.as_ref() {
                         if let Expr::Fn(func) = paren.expr.as_ref() {
                             // This is a (function expression) being called
-                            return SharedExtractionMethods::extract_webpack_requires_from_function_body(&func.function.body);
+                            return self.extract_webpack_requires_from_function_body(&func.function.body);
                         }
                     }
                 }
@@ -565,15 +314,84 @@ impl CommonJSVisitor {
     }
 
     fn extract_webpack_requires_from_function_body(&self, body: &Option<BlockStmt>) -> String {
-        SharedExtractionMethods::extract_webpack_requires_from_function_body(body)
+        let mut source = String::new();
+        
+        if let Some(body) = body {
+            for stmt in body.stmts.iter() {
+                // Extract webpack_require calls from various statement types
+                self.extract_webpack_requires_from_stmt(stmt, &mut source);
+            }
+        }
+        
+        source
     }
 
     fn extract_webpack_requires_from_stmt(&self, stmt: &Stmt, source: &mut String) {
-        SharedExtractionMethods::extract_webpack_requires_from_stmt(stmt, source);
+        match stmt {
+            Stmt::Expr(expr_stmt) => {
+                self.extract_webpack_requires_from_expr(&expr_stmt.expr, source);
+            }
+            Stmt::Decl(decl) => {
+                if let Decl::Var(var_decl) = decl {
+                    for decl in &var_decl.decls {
+                        if let Some(init) = &decl.init {
+                            self.extract_webpack_requires_from_expr(init, source);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     fn extract_webpack_requires_from_expr(&self, expr: &Expr, source: &mut String) {
-        SharedExtractionMethods::extract_webpack_requires_from_expr(expr, source, ExtractionMode::WithMemberExpr);
+        match expr {
+            Expr::Call(call) => {
+                if let Callee::Expr(callee_expr) = &call.callee {
+                    if let Expr::Ident(ident) = callee_expr.as_ref() {
+                        if ident.sym == "__webpack_require__" {
+                            // Found a webpack_require call
+                            if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
+                                if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
+                                    source.push_str(&format!("__webpack_require__(\"{}\");\n", s.value));
+                                }
+                            }
+                        }
+                    }
+                    // Check for member expressions like __webpack_require__("...").helper1
+                    if let Expr::Member(member) = callee_expr.as_ref() {
+                        if let Expr::Call(inner_call) = member.obj.as_ref() {
+                            if let Callee::Expr(inner_callee) = &inner_call.callee {
+                                if let Expr::Ident(ident) = inner_callee.as_ref() {
+                                    if ident.sym == "__webpack_require__" {
+                                        // This is __webpack_require__("...").property
+                                        if let Some(ExprOrSpread { expr, .. }) = inner_call.args.first() {
+                                            if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
+                                                source.push_str(&format!("__webpack_require__(\"{}\");\n", s.value));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Expr::Member(member) => {
+                // Handle member expressions that might contain __webpack_require__
+                self.extract_webpack_requires_from_expr(&member.obj, source);
+            }
+            // Handle other expression types that might contain webpack_require
+            Expr::Assign(assign) => {
+                self.extract_webpack_requires_from_expr(&assign.right, source);
+            }
+            Expr::Seq(seq) => {
+                for expr in &seq.exprs {
+                    self.extract_webpack_requires_from_expr(expr, source);
+                }
+            }
+            _ => {}
+        }
     }
 }
 
@@ -653,7 +471,7 @@ impl JSONPVisitor {
         match expr {
             // Pattern 1: Direct function expressions
             Expr::Fn(func) => {
-                let result = SharedExtractionMethods::extract_webpack_requires_from_function_body(&func.function.body);
+                let result = self.extract_webpack_requires_from_function_body(&func.function.body);
                 result
             }
             // Pattern 2: Function expressions wrapped in call expressions (real-world case)
@@ -662,7 +480,7 @@ impl JSONPVisitor {
                     if let Expr::Paren(paren) = callee_expr.as_ref() {
                         if let Expr::Fn(func) = paren.expr.as_ref() {
                             // This is a (function expression) being called
-                            return SharedExtractionMethods::extract_webpack_requires_from_function_body(&func.function.body);
+                            return self.extract_webpack_requires_from_function_body(&func.function.body);
                         }
                     }
                 }
@@ -677,25 +495,180 @@ impl JSONPVisitor {
     }
 
     fn extract_webpack_requires_from_function_body(&self, body: &Option<BlockStmt>) -> String {
-        SharedExtractionMethods::extract_webpack_requires_from_function_body(body)
+        let mut source = String::new();
+        
+        if let Some(body) = body {
+            for stmt in body.stmts.iter() {
+                // Extract webpack_require calls from various statement types
+                self.extract_webpack_requires_from_stmt(stmt, &mut source);
+            }
+        }
+        
+        source
     }
 
     fn extract_webpack_requires_from_stmt(&self, stmt: &Stmt, source: &mut String) {
-        SharedExtractionMethods::extract_webpack_requires_from_stmt(stmt, source);
+        match stmt {
+            Stmt::Expr(expr_stmt) => {
+                self.extract_webpack_requires_from_expr(&expr_stmt.expr, source);
+            }
+            Stmt::Decl(decl) => {
+                if let Decl::Var(var_decl) = decl {
+                    for decl in &var_decl.decls {
+                        if let Some(init) = &decl.init {
+                            self.extract_webpack_requires_from_expr(init, source);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     fn extract_webpack_requires_from_expr(&self, expr: &Expr, source: &mut String) {
-        SharedExtractionMethods::extract_webpack_requires_from_expr(expr, source, ExtractionMode::WithWebpackD);
+        match expr {
+            Expr::Call(call) => {
+                // Handle __webpack_require__ calls
+                if let Callee::Expr(callee_expr) = &call.callee {
+                    if let Expr::Ident(ident) = callee_expr.as_ref() {
+                        if ident.sym == "__webpack_require__" {
+                            // Found a webpack_require call
+                            if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
+                                if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
+                                    source.push_str(&format!("__webpack_require__(\"{}\");\n", s.value));
+                                }
+                            }
+                        }
+                    }
+                    // Check if this is a __webpack_require__.d() call
+                    if let Expr::Member(member) = callee_expr.as_ref() {
+                        if let Expr::Ident(ident) = member.obj.as_ref() {
+                            if ident.sym == "__webpack_require__" {
+                                if let MemberProp::Ident(prop) = &member.prop {
+                                    if prop.sym == "d" {
+                                        // This is a __webpack_require__.d() call
+                                        // Preserve the entire call structure for dependency analysis
+                                        source.push_str("__webpack_require__.d(exports, {\n");
+                                        
+                                        // Extract dependencies from the second argument (object literal)
+                                        if call.args.len() >= 2 {
+                                            let ExprOrSpread { expr, .. } = &call.args[1];
+                                            if let Expr::Object(obj) = expr.as_ref() {
+                                                for prop in &obj.props {
+                                                    if let PropOrSpread::Prop(prop) = prop {
+                                                        if let Prop::KeyValue(kv) = prop.as_ref() {
+                                                            // Extract the property name
+                                                            let prop_name = match &kv.key {
+                                                                PropName::Str(s) => s.value.to_string(),
+                                                                PropName::Ident(ident) => ident.sym.to_string(),
+                                                                _ => "unknown".to_string(),
+                                                            };
+                                                            
+                                                            if let Expr::Arrow(arrow) = kv.value.as_ref() {
+                                                                // Extract the module ID from the arrow function
+                                                                let module_id = self.extract_module_id_from_arrow_function(arrow);
+                                                                if let Some(module_id) = module_id {
+                                                                    // Preserve arrow functions that contain __webpack_require__ calls
+                                                                    source.push_str(&format!("  {}: () => __webpack_require__(\"{}\").default,\n", prop_name, module_id));
+                                                                } else {
+                                                                    source.push_str(&format!("  {}: () => __webpack_require__(\"unknown\").default,\n", prop_name));
+                                                                }
+                                                                // Also extract individual calls for tracking
+                                                                self.extract_webpack_requires_from_expr(&kv.value, source);
+                                                            } else {
+                                                                // For non-arrow function values, process normally
+                                                                self.extract_webpack_requires_from_expr(&kv.value, source);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        
+                                        source.push_str("});\n");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Handle other expression types that might contain webpack_require
+            Expr::Assign(assign) => {
+                self.extract_webpack_requires_from_expr(&assign.right, source);
+            }
+            Expr::Seq(seq) => {
+                for expr in &seq.exprs {
+                    self.extract_webpack_requires_from_expr(expr, source);
+                }
+            }
+            Expr::Arrow(arrow) => {
+                match arrow.body.as_ref() {
+                    BlockStmtOrExpr::BlockStmt(block) => {
+                        for stmt in &block.stmts {
+                            self.extract_webpack_requires_from_stmt(stmt, source);
+                        }
+                    }
+                    BlockStmtOrExpr::Expr(expr) => {
+                        self.extract_webpack_requires_from_expr(expr, source);
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Extract module ID from arrow function expressions like () => __webpack_require__("module.js").default
     fn extract_module_id_from_arrow_function(&self, arrow: &ArrowExpr) -> Option<Atom> {
-        SharedExtractionMethods::extract_module_id_from_arrow_function(arrow)
+        match arrow.body.as_ref() {
+            BlockStmtOrExpr::Expr(expr) => {
+                // Handle expressions like __webpack_require__("module.js").default
+                self.extract_module_id_from_expr(expr)
+            }
+            BlockStmtOrExpr::BlockStmt(_) => {
+                // For block statements, we'd need more complex analysis
+                None
+            }
+        }
     }
 
     /// Extract module ID from expressions that may contain __webpack_require__ calls
     fn extract_module_id_from_expr(&self, expr: &Expr) -> Option<Atom> {
-        SharedExtractionMethods::extract_module_id_from_expr(expr)
+        match expr {
+            Expr::Member(member) => {
+                // Handle __webpack_require__("module.js").default
+                if let Expr::Call(call) = member.obj.as_ref() {
+                    if let Callee::Expr(callee_expr) = &call.callee {
+                        if let Expr::Ident(ident) = callee_expr.as_ref() {
+                            if ident.sym == "__webpack_require__" {
+                                if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
+                                    if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
+                                        return Some(s.value.clone());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                None
+            }
+            Expr::Call(call) => {
+                // Handle direct __webpack_require__("module.js") calls
+                if let Callee::Expr(callee_expr) = &call.callee {
+                    if let Expr::Ident(ident) = callee_expr.as_ref() {
+                        if ident.sym == "__webpack_require__" {
+                            if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
+                                if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
+                                    return Some(s.value.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+                None
+            }
+            _ => None
+        }
     }
 }
 
@@ -763,22 +736,95 @@ impl WebpackModulesVisitor {
                 self.extract_function_source(&paren.expr)
             }
             Expr::Fn(func) => {
-                SharedExtractionMethods::extract_webpack_requires_from_function_body(&func.function.body)
+                self.extract_webpack_requires_from_function_body(&func.function.body)
             }
             _ => "/* non-function module */".to_string(),
         }
     }
     
     fn extract_webpack_requires_from_function_body(&self, body: &Option<BlockStmt>) -> String {
-        SharedExtractionMethods::extract_webpack_requires_from_function_body(body)
+        let mut source = String::new();
+        
+        if let Some(body) = body {
+            for stmt in body.stmts.iter() {
+                // Extract webpack_require calls from various statement types
+                self.extract_webpack_requires_from_stmt(stmt, &mut source);
+            }
+        }
+        
+        source
     }
 
     fn extract_webpack_requires_from_stmt(&self, stmt: &Stmt, source: &mut String) {
-        SharedExtractionMethods::extract_webpack_requires_from_stmt(stmt, source);
+        match stmt {
+            Stmt::Expr(expr_stmt) => {
+                self.extract_webpack_requires_from_expr(&expr_stmt.expr, source);
+            }
+            Stmt::Decl(decl) => {
+                if let Decl::Var(var_decl) = decl {
+                    for decl in &var_decl.decls {
+                        if let Some(init) = &decl.init {
+                            self.extract_webpack_requires_from_expr(init, source);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     fn extract_webpack_requires_from_expr(&self, expr: &Expr, source: &mut String) {
-        SharedExtractionMethods::extract_webpack_requires_from_expr(expr, source, ExtractionMode::WithNumericIds);
+        match expr {
+            Expr::Call(call) => {
+                // Handle __webpack_require__ calls
+                if let Callee::Expr(callee_expr) = &call.callee {
+                    if let Expr::Ident(ident) = callee_expr.as_ref() {
+                        if ident.sym == "__webpack_require__" {
+                            // Found a webpack_require call
+                            if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
+                                if let Expr::Lit(Lit::Str(s)) = expr.as_ref() {
+                                    source.push_str(&format!("__webpack_require__(\"{}\");\n", s.value));
+                                } else if let Expr::Lit(Lit::Num(n)) = expr.as_ref() {
+                                    source.push_str(&format!("__webpack_require__({});\n", n.value));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Handle other expression types that might contain webpack_require
+            Expr::Assign(assign) => {
+                self.extract_webpack_requires_from_expr(&assign.right, source);
+            }
+            Expr::Seq(seq) => {
+                for expr in &seq.exprs {
+                    self.extract_webpack_requires_from_expr(expr, source);
+                }
+            }
+            Expr::Arrow(arrow) => {
+                match arrow.body.as_ref() {
+                    BlockStmtOrExpr::BlockStmt(block) => {
+                        for stmt in &block.stmts {
+                            match stmt {
+                                Stmt::Expr(expr_stmt) => {
+                                    self.extract_webpack_requires_from_expr(&expr_stmt.expr, source);
+                                }
+                                Stmt::Return(ret_stmt) => {
+                                    if let Some(arg) = &ret_stmt.arg {
+                                        self.extract_webpack_requires_from_expr(arg, source);
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    BlockStmtOrExpr::Expr(expr) => {
+                        self.extract_webpack_requires_from_expr(expr, source);
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }
 

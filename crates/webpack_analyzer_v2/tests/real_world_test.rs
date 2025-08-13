@@ -95,6 +95,7 @@ fn test_real_world_webpack_chunk() {
         chunk_files: vec!["vendors-lodash.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     let chunk = analyzer.analyze_chunk(source, characteristics).unwrap();

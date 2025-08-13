@@ -27,6 +27,7 @@ fn test_host_vendor_chunk() {
         chunk_files: vec!["vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     let result = analyzer.analyze_chunk(&chunk_content, characteristics);
@@ -72,6 +73,7 @@ fn test_remote_vendor_chunk() {
         chunk_files: vec!["vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     let result = analyzer.analyze_chunk(&chunk_content, characteristics);
@@ -117,6 +119,7 @@ fn test_source_utils_chunk() {
         chunk_files: vec!["src_utils_js.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     let result = analyzer.analyze_chunk(&chunk_content, characteristics);
@@ -162,6 +165,7 @@ fn test_source_button_chunk() {
         chunk_files: vec!["src_Button_js.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     let result = analyzer.analyze_chunk(&chunk_content, characteristics);
@@ -201,6 +205,7 @@ fn test_chunk_characteristics_detection() {
         chunk_files: vec!["vendors-lodash.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     let commonjs_sample = r#"
@@ -238,6 +243,7 @@ fn test_chunk_characteristics_detection() {
         chunk_files: vec!["chunk.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     let jsonp_sample = r#"

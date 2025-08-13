@@ -42,6 +42,7 @@ fn jsonp_characteristics() -> ChunkCharacteristics {
         chunk_files: vec!["vendors-react-dom.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     }
 }
 

@@ -5,7 +5,7 @@ use swc_common::{FileName, Mark, SourceMap};
 use swc_core::ecma::codegen;
 use swc_core::ecma::visit::{VisitMutWith, VisitMut};
 use swc_core::atoms::Atom;
-use swc_ecma_ast::{Program, Expr, VarDecl, Pat, ObjectLit, PropOrSpread, Prop, PropName};
+use swc_ecma_ast::{Program, Expr, VarDecl, Pat, ObjectLit, PropOrSpread, Prop, PropName, CallExpr, ExprOrSpread};
 use swc_ecma_codegen::text_writer::WriteJs;
 use swc_ecma_codegen::{Emitter, text_writer};
 use swc_ecma_parser::{EsSyntax, Parser, StringInput, Syntax};
@@ -16,8 +16,34 @@ use swc_macro_parser::MacroParser;
 use webpack_analyzer_v2::{WebpackAnalyzer, ChunkType, ChunkCharacteristics, DependencyGraph, WebpackChunk};
 use rustc_hash::FxHashSet;
 use regex::Regex;
+use std::time::{Duration, Instant};
+use thiserror::Error;
 
-pub fn optimize(source: String, config: serde_json::Value) -> String {
+/// Error types for optimization operations
+#[derive(Error, Debug)]
+pub enum OptimizationError {
+    #[error("Failed to parse JavaScript: {0}")]
+    ParseError(String),
+    
+    #[error("Failed to emit JavaScript: {0}")]
+    EmitError(String),
+    
+    #[error("Invalid UTF-8 encoding in generated code")]
+    Utf8Error,
+    
+    #[error("Regex compilation failed: {0}")]
+    RegexError(#[from] regex::Error),
+    
+    #[error("Webpack analysis failed: {0}")]
+    WebpackAnalysisError(String),
+    
+    #[error("Numeric conversion failed: {0}")]
+    NumericConversionError(String),
+}
+
+type OptimizationResult<T> = Result<T, OptimizationError>;
+
+pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult<String> {
     let cm: Lrc<SourceMap> = Default::default();
     let (mut program, comments) = {
         let fm = cm.new_source_file(FileName::Custom("test.js".to_string()).into(), source);
@@ -28,7 +54,7 @@ pub fn optimize(source: String, config: serde_json::Value) -> String {
             Some(&comments),
         )
         .parse_program()
-        .unwrap();
+        .map_err(|e| OptimizationError::ParseError(format!("Parser error: {:?}", e)))?;
         (program, comments)
     };
 
@@ -74,13 +100,15 @@ pub fn optimize(source: String, config: serde_json::Value) -> String {
             cm: cm.clone(),
             wr,
         };
-        emitter.emit_program(&program).unwrap();
+        emitter.emit_program(&program)
+            .map_err(|e| OptimizationError::EmitError(format!("Emit error: {:?}", e)))?;
         drop(emitter);
 
-        unsafe { String::from_utf8_unchecked(buf) }
+        String::from_utf8(buf)
+            .map_err(|_| OptimizationError::Utf8Error)?
     };
 
-    ret
+    Ok(ret)
 }
 
 fn perform_dce(m: &mut Program, comments: SingleThreadedComments, unresolved_mark: Mark) {
@@ -164,6 +192,7 @@ fn get_chunk_characteristics(config: &serde_json::Value, source: &str) -> ChunkC
         chunk_loading_type: None,
         runtime_names: vec!["main".to_string()],
         entry_name: None,
+        entry_module_id: None,
         has_async_chunks: false,
         chunk_files: vec!["chunk.js".to_string()],
         is_shared_chunk: false,
@@ -171,8 +200,47 @@ fn get_chunk_characteristics(config: &serde_json::Value, source: &str) -> ChunkC
     }
 }
 
+/// Metrics collected during tree shaking optimization
+#[derive(Debug, Clone)]
+struct TreeShakeMetrics {
+    modules_before: usize,
+    modules_after: usize,
+    modules_removed: usize,
+    iterations: u32,
+    time_taken: Duration,
+    entry_points_found: usize,
+    chunks_processed: usize,
+}
+
+impl TreeShakeMetrics {
+    fn new() -> Self {
+        Self {
+            modules_before: 0,
+            modules_after: 0,
+            modules_removed: 0,
+            iterations: 0,
+            time_taken: Duration::new(0, 0),
+            entry_points_found: 0,
+            chunks_processed: 0,
+        }
+    }
+    
+    fn log_summary(&self) {
+        if self.modules_removed > 0 {
+            println!("Tree shaking summary: Removed {} modules across {} iterations in {:?} ({}% reduction)", 
+                     self.modules_removed, self.iterations, self.time_taken,
+                     (self.modules_removed * 100) / self.modules_before.max(1));
+        } else {
+            println!("Tree shaking summary: No modules removed in {} iterations ({:?})", 
+                     self.iterations, self.time_taken);
+        }
+    }
+}
+
 /// Performs iterative webpack module tree shaking after DCE
 fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comments: &SingleThreadedComments, config: &serde_json::Value) {
+    let start_time = Instant::now();
+    let mut metrics = TreeShakeMetrics::new();
     let analyzer = WebpackAnalyzer::new();
     
     let mut total_removed = 0;
@@ -205,21 +273,36 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
         let characteristics = get_chunk_characteristics(config, &current_code);
         let mut chunk = match analyzer.analyze_chunk(&current_code, characteristics) {
             Ok(c) => c,
-            Err(_e) => {
+            Err(e) => {
                 if iteration == 1 {
+                    println!("Tree shaking: Failed to analyze chunk on first iteration: {:?} - skipping tree shaking", e);
                     return; // Skip tree shaking entirely if first analysis fails - maybe it's not a webpack bundle
                 } else {
+                    println!("Tree shaking: Failed to analyze chunk on iteration {}: {:?} - stopping", iteration, e);
                     break; // Stop iterations if analysis fails on subsequent attempts
                 }
             }
         };
+        
+        // Early return if no modules found
+        if chunk.modules.is_empty() {
+            println!("Tree shaking: No modules found in chunk - skipping tree shaking");
+            return;
+        }
+        
+        // Update metrics with initial module count
+        if iteration == 1 {
+            metrics.modules_before = chunk.modules.len();
+            metrics.chunks_processed = 1;
+        }
 
         // Step 2.5: Update the chunk's source to reflect the current code
         chunk.source = current_code.clone();
         
         // Step 2.6: Rebuild dependency graph after macro processing changes
         if iteration > 1 {
-            if let Err(_e) = analyzer.rebuild_dependency_graph(&mut chunk) {
+            if let Err(e) = analyzer.rebuild_dependency_graph(&mut chunk) {
+                println!("Tree shaking warning: Failed to rebuild dependency graph on iteration {}: {:?}", iteration, e);
             }
         }
         
@@ -318,9 +401,11 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                 // If no explicit entry modules are found, do not infer via filename/position.
                 
                 if entry_points.is_empty() {
-                    // Skip tree shaking but continue with other optimizations
+                    println!("Tree shaking: No explicit entry points found for split chunk with macro config - skipping tree shaking");
                     Vec::new()
                 } else {
+                    println!("Tree shaking: Found {} entry points for split chunk: {:?}", 
+                             entry_points.len(), entry_points.iter().map(|a| a.as_str()).collect::<Vec<_>>());
                     // For split chunks with macro processing:
                     // - First iteration: Process macros to reveal dependencies
                     // - Second iteration: Perform tree shaking based on revealed dependencies
@@ -373,9 +458,11 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
 
             // Fallback to all modules if no explicit entries are found
             if entry_points.is_empty() {
-                // No clear entry; keep everything in standard bundles
+                println!("Tree shaking: No entry points found for standard bundle - preserving all modules");
                 Vec::new()
             } else {
+                println!("Tree shaking: Using {} entry points for standard bundle: {:?}", 
+                         entry_points.len(), entry_points.iter().map(|a| a.as_str()).collect::<Vec<_>>());
                 compute_unreachable_modules_from_entries(&chunk, &entry_points)
             }
         };
@@ -401,6 +488,7 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                     println!("Tree shaking: Converged after {} iterations, removed {} total modules", 
                              iteration - 1, total_removed);
                 }
+                metrics.iterations = iteration;
                 break;
             }
         }
@@ -418,10 +506,24 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                 .collect();
             let mut module_remover = WebpackModuleRemover::new(unreachable_set);
             program.visit_mut_with(&mut module_remover);
+            
+            let actually_removed = module_remover.get_removed_count();
+            if actually_removed > 0 {
+                println!("Tree shaking: Successfully removed {} module references from AST", actually_removed);
+            }
         }
         
         // Continue to next iteration to see if more modules become unreachable
     }
+    
+    // Update final metrics
+    metrics.modules_removed = total_removed;
+    metrics.modules_after = metrics.modules_before.saturating_sub(total_removed);
+    metrics.time_taken = start_time.elapsed();
+    metrics.iterations = if metrics.iterations == 0 { max_iterations } else { metrics.iterations };
+    
+    // Log comprehensive summary
+    metrics.log_summary();
     
     if total_removed > 0 {
         println!("Tree shaking: Total removed {} modules across all iterations", total_removed);
@@ -431,6 +533,12 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
 /// Compute unreachable modules using a simple reachability analysis from the given entry modules
 fn compute_unreachable_modules_from_entries(chunk: &WebpackChunk, entry_points: &[Atom]) -> Vec<Atom> {
     if entry_points.is_empty() {
+        println!("Tree shaking warning: No entry points found - cannot determine reachable modules");
+        return Vec::new();
+    }
+    
+    if chunk.modules.is_empty() {
+        println!("Tree shaking warning: No modules found in chunk");
         return Vec::new();
     }
 
@@ -444,14 +552,23 @@ fn compute_unreachable_modules_from_entries(chunk: &WebpackChunk, entry_points: 
     all.difference(&reachable).cloned().collect()
 }
 
-/// AST visitor that removes specified webpack modules from __webpack_modules__ objects
+/// AST visitor that removes specified webpack modules from various module formats
+/// Supports: __webpack_modules__, exports.modules, AMD define, and SystemJS patterns
 struct WebpackModuleRemover {
     modules_to_remove: FxHashSet<String>,
+    removed_count: usize,
 }
 
 impl WebpackModuleRemover {
     fn new(modules_to_remove: FxHashSet<String>) -> Self {
-        Self { modules_to_remove }
+        Self { 
+            modules_to_remove,
+            removed_count: 0,
+        }
+    }
+    
+    fn get_removed_count(&self) -> usize {
+        self.removed_count
     }
 
     /// Check if a property key matches a module ID that should be removed
@@ -459,7 +576,10 @@ impl WebpackModuleRemover {
         if let PropOrSpread::Prop(prop) = prop {
             if let Prop::KeyValue(kv) = prop.as_ref() {
                 let module_id = match &kv.key {
-                    PropName::Num(num) => num.value.to_string().split('.').next().unwrap_or("").to_string(),
+                    PropName::Num(num) => {
+                        let num_str = num.value.to_string();
+                        num_str.split('.').next().unwrap_or("").to_string()
+                    },
                     PropName::Str(s) => s.value.to_string(),
                     PropName::Ident(ident) => ident.sym.to_string(),
                     _ => return false,
@@ -492,10 +612,59 @@ impl WebpackModuleRemover {
         let after_count = obj.props.len();
         let removed_count = before_count - after_count;
         if removed_count > 0 {
-            // Modules were removed
+            self.removed_count += removed_count;
+            println!("Tree shaking: Removed {} modules from object literal", removed_count);
         }
     }
     
+    /// Check if a call expression is an AMD define pattern: define(['dep1', 'dep2'], function() { ... })
+    fn is_amd_define_call(&self, call_expr: &CallExpr) -> bool {
+        if let swc_ecma_ast::Callee::Expr(callee) = &call_expr.callee {
+            if let Expr::Ident(ident) = callee.as_ref() {
+                return ident.sym == "define";
+            }
+        }
+        false
+    }
+    
+    /// Check if a call expression is a SystemJS pattern: System.register(['dep1'], function() { ... })
+    fn is_systemjs_register_call(&self, call_expr: &CallExpr) -> bool {
+        if let swc_ecma_ast::Callee::Expr(callee) = &call_expr.callee {
+            if let Expr::Member(member) = callee.as_ref() {
+                if let Expr::Ident(obj) = member.obj.as_ref() {
+                    if let swc_ecma_ast::MemberProp::Ident(prop) = &member.prop {
+                        return obj.sym == "System" && prop.sym == "register";
+                    }
+                }
+            }
+        }
+        false
+    }
+    
+    /// Remove modules from AMD/SystemJS dependency arrays
+    fn remove_from_dependency_array(&mut self, args: &mut Vec<ExprOrSpread>) {
+        // AMD define([deps], factory) or System.register([deps], factory)
+        if let Some(first_arg) = args.get_mut(0) {
+            if let Expr::Array(array) = first_arg.expr.as_mut() {
+                let before_count = array.elems.len();
+                array.elems.retain(|elem| {
+                    if let Some(ExprOrSpread { expr, .. }) = elem.as_ref() {
+                        if let Expr::Lit(swc_ecma_ast::Lit::Str(str_lit)) = expr.as_ref() {
+                            return !self.modules_to_remove.contains(&str_lit.value.to_string());
+                        }
+                    }
+                    true
+                });
+                let after_count = array.elems.len();
+                let removed = before_count - after_count;
+                if removed > 0 {
+                    self.removed_count += removed;
+                    println!("Tree shaking: Removed {} dependencies from AMD/SystemJS module", removed);
+                }
+            }
+        }
+    }
+
     /// Process split chunk .push() arguments
     fn visit_mut_split_chunk_args(&mut self, args: &mut Vec<swc_ecma_ast::ExprOrSpread>) {
         // Split chunk format: .push([[chunk_ids], { modules }])
@@ -532,10 +701,20 @@ impl VisitMut for WebpackModuleRemover {
         node.visit_mut_children_with(self);
     }
     
-    /// Visit call expressions to find split chunk .push() calls
+    /// Visit call expressions to find split chunk .push() calls, AMD define, and SystemJS register
     fn visit_mut_call_expr(&mut self, node: &mut swc_ecma_ast::CallExpr) {
+        // Check for AMD define(['dep1', 'dep2'], function() { ... })
+        if self.is_amd_define_call(node) {
+            println!("Tree shaking: Processing AMD define call");
+            self.remove_from_dependency_array(&mut node.args);
+        }
+        // Check for System.register(['dep1'], function() { ... })
+        else if self.is_systemjs_register_call(node) {
+            println!("Tree shaking: Processing SystemJS register call");
+            self.remove_from_dependency_array(&mut node.args);
+        }
         // Look for (self["webpackChunk..."] = ...).push([...])
-        if let swc_ecma_ast::Callee::Expr(callee) = &node.callee {
+        else if let swc_ecma_ast::Callee::Expr(callee) = &node.callee {
             if let Expr::Member(member) = callee.as_ref() {
                 // Check if this is a .push() call
                 if let swc_ecma_ast::MemberProp::Ident(ident) = &member.prop {
@@ -619,8 +798,14 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
     }
     
     // Find all module IDs in exports.modules (string or numeric keys)
-    let module_pattern_str = regex::Regex::new(r#""([^"]+)"\s*:\s*"#).unwrap();
-    let module_pattern_num = regex::Regex::new(r#"(?m)^\s*(\d+)\s*:\s*"#).unwrap();
+    let module_pattern_str = match regex::Regex::new(r#""([^"]+)"\s*:\s*"#) {
+        Ok(re) => re,
+        Err(_) => return, // Invalid regex, skip orphan removal
+    };
+    let module_pattern_num = match regex::Regex::new(r#"(?m)^\s*(\d+)\s*:\s*"#) {
+        Ok(re) => re,
+        Err(_) => return, // Invalid regex, skip orphan removal
+    };
     let mut all_modules: Vec<String> = Vec::new();
     
     for cap in module_pattern_str.captures_iter(&current_code) {
@@ -636,8 +821,14 @@ fn perform_simple_orphan_removal(program: &mut Program, cm: Lrc<SourceMap>, _com
     
     
     // Find all __webpack_require__ calls (string or numeric module ids)
-    let require_pattern_str = regex::Regex::new(r#"__webpack_require__\s*\(\s*"([^"]+)"\s*\)"#).unwrap();
-    let require_pattern_num = regex::Regex::new(r#"__webpack_require__\s*\(\s*(\d+)\s*\)"#).unwrap();
+    let require_pattern_str = match regex::Regex::new(r#"__webpack_require__\s*\(\s*"([^"]+)"\s*\)"#) {
+        Ok(re) => re,
+        Err(_) => return, // Invalid regex, skip orphan removal
+    };
+    let require_pattern_num = match regex::Regex::new(r#"__webpack_require__\s*\(\s*(\d+)\s*\)"#) {
+        Ok(re) => re,
+        Err(_) => return, // Invalid regex, skip orphan removal
+    };
     let mut referenced_modules: std::collections::HashSet<String> = std::collections::HashSet::new();
     
     for cap in require_pattern_str.captures_iter(&current_code) {
@@ -726,7 +917,10 @@ fn extract_entry_points_from_source(source: &str) -> Vec<Atom> {
     
     // Look for __webpack_require__ calls that are not inside module definitions
     // These are typically entry point calls like __webpack_require__(100);
-    let require_regex = Regex::new(r"__webpack_require__\(([^)]+)\);").unwrap();
+    let require_regex = match Regex::new(r"__webpack_require__\(([^)]+)\);") {
+        Ok(re) => re,
+        Err(_) => return entry_points, // Invalid regex, return empty entry points
+    };
     
     for cap in require_regex.captures_iter(source) {
         if let Some(module_id) = cap.get(1) {

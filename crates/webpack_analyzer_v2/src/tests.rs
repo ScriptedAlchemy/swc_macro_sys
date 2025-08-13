@@ -18,6 +18,7 @@ fn test_chunk_type_detection() {
         chunk_files: vec!["chunk.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     assert_eq!(commonjs_sync_chars.determine_chunk_type(), ChunkType::CommonJSSync);
@@ -37,6 +38,7 @@ fn test_chunk_type_detection() {
         chunk_files: vec!["chunk.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     assert_eq!(jsonp_chars.determine_chunk_type(), ChunkType::JSONP);
@@ -81,6 +83,7 @@ fn test_commonjs_module_extraction() {
         chunk_files: vec!["chunk.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     let chunk = analyzer.analyze_chunk(source, characteristics).unwrap();
@@ -121,6 +124,7 @@ fn test_jsonp_module_extraction() {
         chunk_files: vec!["chunk.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     let chunk = analyzer.analyze_chunk(source, characteristics).unwrap();
@@ -168,6 +172,7 @@ fn test_dependency_graph_building() {
         chunk_files: vec!["chunk.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     let chunk = analyzer.analyze_chunk(source, characteristics).unwrap();
@@ -231,6 +236,7 @@ fn test_real_world_lodash_chunk() {
         chunk_files: vec!["chunk.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     
     let chunk = analyzer.analyze_chunk(source, characteristics).unwrap();
@@ -286,4 +292,242 @@ fn test_reachability_analysis() {
     assert!(reachable.contains(&Atom::from("main.js")));
     assert!(reachable.contains(&Atom::from("util.js")));
     assert!(reachable.contains(&Atom::from("helper.js")));
+}
+
+#[test]
+fn test_extract_explicit_entry_points() {
+    use crate::chunk::ShareUsageConfig;
+    use swc_core::atoms::Atom;
+    
+    let mut chunk = WebpackChunk::new(ChunkType::WebpackModules, "test source".to_string());
+    
+    // Add some test modules
+    chunk.add_module(Atom::from("./src/index.js"), WebpackModule::new(Atom::from("./src/index.js"), "main entry code".to_string()));
+    chunk.add_module(Atom::from("./src/utils.js"), WebpackModule::new(Atom::from("./src/utils.js"), "util code".to_string()));
+    chunk.add_module(Atom::from("./src/components.js"), WebpackModule::new(Atom::from("./src/components.js"), "component code".to_string()));
+    
+    // Test with explicit entry points configuration
+    let config = ShareUsageConfig {
+        entry_module_ids: vec![
+            Atom::from("./src/index.js"),
+            Atom::from("./src/utils.js"),
+        ],
+    };
+    
+    let entry_points = chunk.extract_explicit_entry_points(&config);
+    
+    // Should return exactly the configured entry points that exist in the chunk
+    assert_eq!(entry_points.len(), 2);
+    assert!(entry_points.contains(&Atom::from("./src/index.js")));
+    assert!(entry_points.contains(&Atom::from("./src/utils.js")));
+    assert!(!entry_points.contains(&Atom::from("./src/components.js")));
+}
+
+#[test]
+fn test_extract_explicit_entry_points_missing_modules() {
+    use crate::chunk::ShareUsageConfig;
+    use swc_core::atoms::Atom;
+    
+    let mut chunk = WebpackChunk::new(ChunkType::WebpackModules, "test source".to_string());
+    
+    // Add only one module
+    chunk.add_module(Atom::from("./src/index.js"), WebpackModule::new(Atom::from("./src/index.js"), "main entry code".to_string()));
+    
+    // Configure entry points including a missing module
+    let config = ShareUsageConfig {
+        entry_module_ids: vec![
+            Atom::from("./src/index.js"),
+            Atom::from("./src/missing.js"), // This doesn't exist in chunk
+        ],
+    };
+    
+    let entry_points = chunk.extract_explicit_entry_points(&config);
+    
+    // Should only return the entry points that actually exist in the chunk
+    assert_eq!(entry_points.len(), 1);
+    assert!(entry_points.contains(&Atom::from("./src/index.js")));
+    assert!(!entry_points.contains(&Atom::from("./src/missing.js")));
+}
+
+#[test]
+fn test_extract_explicit_entry_points_with_characteristics() {
+    use crate::chunk::ShareUsageConfig;
+    use swc_core::atoms::Atom;
+    
+    let mut chunk = WebpackChunk::new(ChunkType::WebpackModules, "test source".to_string());
+    
+    // Add test modules
+    chunk.add_module(Atom::from("./src/index.js"), WebpackModule::new(Atom::from("./src/index.js"), "main entry code".to_string()));
+    chunk.add_module(Atom::from("./src/entry.js"), WebpackModule::new(Atom::from("./src/entry.js"), "entry code".to_string()));
+    
+    // Set chunk characteristics with entry_module_id
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: true,
+        can_be_initial: true,
+        is_only_initial: false,
+        chunk_format: "webpack".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: Some("main".to_string()),
+        has_async_chunks: false,
+        chunk_files: vec!["chunk.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+        entry_module_id: Some("./src/entry.js".to_string()),
+    };
+    
+    chunk.set_characteristics(characteristics);
+    
+    // Configure with one explicit entry point
+    let config = ShareUsageConfig {
+        entry_module_ids: vec![Atom::from("./src/index.js")],
+    };
+    
+    let entry_points = chunk.extract_explicit_entry_points(&config);
+    
+    // Should return both the configured entry and the one from characteristics
+    assert_eq!(entry_points.len(), 2);
+    assert!(entry_points.contains(&Atom::from("./src/index.js")));
+    assert!(entry_points.contains(&Atom::from("./src/entry.js")));
+}
+
+#[test]
+fn test_extract_explicit_entry_points_strict_success() {
+    use crate::chunk::ShareUsageConfig;
+    use swc_core::atoms::Atom;
+    
+    let mut chunk = WebpackChunk::new(ChunkType::WebpackModules, "test source".to_string());
+    
+    // Add test modules
+    chunk.add_module(Atom::from("./src/index.js"), WebpackModule::new(Atom::from("./src/index.js"), "main entry code".to_string()));
+    chunk.add_module(Atom::from("./src/utils.js"), WebpackModule::new(Atom::from("./src/utils.js"), "util code".to_string()));
+    
+    let config = ShareUsageConfig {
+        entry_module_ids: vec![
+            Atom::from("./src/index.js"),
+            Atom::from("./src/utils.js"),
+        ],
+    };
+    
+    let result = chunk.extract_explicit_entry_points_strict(&config);
+    
+    // Should succeed when all configured entry points exist
+    assert!(result.is_ok());
+    let entry_points = result.unwrap();
+    assert_eq!(entry_points.len(), 2);
+    assert!(entry_points.contains(&Atom::from("./src/index.js")));
+    assert!(entry_points.contains(&Atom::from("./src/utils.js")));
+}
+
+#[test]
+fn test_extract_explicit_entry_points_strict_missing_entry() {
+    use crate::chunk::ShareUsageConfig;
+    use swc_core::atoms::Atom;
+    
+    let mut chunk = WebpackChunk::new(ChunkType::WebpackModules, "test source".to_string());
+    
+    // Add only one module
+    chunk.add_module(Atom::from("./src/index.js"), WebpackModule::new(Atom::from("./src/index.js"), "main entry code".to_string()));
+    
+    let config = ShareUsageConfig {
+        entry_module_ids: vec![
+            Atom::from("./src/index.js"),
+            Atom::from("./src/missing.js"), // This doesn't exist
+        ],
+    };
+    
+    let result = chunk.extract_explicit_entry_points_strict(&config);
+    
+    // Should return error when configured entry points are missing
+    assert!(result.is_err());
+    let error_msg = result.err().unwrap().to_string();
+    assert!(error_msg.contains("Missing entry points in chunk"));
+    assert!(error_msg.contains("./src/missing.js"));
+}
+
+#[test]
+fn test_extract_explicit_entry_points_strict_no_config() {
+    use crate::chunk::ShareUsageConfig;
+    use swc_core::atoms::Atom;
+    
+    let mut chunk = WebpackChunk::new(ChunkType::WebpackModules, "test source".to_string());
+    
+    // Add test modules
+    chunk.add_module(Atom::from("./src/index.js"), WebpackModule::new(Atom::from("./src/index.js"), "main entry code".to_string()));
+    
+    // Empty configuration - no explicit entry points
+    let config = ShareUsageConfig {
+        entry_module_ids: vec![],
+    };
+    
+    let result = chunk.extract_explicit_entry_points_strict(&config);
+    
+    // Should return error when no entry points are configured
+    assert!(result.is_err());
+    let error_msg = result.err().unwrap().to_string();
+    assert!(error_msg.contains("No explicit entry points found in configuration"));
+}
+
+#[test]
+fn test_extract_explicit_entry_points_no_inference() {
+    use crate::chunk::ShareUsageConfig;
+    use swc_core::atoms::Atom;
+    
+    let mut chunk = WebpackChunk::new(ChunkType::WebpackModules, "test source".to_string());
+    
+    // Add modules with names that might be inferred as entry points by heuristics
+    chunk.add_module(Atom::from("./src/index.js"), WebpackModule::new(Atom::from("./src/index.js"), "main entry code".to_string()));
+    chunk.add_module(Atom::from("./src/main.js"), WebpackModule::new(Atom::from("./src/main.js"), "main code".to_string()));
+    chunk.add_module(Atom::from("./src/app.js"), WebpackModule::new(Atom::from("./src/app.js"), "app code".to_string()));
+    chunk.add_module(Atom::from("./src/entry.js"), WebpackModule::new(Atom::from("./src/entry.js"), "entry code".to_string()));
+    
+    // Empty configuration - should not infer any entry points
+    let config = ShareUsageConfig {
+        entry_module_ids: vec![],
+    };
+    
+    let entry_points = chunk.extract_explicit_entry_points(&config);
+    
+    // Should return empty Vec - NO filename-based inference
+    assert_eq!(entry_points.len(), 0);
+}
+
+#[test]
+fn test_explicit_entry_points_integration_with_dependency_graph() {
+    use crate::chunk::ShareUsageConfig;
+    use crate::dependency_graph::DependencyGraph;
+    use swc_core::atoms::Atom;
+    
+    let mut chunk = WebpackChunk::new(ChunkType::WebpackModules, "test source".to_string());
+    
+    // Add test modules
+    chunk.add_module(Atom::from("./src/index.js"), WebpackModule::new(Atom::from("./src/index.js"), "main entry code".to_string()));
+    chunk.add_module(Atom::from("./src/utils.js"), WebpackModule::new(Atom::from("./src/utils.js"), "util code".to_string()));
+    chunk.add_module(Atom::from("./src/helper.js"), WebpackModule::new(Atom::from("./src/helper.js"), "helper code".to_string()));
+    
+    // Configure explicit entry points
+    let config = ShareUsageConfig {
+        entry_module_ids: vec![Atom::from("./src/index.js")],
+    };
+    
+    let entry_points = chunk.extract_explicit_entry_points(&config);
+    
+    // Test that these entry points work with DependencyGraph::get_reachable_from_multiple
+    let mut graph = DependencyGraph::new();
+    for (_module_id, module) in &chunk.modules {
+        graph.add_module(module.clone());
+    }
+    
+    // Add some dependencies
+    graph.add_dependency(&Atom::from("./src/index.js"), &Atom::from("./src/utils.js"));
+    graph.add_dependency(&Atom::from("./src/utils.js"), &Atom::from("./src/helper.js"));
+    
+    let reachable = graph.get_reachable_from_multiple(&entry_points);
+    
+    // Should be able to reach all modules from the explicit entry point
+    assert!(reachable.contains(&Atom::from("./src/index.js")));
+    assert!(reachable.contains(&Atom::from("./src/utils.js")));
+    assert!(reachable.contains(&Atom::from("./src/helper.js")));
 }

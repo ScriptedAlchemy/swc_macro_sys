@@ -2,12 +2,25 @@ use wasm_bindgen::prelude::*;
 
 mod dce;
 pub mod optimize;
+pub mod error;
+pub mod config;
+pub mod cache;
+pub mod convergence;
+pub mod performance;
+pub mod optimize_new;
 
 #[wasm_bindgen]
 pub fn optimize(source: String, config: &str) -> String {
     let config: serde_json::Value =
         serde_json::from_str(config).expect("invalid config: must be a json object");
-    optimize::optimize(source, config)
+    
+    match optimize::optimize(source.clone(), config) {
+        Ok(result) => result,
+        Err(err) => {
+            eprintln!("Optimization error: {}", err);
+            source
+        }
+    }
 }
 
 #[cfg(test)]
@@ -54,7 +67,7 @@ mod tests {
         });
         let original_size = source.len();
         let source_for_debug = source.clone();
-        let result = optimize::optimize(source, config);
+        let result = optimize::optimize(source, config).unwrap();
         
         println!("=== DEBUG INTEGRATION TEST ===");
         println!("Original source ({} bytes):\n{}", original_size, source_for_debug);
@@ -125,7 +138,7 @@ mod tests {
             }
         });
         
-        let result = optimize::optimize(source, config);
+        let result = optimize::optimize(source, config).unwrap();
         
         println!("=== DEBUG MACRO CONDITIONS TEST ===");
         println!("Optimized result:\n{}", result);

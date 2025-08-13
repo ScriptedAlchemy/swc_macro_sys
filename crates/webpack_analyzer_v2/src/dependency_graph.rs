@@ -1,6 +1,5 @@
 use rustc_hash::FxHashMap;
 use std::collections::{HashSet, VecDeque};
-use swc_core::atoms::Atom;
 use crate::module::{ModuleId, WebpackModule};
 
 /// Represents a dependency graph for webpack modules
@@ -113,87 +112,5 @@ impl DependencyGraph {
         }
     }
 
-    /// Simulate removing a module and return what would be impacted
-    pub fn simulate_module_removal(&self, module_to_remove: &ModuleId) -> ModuleRemovalImpact {
-        let mut impact = ModuleRemovalImpact::new(module_to_remove.clone());
-        
-        // Find all modules that depend on this module (would be broken)
-        if let Some(module) = self.modules.get(module_to_remove) {
-            for dependent in &module.dependents {
-                impact.broken_modules.push(dependent.clone());
-            }
-        }
-        
-        // Find all modules that this module depends on (potentially orphaned)
-        if let Some(module) = self.modules.get(module_to_remove) {
-            for dependency in &module.dependencies {
-                // Check if this dependency would become orphaned
-                if let Some(dep_module) = self.modules.get(dependency) {
-                    // Count how many things depend on this dependency (avoid underflow)
-                    let subtract = usize::from(dep_module.dependents.contains(module_to_remove));
-                    let remaining_dependents = dep_module.dependents.len().saturating_sub(subtract);
-                    
-                    if remaining_dependents == 0 {
-                        impact.potentially_orphaned.push(dependency.clone());
-                    }
-                }
-            }
-        }
-        
-        impact
-    }
-
-    /// Simulate removing multiple modules and return cumulative impact
-    pub fn simulate_multiple_module_removal(&self, modules_to_remove: &[ModuleId]) -> ModuleRemovalImpact {
-        let mut cumulative_impact = ModuleRemovalImpact::new(Atom::from("multiple"));
-        
-        for module_id in modules_to_remove {
-            let impact = self.simulate_module_removal(module_id);
-            cumulative_impact.broken_modules.extend(impact.broken_modules);
-            cumulative_impact.potentially_orphaned.extend(impact.potentially_orphaned);
-        }
-        
-        // Remove duplicates
-        cumulative_impact.broken_modules.sort();
-        cumulative_impact.broken_modules.dedup();
-        cumulative_impact.potentially_orphaned.sort();
-        cumulative_impact.potentially_orphaned.dedup();
-        
-        cumulative_impact
-    }
 }
 
-/// Represents the impact of removing a module
-#[derive(Debug, Clone)]
-pub struct ModuleRemovalImpact {
-    /// The module that was removed
-    pub removed_module: ModuleId,
-    /// Modules that would be broken (they depend on the removed module)
-    pub broken_modules: Vec<ModuleId>,
-    /// Modules that would potentially become orphaned (no longer have dependents)
-    pub potentially_orphaned: Vec<ModuleId>,
-}
-
-impl ModuleRemovalImpact {
-    pub fn new(removed_module: ModuleId) -> Self {
-        Self {
-            removed_module,
-            broken_modules: Vec::new(),
-            potentially_orphaned: Vec::new(),
-        }
-    }
-    
-    pub fn print_summary(&self) {
-        println!("Impact of removing '{}':", self.removed_module);
-        println!("  - Broken modules: {}", self.broken_modules.len());
-        for module in &self.broken_modules {
-            let short_name = module.split('/').next_back().unwrap_or(module);
-            println!("    * {short_name}");
-        }
-        println!("  - Potentially orphaned: {}", self.potentially_orphaned.len());
-        for module in &self.potentially_orphaned {
-            let short_name = module.split('/').next_back().unwrap_or(module);
-            println!("    * {short_name}");
-        }
-    }
-}

@@ -55,6 +55,7 @@ fn analyze_jsonp_modules_count(source: &str) -> usize {
         chunk_files: vec!["chunk.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     match analyzer.analyze_chunk(source, characteristics) {
         Ok(chunk) => chunk.module_count(),
@@ -78,6 +79,7 @@ fn analyze_jsonp_chunk(source: &str) -> Option<WebpackChunk> {
         chunk_files: vec!["chunk.js".to_string()],
         is_shared_chunk: false,
         shared_modules: vec![],
+        entry_module_id: None,
     };
     analyzer.analyze_chunk(source, characteristics).ok()
 }
