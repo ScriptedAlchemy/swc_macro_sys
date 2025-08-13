@@ -76,8 +76,8 @@ importers:
         specifier: ^22.0.0
         version: 22.15.0
       swc_macro_wasm:
-        specifier: workspace:*
-        version: link:../../crates/swc_macro_wasm/pkg
+        specifier: file:../../crates/swc_macro_wasm/pkg
+        version: file:crates/swc_macro_wasm/pkg
       vite:
         specifier: ^5.0.0
         version: 5.4.19(@types/node@20.19.7)(less@4.4.0)
@@ -162,8 +162,8 @@ importers:
         specifier: ^4.0.0
         version: 4.0.0(webpack@5.101.0)
       swc_macro_wasm:
-        specifier: workspace:*
-        version: link:../../crates/swc_macro_wasm/pkg
+        specifier: file:../../crates/swc_macro_wasm/pkg
+        version: file:crates/swc_macro_wasm/pkg
       vite:
         specifier: ^5.0.0
         version: 5.4.19(@types/node@20.19.7)(less@4.4.0)
@@ -320,8 +320,8 @@ importers:
         specifier: ^22.0.0
         version: 22.15.0
       swc_macro_wasm:
-        specifier: workspace:*
-        version: link:../../crates/swc_macro_wasm/pkg
+        specifier: file:../../crates/swc_macro_wasm/pkg
+        version: file:crates/swc_macro_wasm/pkg
       vite:
         specifier: ^5.0.0
         version: 5.4.19(@types/node@20.19.7)(less@4.4.0)
@@ -1843,7 +1843,7 @@ packages:
       std-env: 3.9.0
       strip-literal: 2.1.1
       test-exclude: 6.0.0
-      vitest: 1.6.1(@types/node@20.19.7)(@vitest/ui@1.6.1)(jsdom@24.1.3)(less@4.4.0)
+      vitest: 1.6.1(@types/node@20.19.7)(@vitest/ui@1.6.1)(jsdom@24.1.3)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -1890,7 +1890,7 @@ packages:
       pathe: 1.1.2
       picocolors: 1.1.1
       sirv: 2.0.4
-      vitest: 1.6.1(@types/node@20.19.7)(@vitest/ui@1.6.1)(jsdom@24.1.3)(less@4.4.0)
+      vitest: 1.6.1(@types/node@20.19.7)(@vitest/ui@1.6.1)(jsdom@24.1.3)
     dev: true
 
   /@vitest/utils@1.6.1:
@@ -7790,4 +7790,9 @@ packages:
 
   /zod@3.23.8:
     resolution: {integrity: sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g==}
+    dev: true
+
+  file:crates/swc_macro_wasm/pkg:
+    resolution: {directory: crates/swc_macro_wasm/pkg, type: directory}
+    name: swc_macro_wasm
     dev: true
