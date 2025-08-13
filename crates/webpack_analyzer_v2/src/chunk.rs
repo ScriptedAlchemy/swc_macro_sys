@@ -221,6 +221,15 @@ impl ChunkCharacteristics {
         self.is_runtime_chunk || self.has_runtime
     }
 
+    /// Check if this chunk represents a vendor bundle.
+    ///
+    /// A vendor chunk is one that can be loaded on the initial page load,
+    /// but is not itself an entrypoint or runtime chunk. This aligns with
+    /// how build tools typically emit third-party libraries.
+    pub fn is_vendor_chunk(&self) -> bool {
+        self.can_be_initial && !self.is_entrypoint && !self.is_runtime()
+    }
+
     /// Get the chunk file names
     pub fn get_chunk_files(&self) -> &Vec<String> {
         &self.chunk_files

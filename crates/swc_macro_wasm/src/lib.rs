@@ -4,10 +4,8 @@ mod dce;
 pub mod optimize;
 pub mod error;
 pub mod config;
-pub mod cache;
 pub mod convergence;
 pub mod performance;
-pub mod optimize_new;
 
 #[wasm_bindgen]
 pub fn optimize(source: String, config: &str) -> String {

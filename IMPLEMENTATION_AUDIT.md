@@ -37,14 +37,11 @@ The system is now more maintainable, performant, and architecturally sound.
 ### 🚨 **Critical Issues Blocking Functionality**
 
 1. **Compilation Failures**
-   - `ChunkCharacteristics` struct field mismatch in optimize.rs:195 and optimize_new.rs:610
    - Test compilation errors with Result<String> Display trait
    - Missing test fixture files for deep-nested-macros scenarios
 
 2. **Architecture Fragmentation**
-   - optimize_new.rs created but NOT integrated - all new features unused
-   - Dual optimization systems without clear migration path
-   - Legacy optimize.rs still in use despite new architecture
+   - Legacy optimize.rs remains primary path after removal of alternate implementation
 
 3. **Safety Issues**
    - Unsafe code in performance.rs:320-322 with raw pointer dereference
@@ -60,12 +57,10 @@ The system is now more maintainable, performant, and architecturally sound.
 **Current Module Structure:**
 ```
 src/
-├── optimize.rs       ✅ Main tree shaking implementation (948 lines)
-├── optimize_new.rs   🔄 Alternative implementation (not yet integrated)
+├── optimize.rs       ✅ Main tree shaking implementation
 ├── dce.rs           ✅ Dead code elimination
 ├── error.rs         ✅ Comprehensive error handling
-├── config.rs        ✅ Configuration management  
-├── cache.rs         ✅ Performance optimization
+├── config.rs        ✅ Configuration management
 ├── performance.rs   ⚠️ Contains unsafe code
 ├── convergence.rs   ✅ Optimization loop detection
 └── lib.rs           ✅ WASM bindings and public API
@@ -189,7 +184,7 @@ tests/
    - Create/update missing test fixtures
 
 2. **Integrate New Architecture**
-   - Switch from optimize.rs to optimize_new.rs
+   - Consolidate around optimize.rs implementation
    - Verify all features work end-to-end
    - Update lib.rs exports
 
@@ -220,7 +215,7 @@ tests/
 
 ### Critical Risks
 1. **Production Readiness**: Compilation failures prevent any deployment
-2. **Architectural Debt**: Dual optimization systems increase complexity
+2. **Architectural Debt**: Legacy code paths still require cleanup
 3. **Safety Concerns**: Unsafe code could cause memory corruption
 
 ### Mitigation Strategies
@@ -234,7 +229,7 @@ tests/
 
 ### Immediate Actions
 1. **Emergency Fix Release**: Address compilation issues within 24 hours
-2. **Architecture Decision**: Choose optimize.rs OR optimize_new.rs, not both
+2. **Architecture Decision**: Retain optimize.rs as the unified optimizer
 3. **Safety Audit**: Remove all unsafe code before next release
 
 ### Short-term Improvements
