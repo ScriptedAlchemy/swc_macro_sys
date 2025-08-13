@@ -16,6 +16,60 @@
 13. [Risk Assessment](#risk-assessment)
 14. [Crate Architecture Analysis](#crate-architecture-analysis)
 
+## Recent Architectural Changes (August 2025)
+
+### Critical Updates from Latest Refactor
+The tree shaking system has undergone significant architectural changes to improve reliability and maintainability:
+
+#### 1. Consolidated Architecture
+- **Removed**: The separate `webpack_chunk_tree_shaker` crate has been eliminated
+- **Integrated**: All tree shaking logic now lives directly in `swc_macro_wasm/src/optimize.rs`
+- **Simplified**: Reduced inter-crate dependencies and communication overhead
+- **Result**: More maintainable and performant implementation
+
+#### 2. Strict Entry Point Policy
+- **No Inference**: System no longer infers entry points from filename patterns
+- **Explicit Only**: Entry points must be explicitly defined in configuration
+- **Removed Heuristics**: 
+  - No more checking for `/index.js`, `/lodash.js`, or "main" patterns
+  - No fallback to first module or filename-based detection
+- **Behavior**: If no explicit entry points found, tree shaking is skipped entirely
+- **Rationale**: Prevents incorrect assumptions and unexpected module removal
+
+#### 3. Simplified Tree Shaking Algorithm
+```rust
+// New approach: Direct unreachable module computation
+fn compute_unreachable_modules_from_entries(
+    chunk: &WebpackChunk, 
+    entry_points: &[Atom]
+) -> Vec<Atom> {
+    let mut graph = DependencyGraph::new();
+    for (_id, module) in &chunk.modules {
+        graph.add_module(module.clone());
+    }
+    let reachable = graph.get_reachable_from_multiple(entry_points);
+    let all: HashSet<Atom> = graph.modules.keys().cloned().collect();
+    all.difference(&reachable).cloned().collect()
+}
+```
+
+#### 4. In-place AST Mutation Strategy
+- **Approach**: Edit existing AST instead of string reconstruction
+- **Benefits**: Preserves formatting, reduces breakage risk
+- **Supported Patterns**:
+  - `exports.modules = { ... }` (CommonJS async-node)
+  - JSONP `(...).push([[ids], { ...modules... }])` (browser JSONP)
+  - ESM `export const __webpack_modules__ = { ... }` (module format)
+- **NOT Supported**: 
+  - Legacy `var __webpack_modules__ = ({ ... })` pattern
+  - Entry/runtime chunks are out of scope
+
+#### 5. Implications for Implementation
+- **Focus**: Shared chunks and vendor chunks only
+- **Skip**: Entry chunks and runtime chunks
+- **Configuration**: Must provide explicit entry points in share-usage.json
+- **Testing**: Need comprehensive tests for entry point detection
+
 ## Executive Summary
 
 ### Problem Statement
@@ -1394,55 +1448,51 @@ Based on comprehensive crate audit (August 2025), the tree shaking system is par
    - Module federation integration tests
    - Performance benchmarks targeting 35% reduction
 
-## Implementation Roadmap
+## Implementation Roadmap (Updated August 2025)
 
 ### Critical Path Implementation Tasks
 
-#### Task 1: Extend webpack_analyzer_v2 Core
+#### Task 1: Enhance DependencyGraph in webpack_analyzer_v2
 **Files to Modify:**
+- `crates/webpack_analyzer_v2/src/dependency_graph.rs`
 - `crates/webpack_analyzer_v2/src/chunk.rs`
-- `crates/webpack_analyzer_v2/src/analyzer.rs`
 
 **Changes Required:**
 ```rust
-// In chunk.rs - Add macro annotation tracking
-impl WebpackChunk {
-    pub fn extract_macro_annotations(&self) -> Vec<MacroAnnotation> {
-        // Implementation
-    }
-    
-    pub fn apply_tree_shaking(&mut self, config: &ShareUsageConfig) {
-        // Implementation
+// In dependency_graph.rs - Already implemented!
+impl DependencyGraph {
+    // This method is already available and being used
+    pub fn get_reachable_from_multiple(&self, entries: &[Atom]) -> HashSet<Atom> {
+        // Already implemented - computes transitive closure
     }
 }
 
-// In analyzer.rs - Add tree shaking methods
-impl WebpackAnalyzer {
-    pub fn perform_tree_shaking(
-        &self,
-        chunk: WebpackChunk,
-        config: ShareUsageConfig,
-    ) -> Result<OptimizedChunk> {
-        // Implementation
+// In chunk.rs - Add entry point extraction
+impl WebpackChunk {
+    pub fn extract_explicit_entry_points(&self, config: &ShareUsageConfig) -> Vec<Atom> {
+        // Extract ONLY from explicit configuration
+        // NO filename pattern matching
+        // NO heuristics
     }
 }
 ```
 
-#### Task 2: Create Tree Shaking Module
-**New File:** `crates/webpack_analyzer_v2/src/tree_shaker.rs`
+#### Task 2: Complete AST-based Module Removal (Already Partial in optimize.rs)
+**File to Enhance:** `crates/swc_macro_wasm/src/optimize.rs`
 
 ```rust
-use crate::{WebpackChunk, DependencyGraph, ShareUsageConfig};
+// Already implemented WebpackModuleRemover visitor
+// Need to enhance for additional patterns:
 
-pub struct TreeShaker {
-    config: ShareUsageConfig,
-    graph: DependencyGraph,
-    removal_strategy: RemovalStrategy,
-}
-
-impl TreeShaker {
-    pub fn new(config: ShareUsageConfig) -> Self {
-        // Implementation
+impl WebpackModuleRemover {
+    // Add support for AMD define patterns if needed
+    fn visit_mut_define_call(&mut self, call: &mut CallExpr) {
+        // Handle define(['dep1', 'dep2'], function() { ... })
+    }
+    
+    // Add support for SystemJS patterns if needed
+    fn visit_mut_system_register(&mut self, call: &mut CallExpr) {
+        // Handle System.register(['dep1'], function() { ... })
     }
     
     pub fn analyze_chunk(&mut self, chunk: &WebpackChunk) -> TreeShakeAnalysis {
@@ -1455,48 +1505,309 @@ impl TreeShaker {
 }
 ```
 
-#### Task 3: Implement Format-Specific Handlers
-**New Files:**
-- `crates/webpack_analyzer_v2/src/formats/jsonp_handler.rs`
-- `crates/webpack_analyzer_v2/src/formats/commonjs_handler.rs`
-- `crates/webpack_analyzer_v2/src/formats/esm_handler.rs`
+#### Task 3: Enhance Share-Usage Configuration
+**Files to Modify:**
+- `crates/webpack_analyzer_v2/src/config.rs` (if needed)
+- Share-usage.json files in test cases
+
+**Required Updates:**
+```json
+// Ensure all share-usage.json files have explicit entry points
+{
+  "chunk_characteristics": {
+    "entry_module_id": "./src/bootstrap.js", // REQUIRED for tree shaking
+    "used_exports": ["specific", "exports"],
+    "chunk_type": "shared|vendor|remote",
+    // NO inference from filename patterns
+  }
+}
+```
+
+#### Task 4: Complete Integration in optimize.rs
+**File:** `crates/swc_macro_wasm/src/optimize.rs`
+
+**Already Implemented:**
+```rust
+// Tree shaking is already integrated!
+fn perform_webpack_tree_shaking(
+    program: &mut Program,
+    cm: Lrc<SourceMap>,
+    comments: &SingleThreadedComments,
+    config: &serde_json::Value,
+) {
+    // Already using compute_unreachable_modules_from_entries
+    // Already using WebpackModuleRemover visitor
+}
+```
+
+**Still Needed:**
+```rust
+// Add better error handling for missing entry points
+if entry_points.is_empty() {
+    log::warn!("No explicit entry points found in configuration");
+    log::info!("Tree shaking skipped - add entry_module_id to chunk_characteristics");
+    return; // Skip tree shaking
+}
+
+// Add metrics collection
+struct TreeShakeMetrics {
+    modules_before: usize,
+    modules_after: usize,
+    bytes_saved: usize,
+    time_taken: Duration,
+}
+```
+
+#### Task 5: Update Test Cases for Explicit Entry Points
+**Files to Update:**
+- All test cases in `crates/swc_macro_wasm/tests/`
+- All share-usage.json files in `test-cases/`
+
+**Required Changes:**
+```json
+// Update all share-usage.json files to include explicit entry points
+{
+  "chunk_characteristics": {
+    "entry_module_id": "./node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js",
+    // Or for vendor chunks:
+    "entry_module_id": "./src/index.js",
+    // Must be explicit - no patterns or heuristics
+  }
+}
+```
+
+#### Task 6: Add Comprehensive Testing
+**New Test Files:**
+- `crates/swc_macro_wasm/tests/tree_shaking_explicit_entries.rs`
+- `crates/swc_macro_wasm/tests/tree_shaking_skip_no_entries.rs`
 
 ```rust
-// jsonp_handler.rs
-pub struct JsonpHandler;
-
-impl FormatHandler for JsonpHandler {
-    fn parse(&self, source: &str) -> Result<ParsedChunk> {
-        // Parse JSONP push() call structure
-    }
+#[test]
+fn test_tree_shaking_requires_explicit_entries() {
+    // Test that tree shaking is skipped without explicit entries
+    let config_no_entry = json!({
+        "chunk_characteristics": {
+            "chunk_type": "vendor"
+            // No entry_module_id
+        }
+    });
     
-    fn reconstruct(&self, chunk: ParsedChunk, kept_modules: &HashSet<ModuleId>) -> Result<String> {
-        // Rebuild JSONP format
+    let result = optimize(chunk_source, &config_no_entry.to_string());
+    assert!(result.contains("// Tree shaking skipped"));
+}
+
+#[test]
+fn test_tree_shaking_with_explicit_entry() {
+    // Test that tree shaking works with explicit entry
+    let config_with_entry = json!({
+        "chunk_characteristics": {
+            "chunk_type": "vendor",
+            "entry_module_id": "./node_modules/lodash-es/lodash.js"
+        }
+    });
+    
+    let result = optimize(chunk_source, &config_with_entry.to_string());
+    // Should remove unused modules
+    assert!(!result.contains("./node_modules/lodash-es/isBuffer.js"));
+}
+```
+
+### Updated Architecture Summary
+
+The tree shaking system now follows a simplified, more reliable architecture:
+
+1. **Single Crate Integration**: All tree shaking logic lives in `swc_macro_wasm`, no separate tree shaker crate
+2. **Explicit Configuration**: Entry points must be explicitly defined - no inference or heuristics
+3. **AST-based Mutation**: Direct AST manipulation instead of string reconstruction
+4. **Focused Scope**: Only handles shared/vendor chunks, not entry/runtime chunks
+5. **Reuse Existing Tools**: Leverages existing `DependencyGraph::get_reachable_from_multiple()`
+
+This approach is:
+- More maintainable (less code, fewer dependencies)
+- More predictable (no surprising inference behavior)
+- More reliable (AST preservation, explicit configuration)
+- Easier to test (clear contract about entry points)
+
+## Critical Refactoring Requirements (August 2025 Audit)
+
+### webpack_analyzer_v2 Crate Refactoring
+
+#### **Massive Code Duplication (HIGH PRIORITY)**
+The analyzer.rs file contains ~400 lines of duplicated code across three visitor implementations:
+
+**Must Remove:**
+```rust
+// REMOVE these duplicate implementations:
+- CommonJSVisitor::extract_webpack_requires_from_expr (lines 334-383)
+- JSONPVisitor::extract_webpack_requires_from_expr (lines 515-605)
+- WebpackModulesVisitor::extract_webpack_requires_from_expr (lines 763-815)
+
+// REPLACE WITH single shared implementation:
+struct SharedExtractionMethods;
+impl SharedExtractionMethods {
+    fn extract_webpack_requires_from_expr(&self, expr: &Expr, source: &mut String) {
+        // Single implementation for all formats
     }
 }
 ```
 
-#### Task 4: Integrate Macro Processing
-**Files to Modify:**
-- `crates/swc_macro_wasm/src/optimize.rs`
-
-**Changes Required:**
+#### **Remove Unused Tree Shaking Infrastructure**
 ```rust
-// In optimize.rs - Add webpack_analyzer_v2 integration
-use webpack_analyzer_v2::{TreeShaker, ShareUsageConfig};
+// REMOVE from dependency_graph.rs (lines 117-199):
+- simulate_module_removal()
+- simulate_multiple_module_removal()
+- ModuleRemovalImpact struct
 
-pub fn perform_advanced_tree_shaking(
-    program: &mut Program,
-    config: serde_json::Value,
-) -> Result<()> {
-    let share_usage = parse_share_usage_config(&config)?;
-    let mut tree_shaker = TreeShaker::new(share_usage);
+// These are never used since tree shaking happens in optimize.rs
+```
+
+#### **Simplify Unknown Chunk Handling**
+```rust
+// REMOVE inefficient fallback (lines 106-113):
+ChunkType::Unknown => {
+    // Don't try all formats sequentially
+    Err("Unknown chunk type - explicit characteristics required")
+}
+```
+
+### optimize.rs Code Quality Improvements
+
+#### **Critical Safety Issues (MUST FIX)**
+```rust
+// Line 80 - REMOVE unsafe code:
+unsafe { String::from_utf8_unchecked(buf) }
+// REPLACE WITH:
+String::from_utf8(buf).unwrap_or_else(|e| {
+    log::error!("Invalid UTF-8 in emitted code: {}", e);
+    String::new()
+})
+```
+
+#### **Performance Bottlenecks to Fix**
+```rust
+// Extract AST emission to avoid duplication:
+fn emit_ast_to_string(
+    program: &Program,
+    cm: &Lrc<SourceMap>,
+    comments: Option<&SingleThreadedComments>
+) -> Result<String> {
+    // Centralized implementation
+}
+
+// Move regex compilation to lazy statics:
+use once_cell::sync::Lazy;
+static MODULE_PATTERN_STR: Lazy<Regex> = Lazy::new(|| 
+    Regex::new(r#""([^"]+)"\s*:\s*"#).unwrap()
+);
+```
+
+#### **Configuration Management**
+```rust
+// Replace hardcoded values with config struct:
+#[derive(Deserialize, Default)]
+pub struct OptimizationConfig {
+    #[serde(default = "default_max_iterations")]
+    pub max_iterations: usize,  // Default: 5
+    #[serde(default)]
+    pub enable_debug_output: bool,
+    #[serde(default)]
+    pub preserve_formatting: bool,
+}
+
+fn default_max_iterations() -> usize { 5 }
+```
+
+#### **Function Decomposition Required**
+- `perform_webpack_tree_shaking` (254 lines) → Split into 5-6 focused functions
+- `perform_simple_orphan_removal` (139 lines) → Split into 3-4 functions
+- Extract entry point resolution logic
+- Separate configuration parsing from optimization
+
+### Performance Optimization Strategy
+
+#### **Iterative Loop Improvements**
+```rust
+// Track changes to detect convergence:
+struct IterationState {
+    modules_removed: usize,
+    ast_hash: u64,
+    time_elapsed: Duration,
+}
+
+// Early termination conditions:
+if iteration_state.modules_removed == 0 {
+    break; // No changes, converged
+}
+if iteration_state.ast_hash == previous_hash {
+    break; // AST unchanged, oscillation detected
+}
+```
+
+#### **Memory Optimization**
+- Cache AST emission results between iterations
+- Reuse collections instead of reallocating
+- Use string slices where ownership isn't needed
+- Avoid unnecessary cloning of large strings
+
+### Error Handling Improvements
+
+#### **Proper Error Types**
+```rust
+#[derive(Debug, thiserror::Error)]
+pub enum OptimizationError {
+    #[error("Parse error: {0}")]
+    ParseError(#[from] swc_ecma_parser::error::Error),
     
-    // Analyze and optimize
-    let analysis = tree_shaker.analyze_program(program);
-    tree_shaker.apply_optimizations(program, analysis)?;
+    #[error("Analysis error: {0}")]
+    AnalysisError(String),
     
-    Ok(())
+    #[error("Configuration error: {0}")]
+    ConfigError(#[from] serde_json::Error),
+    
+    #[error("Emit error: {0}")]
+    EmitError(#[from] std::io::Error),
+}
+```
+
+#### **Replace Panics with Results**
+```rust
+// Instead of:
+let ast = parser.parse_program().unwrap();
+
+// Use:
+let ast = parser.parse_program()
+    .map_err(|e| OptimizationError::ParseError(e))?;
+```
+
+### Testing Requirements Updates
+
+#### **Performance Benchmarks**
+```rust
+#[bench]
+fn bench_tree_shaking_large_vendor_chunk() {
+    // Test with 200+ module vendor chunk
+    // Target: <2 seconds for optimization
+}
+
+#[bench]
+fn bench_iterative_convergence() {
+    // Test convergence detection
+    // Target: <5 iterations for typical chunks
+}
+```
+
+#### **Edge Case Tests**
+```rust
+#[test]
+fn test_unsafe_string_handling() {
+    // Test with invalid UTF-8 sequences
+    // Must not panic, should handle gracefully
+}
+
+#[test]
+fn test_oscillation_detection() {
+    // Test case that would oscillate
+    // Must detect and terminate
 }
 ```
 
@@ -2086,7 +2397,104 @@ The `__webpack_require__("./validator")` is removed.
 
 Result: `./src/utils/validator.js` module successfully removed, reducing bundle size.
 
-### Critical Edge Cases and Debugging
+### Implementation Priority Matrix
+
+### Phase 1: Critical Refactoring (Week 1)
+**Must complete before new features:**
+
+1. **Fix Safety Issues in optimize.rs**
+   - Remove unsafe String conversion (Line 80)
+   - Replace all .unwrap() with proper error handling
+   - Add Result types throughout
+
+2. **Eliminate Code Duplication in analyzer.rs**
+   - Consolidate 400+ lines of duplicate extraction methods
+   - Create SharedExtractionMethods struct
+   - Remove redundant visitor implementations
+
+3. **Remove Dead Code**
+   - Delete unused simulation methods from dependency_graph.rs
+   - Remove ModuleRemovalImpact struct
+   - Clean up TODO comments and incomplete implementations
+
+### Phase 2: Performance Optimization (Week 2)
+**Improve efficiency:**
+
+1. **Optimize Iterative Loop**
+   - Add convergence detection with AST hashing
+   - Implement oscillation detection
+   - Cache AST emission results
+
+2. **Fix Regex Compilation**
+   - Move all regex patterns to lazy_static
+   - Compile once, reuse everywhere
+   - Estimated 15-20% performance improvement
+
+3. **Memory Management**
+   - Eliminate unnecessary string cloning
+   - Reuse collections between iterations
+   - Use string slices where possible
+
+### Phase 3: Architecture Improvements (Week 3)
+**Clean architecture:**
+
+1. **Function Decomposition**
+   - Break down 250+ line functions
+   - Extract entry point resolution
+   - Separate concerns properly
+
+2. **Configuration Management**
+   - Create OptimizationConfig struct
+   - Remove all hardcoded values
+   - Add runtime configuration options
+
+3. **Error Handling**
+   - Implement proper error types
+   - Add context to all errors
+   - Enable debugging with detailed logs
+
+### Phase 4: Testing & Validation (Week 4)
+**Ensure reliability:**
+
+1. **Update Test Cases**
+   - Add explicit entry points to all share-usage.json files
+   - Test edge cases (invalid UTF-8, oscillation)
+   - Add performance benchmarks
+
+2. **Integration Testing**
+   - Test with real-world webpack bundles
+   - Validate module federation scenarios
+   - Ensure no regressions
+
+## Summary of Design Changes
+
+### What We're Building
+1. **Simplified tree shaking** integrated directly in optimize.rs
+2. **Pure analysis library** in webpack_analyzer_v2 (no tree shaking)
+3. **Explicit configuration** with no filename-based inference
+4. **AST-based mutation** for safe module removal
+
+### What We're NOT Building
+1. ❌ Separate tree shaker crate
+2. ❌ Filename pattern-based entry detection
+3. ❌ String-based chunk reconstruction
+4. ❌ Support for entry/runtime chunks
+5. ❌ Complex simulation methods
+
+### Key Design Principles
+1. **Explicit > Implicit**: Always require explicit configuration
+2. **Safety > Performance**: No unsafe code, proper error handling
+3. **Simplicity > Features**: Focus on core functionality
+4. **Analysis ≠ Mutation**: Clear separation of concerns
+
+### Expected Outcomes
+- **Code reduction**: ~600 lines removed from analyzer crate
+- **Performance**: 15-20% improvement from optimizations
+- **Reliability**: Zero panics, graceful error handling
+- **Maintainability**: Clear, focused functions under 50 lines
+- **Testing**: 100% coverage of critical paths
+
+## Critical Edge Cases and Debugging
 
 #### Edge Case 1: Circular Dependencies in Vendor Chunks
 ```javascript
