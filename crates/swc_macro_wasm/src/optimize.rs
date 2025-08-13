@@ -61,7 +61,6 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
 
     let macros = {
         let parser = MacroParser::new("common");
-
         parser.parse(&comments)
     };
 
@@ -78,9 +77,11 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
 
             perform_dce(&mut program, comments.clone(), unresolved_mark);
 
-            // Tree shake webpack modules after removing unused imports
-            let mut tree_shaker = TreeShaker::new(config.clone());
-            tree_shaker.optimize(&mut program, cm.clone(), &comments);
+            // Tree shake webpack modules - DISABLED: causes panic in WASM builds
+            // The TreeShaker/webpack_analyzer_v2 has WASM compatibility issues
+            // TODO: Fix WASM compatibility in webpack_analyzer_v2
+            // let mut tree_shaker = TreeShaker::new(config.clone());
+            // tree_shaker.optimize(&mut program, cm.clone(), &comments);
 
             program.mutate(fixer(Some(&comments)));
 

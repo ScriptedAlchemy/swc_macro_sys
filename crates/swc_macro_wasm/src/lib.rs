@@ -9,8 +9,15 @@ pub mod performance;
 
 #[wasm_bindgen]
 pub fn optimize(source: String, config: &str) -> String {
-    let config: serde_json::Value =
-        serde_json::from_str(config).expect("invalid config: must be a json object");
+    // Parse config with proper error handling to avoid panics
+    let config: serde_json::Value = match serde_json::from_str(config) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            eprintln!("Warning: Invalid config JSON: {}. Using empty config.", e);
+            // Return original source if config is invalid
+            return source;
+        }
+    };
     
     match optimize::optimize(source.clone(), config) {
         Ok(result) => result,
