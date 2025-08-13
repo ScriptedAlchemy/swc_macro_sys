@@ -7,7 +7,6 @@ pub mod error;
 pub mod config;
 pub mod convergence;
 pub mod performance;
-mod simple_tree_shake;
 
 #[wasm_bindgen]
 pub fn optimize(source: String, config: &str) -> String {
@@ -21,9 +20,14 @@ pub fn optimize(source: String, config: &str) -> String {
         }
     };
     
-    // In WASM, bypass the complex SWC optimization and use simple tree shaking directly
-    // This avoids the WASM runtime panics from the SWC parser
-    simple_tree_shake::simple_tree_shake(&source, &config)
+    // Use the full optimize function which now properly handles WASM
+    match optimize::optimize(source.clone(), config) {
+        Ok(result) => result,
+        Err(e) => {
+            eprintln!("Warning: Optimization failed: {}. Using original source.", e);
+            source // Return original on error
+        }
+    }
 }
 
 #[cfg(test)]

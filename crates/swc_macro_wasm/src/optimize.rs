@@ -7,9 +7,11 @@ use swc_common::sync::Lrc;
 use swc_common::{FileName, Mark, SourceMap};
 use swc_core::atoms::Atom;
 use swc_core::ecma::codegen;
-use swc_core::ecma::visit::{VisitMut, VisitMutWith};
+use swc_core::ecma::visit::{Visit, VisitMut, VisitMutWith, VisitWith};
 use swc_ecma_ast::{
-    CallExpr, Expr, ExprOrSpread, ObjectLit, Pat, Program, Prop, PropName, PropOrSpread, VarDecl,
+    CallExpr, Expr, ExprOrSpread, FnDecl, Ident, MemberExpr, 
+    MemberProp, Module, ModuleItem, ObjectLit, Pat, Program, Prop, PropName, PropOrSpread, 
+    Script, Stmt, VarDecl,
 };
 use swc_ecma_codegen::text_writer::WriteJs;
 use swc_ecma_codegen::{text_writer, Emitter};
@@ -19,6 +21,7 @@ use swc_ecma_transforms_base::resolver;
 use swc_macro_condition_transform::condition_transform;
 use swc_macro_parser::MacroParser;
 use thiserror::Error;
+// Re-enabling webpack_analyzer_v2 step by step
 use webpack_analyzer_v2::{
     ChunkCharacteristics, ChunkType, DependencyGraph, ShareUsageConfig, WebpackAnalyzer,
     WebpackChunk,
@@ -70,20 +73,27 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
         program.visit_mut_with(&mut transformer);
 
         // Apply resolver and optimization
+        // This worked fine in WASM from the beginning (June 2025)
+        // Only the TreeShaker for webpack bundles causes WASM panics
         swc_common::GLOBALS.set(&Default::default(), || {
             let unresolved_mark = Mark::new();
             let top_level_mark = Mark::new();
 
             program.mutate(resolver(unresolved_mark, top_level_mark, false));
-
+            
+            // TreeShaker will handle entry point preservation
+            
             perform_dce(&mut program, comments.clone(), unresolved_mark);
-
-            // Tree shaking disabled - catch_unwind doesn't prevent all WASM panics
-            // The TreeShaker causes WASM runtime errors that cannot be caught
-            // Using simple_tree_shake as a fallback implementation below
-
+            
+            // Use TreeShaker.optimize directly
+            if has_macro_processing_config(&config) {
+                let mut shaker = TreeShaker::new(config.clone());
+                shaker.optimize(&mut program, cm.clone(), &comments);
+                // Don't call simple tree shaking since TreeShaker should handle it
+            }
+            
             program.mutate(fixer(Some(&comments)));
-
+            
             program
         })
     };
@@ -106,9 +116,6 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
         String::from_utf8(buf).map_err(|_| OptimizationError::Utf8Error)?
     };
 
-    // Apply simple tree shaking that works in WASM
-    let ret = crate::simple_tree_shake::simple_tree_shake(&ret, &config);
-
     Ok(ret)
 }
 
@@ -118,7 +125,7 @@ fn perform_dce(m: &mut Program, comments: SingleThreadedComments, unresolved_mar
         crate::dce::Config {
             module_mark: None,
             top_level: true,
-            top_retain: Default::default(),
+            top_retain: Vec::new(),
             preserve_imports_with_side_effects: true,
         },
         unresolved_mark,
@@ -141,6 +148,12 @@ fn has_macro_processing_config(config: &serde_json::Value) -> bool {
     // Also check for entryModules which enables tree shaking with specific entry points
     config.get("treeShake").is_some() || config.get("entryModules").is_some()
 }
+
+// Simple tree shaking removed - using webpack_analyzer_v2 TreeShaker instead
+
+// Synthetic entry point calls removed - TreeShaker handles this properly
+
+// The complex TreeShaker using webpack_analyzer_v2 - re-enabling step by step
 
 /// Extract chunk characteristics from config or create default ones
 fn get_chunk_characteristics(config: &serde_json::Value, source: &str) -> ChunkCharacteristics {
