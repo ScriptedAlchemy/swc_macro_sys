@@ -79,13 +79,12 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
             perform_dce(&mut program, comments.clone(), unresolved_mark);
 
             // Run tree shaker but guard against panics from the analyzer in WASM builds
-            if has_macro_processing_config(&config) {
-                let mut tree_shaker = TreeShaker::new(config.clone());
-                if let Err(err) = catch_unwind(AssertUnwindSafe(|| {
-                    tree_shaker.optimize(&mut program, cm.clone(), &comments);
-                })) {
-                    tracing::warn!("Tree shaking skipped due to panic: {:?}", err);
-                }
+            // Always attempt tree shaking with panic protection
+            let mut tree_shaker = TreeShaker::new(config.clone());
+            if let Err(err) = catch_unwind(AssertUnwindSafe(|| {
+                tree_shaker.optimize(&mut program, cm.clone(), &comments);
+            })) {
+                tracing::warn!("Tree shaking skipped due to panic: {:?}", err);
             }
 
             program.mutate(fixer(Some(&comments)));
