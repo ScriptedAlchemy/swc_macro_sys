@@ -13,8 +13,7 @@ use swc_ecma_transforms_base::fixer::fixer;
 use swc_ecma_transforms_base::resolver;
 use swc_macro_condition_transform::condition_transform;
 use swc_macro_parser::MacroParser;
-use webpack_analyzer_v2::{WebpackAnalyzer, ChunkType, ChunkCharacteristics};
-use webpack_chunk_tree_shaker::WebpackTreeShaker;
+use webpack_analyzer_v2::{WebpackAnalyzer, ChunkType, ChunkCharacteristics, DependencyGraph, WebpackChunk};
 use rustc_hash::FxHashSet;
 use regex::Regex;
 
@@ -175,7 +174,6 @@ fn get_chunk_characteristics(config: &serde_json::Value, source: &str) -> ChunkC
 /// Performs iterative webpack module tree shaking after DCE
 fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comments: &SingleThreadedComments, config: &serde_json::Value) {
     let analyzer = WebpackAnalyzer::new();
-    let shaker = WebpackTreeShaker::new();
     
     let mut total_removed = 0;
     let max_iterations = 5; // Prevent infinite loops
@@ -311,46 +309,13 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                                     }
                                 }
 
-                                // Also ensure the library aggregator (entry) module is preserved
-                                // Typical patterns: .../<pkg>/index.js, .../<pkg>/<pkg>.js, or .../lodash.js
-                                for module_id in chunk.modules.keys() {
-                                    let module_str = module_id.as_str();
-                                    if module_str.contains(package_name) {
-                                        let is_index = module_str.ends_with("/index.js");
-                                        let is_pkg_named = module_str.ends_with(&format!("/{pkg}.js", pkg = package_name));
-                                        let is_common_aggregator = module_str.ends_with("/lodash.js") || module_str.ends_with("lodash.js");
-                                        if is_index || is_pkg_named || is_common_aggregator {
-                                            if !entry_points.contains(module_id) {
-                                                entry_points.push(module_id.clone());
-                                            }
-                                        }
-                                    }
-                                }
+                                // Do not infer entries by filename patterns. Only explicit config is allowed.
                             }
                         }
                     }
                 }
                 
-                // If no explicit entry modules are found in the chunk, try to find main-like modules
-                if entry_points.is_empty() {
-                    // Look for modules that match common entry patterns
-                    for module_id in chunk.modules.keys() {
-                        let module_str = module_id.as_str();
-                        if module_str.contains("main") || 
-                           module_str.ends_with("index.js") || 
-                           module_str.ends_with("lodash.js") ||  // Common library entry point
-                           module_str == "0" {
-                            entry_points.push(module_id.clone());
-                        }
-                    }
-                    
-                    // If still no entry points, use the first module as entry point
-                    if entry_points.is_empty() {
-                        if let Some(first_module) = chunk.modules.keys().next() {
-                            entry_points.push(first_module.clone());
-                        }
-                    }
-                }
+                // If no explicit entry modules are found, do not infer via filename/position.
                 
                 if entry_points.is_empty() {
                     // Skip tree shaking but continue with other optimizations
@@ -365,15 +330,7 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
                     } else {
                         // Proceed with tree shaking on subsequent iterations
                         
-                        // Perform tree shaking from the specified entry points
-                        match shaker.shake_tree(&chunk, &entry_points) {
-                            Ok(result) => {
-                                result.removed_modules
-                            }
-                            Err(_e) => {
-                                Vec::new()
-                            }
-                        }
+                        compute_unreachable_modules_from_entries(&chunk, &entry_points)
                     }
                 }
             } else {
@@ -415,19 +372,11 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
             }
 
             // Fallback to all modules if no explicit entries are found
-            let entry_module_refs: Vec<&str> = if entry_points.is_empty() {
-                chunk.modules.keys().map(|s| s.as_str()).collect()
+            if entry_points.is_empty() {
+                // No clear entry; keep everything in standard bundles
+                Vec::new()
             } else {
-                entry_points.iter().map(|s| s.as_str()).collect()
-            };
-
-            match shaker.shake_tree(&chunk, &entry_module_refs) {
-                Ok(result) => {
-                    result.removed_modules
-                }
-                Err(_e) => {
-                    Vec::new()
-                }
+                compute_unreachable_modules_from_entries(&chunk, &entry_points)
             }
         };
         
@@ -477,6 +426,22 @@ fn perform_webpack_tree_shaking(program: &mut Program, cm: Lrc<SourceMap>, comme
     if total_removed > 0 {
         println!("Tree shaking: Total removed {} modules across all iterations", total_removed);
     }
+}
+
+/// Compute unreachable modules using a simple reachability analysis from the given entry modules
+fn compute_unreachable_modules_from_entries(chunk: &WebpackChunk, entry_points: &[Atom]) -> Vec<Atom> {
+    if entry_points.is_empty() {
+        return Vec::new();
+    }
+
+    let mut graph = DependencyGraph::new();
+    for (_id, module) in &chunk.modules {
+        graph.add_module(module.clone());
+    }
+
+    let reachable = graph.get_reachable_from_multiple(entry_points);
+    let all: std::collections::HashSet<Atom> = graph.modules.keys().cloned().collect();
+    all.difference(&reachable).cloned().collect()
 }
 
 /// AST visitor that removes specified webpack modules from __webpack_modules__ objects

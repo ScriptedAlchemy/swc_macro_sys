@@ -740,7 +740,7 @@ struct SharedModuleMetadata {
 - 🚧 **Tree shaking integration** - In development
 - 🚧 **Macro annotation processing** - Partially implemented
 - ⏳ **Multi-pass optimization** - Planned
-- ⏳ **ESM support** - Planned
+- ✅ **ESM support** - Complete for split chunks (`export const __webpack_ids__` / `export const __webpack_modules__`)
 
 ### Planned Improvements
 

@@ -229,22 +229,6 @@ if (true) {
 - Granular module separation (one file per module)
 - Extensive dependency graphs
 
-#### Shared Modules (Module Federation)
-```javascript
-__webpack_require__.initializeSharingData = { 
-  scopeToSharingDataMapping: { 
-    "default": [{
-      name: "api-lib", 
-      version: "0", 
-      factory: () => (__webpack_require__.e("shared_api_js").then(() => (() => (__webpack_require__("./shared/api.js"))))), 
-      eager: 0, 
-      singleton: 1, 
-      requiredVersion: "*" 
-    }]
-  }
-};
-```
-
 **Characteristics**:
 - Designed for cross-application sharing
 - Version management included
@@ -598,101 +582,90 @@ fn cascade_removal(
 
 ### Chunk Reconstruction Implementation
 
-#### JSONP Reconstruction
+#### In-place AST Mutation (Preferred and Implemented)
+Rather than rebuilding chunks from strings, we edit the existing AST to remove unused module entries. This preserves formatting and reduces breakage risk.
+
+Targets for removal (supported formats only):
+- `exports.modules = { ... }` (CommonJS async-node and similar)
+- JSONP `(...).push([[ids], { ...modules... }, runtime?])` (browser JSONP)
+- ESM `export const __webpack_modules__ = { ... }` (module format)
+
+Not supported: legacy `var __webpack_modules__ = ({ ... })` entry-chunk pattern (we do not treat runtime/entry chunks).
+
 ```rust
-fn reconstruct_jsonp_chunk(
-    original: &str,
-    modules_to_keep: &HashSet<ModuleId>,
-    config: &ShareUsageConfig,
-) -> Result<String> {
-    // Parse the JSONP structure
-    let ast = parse_javascript(original)?;
-    
-    // Find the push call
-    let push_call = find_jsonp_push_call(&ast)?;
-    
-    // Extract modules object
-    let modules = extract_modules_from_push(&push_call)?;
-    
-    // Filter modules based on removal list
-    let filtered_modules = modules
-        .into_iter()
-        .filter(|(id, _)| modules_to_keep.contains(id))
-        .map(|(id, module)| {
-            // Apply macro conditions to module content
-            let processed = apply_macro_conditions(&module.content, config);
-            (id, processed)
-        })
-        .collect();
-    
-    // Rebuild the chunk
-    let mut output = String::new();
-    output.push_str("(self[\"webpackChunk");
-    output.push_str(&push_call.app_name);
-    output.push_str("\"] = self[\"webpackChunk");
-    output.push_str(&push_call.app_name);
-    output.push_str("\"] || []).push([");
-    
-    // Add chunk name
-    output.push_str(&format!("[\"{}\"],", push_call.chunk_name));
-    
-    // Add filtered modules
-    output.push_str("{\n");
-    for (id, content) in filtered_modules {
-        output.push_str(&format!("\"{}\": {},\n", id, content));
+use swc_ecma_ast::{Expr, ObjectLit, PropOrSpread, Prop, PropName, CallExpr, MemberProp};
+use swc_ecma_visit::{VisitMut, VisitMutWith};
+use rustc_hash::FxHashSet;
+
+struct WebpackModuleRemover { modules_to_remove: FxHashSet<String> }
+
+impl WebpackModuleRemover {
+    fn should_remove(&self, prop: &PropOrSpread) -> bool {
+        if let PropOrSpread::Prop(prop) = prop {
+            if let Prop::KeyValue(kv) = prop.as_ref() {
+                let id = match &kv.key {
+                    PropName::Num(n) => n.value.to_string(),
+                    PropName::Str(s) => s.value.to_string(),
+                    PropName::Ident(i) => i.sym.to_string(),
+                    _ => return false,
+                };
+                return self.modules_to_remove.contains(&id);
+            }
+        }
+        false
     }
-    output.push_str("}");
-    
-    // Add runtime if present
-    if let Some(runtime) = push_call.runtime {
-        output.push_str(&format!(",{}", runtime));
+    fn strip_from_object(&self, obj: &mut ObjectLit) { obj.props.retain(|p| !self.should_remove(p)); }
+    fn strip_from_expr(&self, expr: &mut Expr) {
+        match expr {
+            Expr::Object(obj) => self.strip_from_object(obj),
+            Expr::Paren(paren) => if let Expr::Object(obj) = paren.expr.as_mut() { self.strip_from_object(obj) },
+            _ => {}
+        }
     }
-    
-    output.push_str("]);");
-    
-    Ok(output)
+}
+
+impl VisitMut for WebpackModuleRemover {
+    fn visit_mut_assign_expr(&mut self, n: &mut swc_ecma_ast::AssignExpr) {
+        n.visit_mut_children_with(self);
+        use swc_ecma_ast::{AssignTarget, SimpleAssignTarget};
+        match &n.left {
+            // Only support exports.modules = { ... }
+            AssignTarget::Simple(SimpleAssignTarget::Member(member)) => {
+                if let MemberProp::Ident(p) = &member.prop {
+                    if p.sym == "modules" {
+                        if let Expr::Ident(obj) = member.obj.as_ref() {
+                            if obj.sym == "exports" { self.strip_from_expr(&mut n.right); }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    fn visit_mut_call_expr(&mut self, n: &mut CallExpr) {
+        n.visit_mut_children_with(self);
+        if let swc_ecma_ast::Callee::Expr(callee) = &n.callee {
+            if let Expr::Member(member) = callee.as_ref() {
+                if let MemberProp::Ident(p) = &member.prop {
+                    if p.sym == "push" {
+                        if let Some(arg0) = n.args.get_mut(0) {
+                            if let Expr::Array(arr) = arg0.expr.as_mut() {
+                                if let Some(Some(mods)) = arr.elems.get_mut(1) {
+                                    if let Expr::Object(obj) = mods.expr.as_mut() {
+                                        self.strip_from_object(obj);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 ```
 
-#### CommonJS Reconstruction
-```rust
-fn reconstruct_commonjs_chunk(
-    original: &str,
-    modules_to_keep: &HashSet<ModuleId>,
-    config: &ShareUsageConfig,
-) -> Result<String> {
-    let ast = parse_javascript(original)?;
-    
-    // Extract exports.ids and exports.modules
-    let chunk_ids = extract_chunk_ids(&ast)?;
-    let modules = extract_commonjs_modules(&ast)?;
-    
-    // Filter modules
-    let filtered_modules = modules
-        .into_iter()
-        .filter(|(id, _)| modules_to_keep.contains(id))
-        .map(|(id, module)| {
-            let processed = process_commonjs_module(&module, config);
-            (id, processed)
-        })
-        .collect();
-    
-    // Rebuild
-    let mut output = String::new();
-    output.push_str("\"use strict\";\n");
-    output.push_str(&format!("exports.ids = {};\n", 
-        serde_json::to_string(&chunk_ids)?));
-    output.push_str("exports.modules = {\n");
-    
-    for (id, content) in filtered_modules {
-        output.push_str(&format!("\"{}\": {},\n", id, content));
-    }
-    
-    output.push_str("};\n");
-    
-    Ok(output)
-}
-```
+Fallback: If AST parsing fails, a conservative regex-based remover operates on emitted code, then reparses it into an AST for subsequent passes.
 
 ### Module Federation Handling
 
@@ -1052,7 +1025,7 @@ sequenceDiagram
 fn identify_entry_modules(characteristics: &ChunkCharacteristics) -> Vec<ModuleId> {
     let mut entry_modules = Vec::new();
     
-    // Primary entry from characteristics
+    // Primary entry must come from explicit characteristics only
     entry_modules.push(ModuleId::from(&characteristics.entry_module_id));
     
     // Shared modules in module federation
@@ -1065,12 +1038,9 @@ fn identify_entry_modules(characteristics: &ChunkCharacteristics) -> Vec<ModuleI
         entry_modules.extend(find_runtime_modules(&chunk));
     }
     
-    // Entry point modules
-    if characteristics.is_entrypoint {
-        if let Some(entry_name) = &characteristics.entry_name {
-            entry_modules.push(ModuleId::from(entry_name));
-        }
-    }
+    // Never infer entries via filename or pattern heuristics.
+    // Do not use suffixes like "/index.js", "lodash.js", or names like "main".
+    // Only use explicit metadata/config.
     
     entry_modules
 }
@@ -1723,10 +1693,9 @@ pub fn optimize(source: String, config: &str) -> String {
    - Import/export handling
    - Tree shaking for ESM
 
-3. **WebpackModules format**
-   - Entry chunk handling
-   - Runtime preservation
-   - Bootstrap code handling
+3. [Removed] WebpackModules format (entry/runtime)
+   - Not supported by this tree shakers' shared-chunk scope
+   - We do not operate on entry/runtime chunks or `var __webpack_modules__`
 
 ### Phase 4: Optimization & Testing (Week 7-8)
 1. **Performance optimization**

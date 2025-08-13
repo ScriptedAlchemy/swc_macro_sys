@@ -22,7 +22,6 @@ serde_json = { workspace = true }
 swc_macro_condition_transform = { workspace = true }
 swc_macro_parser = { workspace = true }
 webpack_analyzer_v2 = { workspace = true }
-webpack_chunk_tree_shaker = { workspace = true }
 indexmap = "2.9.0"
 petgraph = "0.8.2"
 swc_atoms = "5.0.0"
