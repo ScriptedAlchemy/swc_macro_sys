@@ -9,6 +9,7 @@
     "build:wasm": "cd crates/swc_macro_wasm && wasm-pack build --release",
     "build-wasm": "pnpm build:wasm",
     "test": "run-s test:rust test:js",
+    "test:ci": "cargo test --workspace && pnpm -r test",
     "test:rust": "cargo test --workspace",
     "test:js": "pnpm -r test",
     "test:all": "run-s test:rust test:js:all",
