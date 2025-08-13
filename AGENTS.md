@@ -241,11 +241,24 @@ pnpm -C examples/module-federation-example clean
 
 ## CI-Specific Commands
 
+### Build Order for CI
+
+**IMPORTANT**: The WASM package must be built before examples can use it!
+
 ```bash
-# Install dependencies without scripts
+# 1. Install dependencies without scripts
 pnpm install --frozen-lockfile --prefer-offline
 
-# Build for CI
+# 2. Build Rust crates first (required for WASM)
+cargo build --workspace --release
+
+# 3. Build WASM package (examples depend on this)
+cd crates/swc_macro_wasm && wasm-pack build --release && cd ../..
+
+# 4. Now examples can find the WASM package
+pnpm build:js
+
+# Complete build command for CI
 pnpm build
 
 # Test for CI (doesn't require npm-run-all)
@@ -255,6 +268,15 @@ pnpm test:ci
 chmod +x ci-test.sh
 ./ci-test.sh
 ```
+
+### Package Dependency Note
+
+Examples reference the WASM package using file protocol:
+```json
+"swc_macro_wasm": "file:../../crates/swc_macro_wasm/pkg"
+```
+
+This requires the `pkg` directory to exist (created by `wasm-pack build`).
 
 ## Troubleshooting Commands
 
