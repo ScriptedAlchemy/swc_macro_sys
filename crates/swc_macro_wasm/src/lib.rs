@@ -10,6 +10,7 @@ pub mod performance;
 
 #[wasm_bindgen]
 pub fn optimize(source: String, config: &str) -> String {
+    eprintln!("WASM optimize: Called with source length {} and config: {}", source.len(), config);
     // Parse config with proper error handling to avoid panics
     let config: serde_json::Value = match serde_json::from_str(config) {
         Ok(cfg) => cfg,
@@ -21,6 +22,7 @@ pub fn optimize(source: String, config: &str) -> String {
     };
     
     // Use the full optimize function which now properly handles WASM
+    eprintln!("WASM optimize: About to call optimize::optimize");
     match optimize::optimize(source.clone(), config) {
         Ok(result) => result,
         Err(e) => {

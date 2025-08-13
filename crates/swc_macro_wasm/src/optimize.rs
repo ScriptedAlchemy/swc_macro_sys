@@ -49,10 +49,13 @@ pub enum OptimizationError {
 type OptimizationResult<T> = Result<T, OptimizationError>;
 
 pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult<String> {
+    eprintln!("optimize::optimize: Starting optimization");
     let cm: Lrc<SourceMap> = Default::default();
     let (mut program, comments) = {
+        eprintln!("optimize::optimize: Creating source file");
         let fm = cm.new_source_file(FileName::Custom("test.js".to_string()).into(), source);
         let comments = SingleThreadedComments::default();
+        eprintln!("optimize::optimize: About to parse with Parser::new");
         let program = Parser::new(
             Syntax::Es(EsSyntax::default()),
             StringInput::from(&*fm),
@@ -87,8 +90,11 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
             
             // Use TreeShaker.optimize directly
             if has_macro_processing_config(&config) {
+                println!("TreeShaker: Creating new TreeShaker instance");
                 let mut shaker = TreeShaker::new(config.clone());
+                println!("TreeShaker: Calling optimize method");
                 shaker.optimize(&mut program, cm.clone(), &comments);
+                println!("TreeShaker: Optimize completed");
                 // Don't call simple tree shaking since TreeShaker should handle it
             }
             
@@ -281,6 +287,7 @@ impl TreeShaker {
         cm: Lrc<SourceMap>,
         comments: &SingleThreadedComments,
     ) {
+        println!("TreeShaker::optimize: Starting tree shaking optimization");
         let start_time = Instant::now();
         let mut metrics = TreeShakeMetrics::new();
 
@@ -289,6 +296,7 @@ impl TreeShaker {
 
         for iteration in 1..=max_iterations {
             // Step 1: Emit current AST to string for analysis
+            println!("TreeShaker: Starting iteration {}", iteration);
             let current_code = {
                 let mut buf = vec![];
                 let wr = Box::new(text_writer::JsWriter::new(cm.clone(), "\n", &mut buf, None))
@@ -311,7 +319,9 @@ impl TreeShaker {
             };
 
             // Step 2: Analyze the chunk using webpack_analyzer_v2
+            println!("TreeShaker: Getting chunk characteristics");
             let characteristics = get_chunk_characteristics(&self.config, &current_code);
+            println!("TreeShaker: Calling analyzer.analyze_chunk");
             let mut chunk = match self.analyzer.analyze_chunk(&current_code, characteristics) {
                 Ok(c) => c,
                 Err(e) => {

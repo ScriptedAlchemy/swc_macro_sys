@@ -1,4 +1,4 @@
-use swc_core::common::{sync::Lrc, SourceMap, FileName};
+use swc_core::common::{sync::Lrc, SourceMap, FileName, GLOBALS};
 use swc_core::ecma::parser::{Parser, StringInput, Syntax, EsSyntax};
 use swc_core::ecma::ast::*;
 use swc_core::ecma::visit::{Visit, VisitWith};
@@ -342,15 +342,18 @@ impl WebpackAnalyzer {
 
     /// Parse source code into AST
     fn parse_source(&self, source: &str) -> Result<Program> {
-        let fm = self.source_map.new_source_file(FileName::Custom("chunk.js".to_string()).into(), source.to_string());
-        let mut parser = Parser::new(
-            Syntax::Es(EsSyntax::default()),
-            StringInput::from(&*fm),
-            None,
-        );
-        
-        parser.parse_program()
-            .map_err(|e| format!("Failed to parse source: {:?}", e).into())
+        // Wrap parsing in GLOBALS for WASM compatibility
+        GLOBALS.set(&Default::default(), || {
+            let fm = self.source_map.new_source_file(FileName::Custom("chunk.js".to_string()).into(), source.to_string());
+            let mut parser = Parser::new(
+                Syntax::Es(EsSyntax::default()),
+                StringInput::from(&*fm),
+                None,
+            );
+            
+            parser.parse_program()
+                .map_err(|e| format!("Failed to parse source: {:?}", e).into())
+        })
     }
 
     /// Extract modules from the AST based on chunk type
