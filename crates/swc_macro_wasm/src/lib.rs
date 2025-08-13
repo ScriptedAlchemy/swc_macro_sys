@@ -6,6 +6,7 @@ pub mod error;
 pub mod config;
 pub mod convergence;
 pub mod performance;
+mod simple_tree_shake;
 
 #[wasm_bindgen]
 pub fn optimize(source: String, config: &str) -> String {

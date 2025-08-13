@@ -107,6 +107,9 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
         String::from_utf8(buf).map_err(|_| OptimizationError::Utf8Error)?
     };
 
+    // Apply simple tree shaking that works in WASM
+    let ret = crate::simple_tree_shake::simple_tree_shake(&ret, &config);
+
     Ok(ret)
 }
 

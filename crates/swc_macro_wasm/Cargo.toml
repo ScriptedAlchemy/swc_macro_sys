@@ -31,6 +31,6 @@ swc_ecma_visit = "11.0.0"
 tracing = "0.1.41"
 thiserror = "1.0.69"
 serde = { version = "1.0", features = ["derive"] }
+regex = { workspace = true }
 
 [dev-dependencies]
-regex = { workspace = true }
