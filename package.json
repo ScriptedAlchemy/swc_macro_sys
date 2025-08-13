@@ -6,7 +6,8 @@
   "main": "example_wasm_usage.js",
   "scripts": {
     "start": "node --experimental-wasm-modules example_wasm_usage.js",
-    "build-wasm": "cd crates/swc_macro_wasm && wasm-pack build --release",
+    "build:wasm": "cd crates/swc_macro_wasm && wasm-pack build --release",
+    "build-wasm": "pnpm build:wasm",
     "test": "run-s test:rust test:js",
     "test:rust": "cargo test --workspace",
     "test:js": "pnpm -r test",
@@ -27,7 +28,7 @@
     "test:coverage:root": "vitest run --coverage",
     "test:coverage:workspaces": "pnpm -r test:coverage",
     "test:ci": "run-s build test:all",
-    "build": "run-s build:rust build:js",
+    "build": "run-s build:rust build:wasm build:js",
     "build:rust": "cargo build --release --workspace",
     "build:js": "pnpm -r --filter=!examples/module-federation-example --filter=!examples/module-federation-web-example build",
     "optimize:examples": "pnpm -C examples/module-federation-example optimize && pnpm -C examples/module-federation-web-example optimize",

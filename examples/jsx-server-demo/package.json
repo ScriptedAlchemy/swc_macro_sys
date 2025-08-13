@@ -8,7 +8,7 @@
   },
   "scripts": {
     "jsx-demo": "node --experimental-wasm-modules jsx-test-server.mjs",
-    "build-wasm": "cd ../../crates/swc_macro_wasm && wasm-pack build --release"
+    "build-wasm": "pnpm -C ../../ build:wasm"
   },
   "dependencies": {
     "@swc/core": "^1.3.107",
