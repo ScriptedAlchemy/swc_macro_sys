@@ -1347,7 +1347,6 @@ name = "swc_macro_wasm"
 version = "0.1.0"
 dependencies = [
  "indexmap",
- "once_cell",
  "petgraph 0.8.2",
  "regex",
  "rustc-hash",
