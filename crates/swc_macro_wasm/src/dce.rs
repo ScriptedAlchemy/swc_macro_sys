@@ -113,6 +113,9 @@ struct Data {
     entries: FxHashSet<u32>,
 
     graph_ix: IndexSet<Id, FxBuildHasher>,
+
+    /// Track identifiers declared with `var` so we can preserve their assignments.
+    var_ids: FxHashSet<Id>,
 }
 
 impl Data {
@@ -160,6 +163,14 @@ impl Data {
             self.graph_ix.insert_full(id.clone());
             ix
         }) as _
+    }
+
+    fn mark_var(&mut self, id: Id) {
+        self.var_ids.insert(id);
+    }
+
+    fn is_var(&self, id: &Id) -> bool {
+        self.var_ids.contains(id)
     }
 
     /// Add an edge to dependency graph
@@ -308,6 +319,7 @@ struct Analyzer<'a> {
     #[allow(dead_code)]
     config: &'a Config,
     in_var_decl: bool,
+    var_decl_kind: Option<VarDeclKind>,
     scope: Scope<'a>,
     data: &'a mut Data,
     cur_class_id: Option<Id>,
@@ -632,6 +644,13 @@ impl Visit for Analyzer<'_> {
         }
     }
 
+    fn visit_var_decl(&mut self, n: &VarDecl) {
+        let old = self.var_decl_kind;
+        self.var_decl_kind = Some(n.kind);
+        n.visit_children_with(self);
+        self.var_decl_kind = old;
+    }
+
     fn visit_var_declarator(&mut self, n: &VarDeclarator) {
         let old = self.in_var_decl;
 
@@ -642,6 +661,12 @@ impl Visit for Analyzer<'_> {
         n.init.visit_with(self);
 
         self.in_var_decl = old;
+
+        if let Pat::Ident(i) = &n.name {
+            if self.var_decl_kind == Some(VarDeclKind::Var) {
+                self.data.mark_var(i.to_id());
+            }
+        }
     }
 }
 
@@ -773,8 +798,8 @@ impl VisitMut for TreeShaker {
         n.visit_mut_children_with(self);
 
         if let Some(id) = n.left.as_ident() {
-            // TODO: `var`
-            if self.can_drop_assignment_to(id.to_id(), false)
+            let is_var = self.data.is_var(&id.to_id());
+            if self.can_drop_assignment_to(id.to_id(), is_var)
                 && !may_have_side_effects(&self.comments, &n.right, self.expr_ctx)
             {
                 self.changed = true;
@@ -990,6 +1015,7 @@ impl VisitMut for TreeShaker {
                 let mut analyzer = Analyzer {
                     config: &self.config,
                     in_var_decl: false,
+                    var_decl_kind: None,
                     scope: Default::default(),
                     data: &mut data,
                     cur_class_id: Default::default(),
@@ -1053,6 +1079,7 @@ impl VisitMut for TreeShaker {
                 let mut analyzer = Analyzer {
                     config: &self.config,
                     in_var_decl: false,
+                    var_decl_kind: None,
                     scope: Default::default(),
                     data: &mut data,
                     cur_class_id: Default::default(),
