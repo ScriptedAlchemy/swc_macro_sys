@@ -215,17 +215,6 @@ impl ChunkCharacteristics {
         }
     }
 
-    /// Check if this chunk is likely a vendor chunk based on characteristics
-    pub fn is_vendor_chunk(&self) -> bool {
-        // Vendor chunks are typically:
-        // - Not runtime chunks
-        // - Not entry points  
-        // - Can be loaded initially (at startup)
-        // - May have vendor-related naming patterns
-        !self.is_runtime_chunk 
-            && !self.is_entrypoint 
-            && self.can_be_initial
-    }
 
     /// Check if this is a runtime chunk
     pub fn is_runtime(&self) -> bool {
