@@ -13,7 +13,7 @@ pub fn optimize(source: String, config: &str) -> String {
     let config: serde_json::Value = match serde_json::from_str(config) {
         Ok(cfg) => cfg,
         Err(e) => {
-            eprintln!("Warning: Invalid config JSON: {}. Using empty config.", e);
+            tracing::warn!("Invalid config JSON: {}. Using original source.", e);
             // Return original source if config is invalid
             return source;
         }
@@ -22,7 +22,7 @@ pub fn optimize(source: String, config: &str) -> String {
     match optimize::optimize(source.clone(), config) {
         Ok(result) => result,
         Err(err) => {
-            eprintln!("Optimization error: {}", err);
+            tracing::error!("Optimization error: {}", err);
             source
         }
     }
@@ -157,5 +157,14 @@ mod tests {
         
         println!("Tree shaking with macro conditions test passed!");
         println!("All modules successfully tree shaken due to no entry points");
+    }
+
+    #[test]
+    fn test_invalid_config_does_not_panic() {
+        let source = "console.log('hello');".to_string();
+        // Pass deliberately invalid JSON
+        let result = super::optimize(source.clone(), "{not valid json}");
+        // When config parsing fails we should get the original source back
+        assert_eq!(result, source);
     }
 }

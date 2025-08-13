@@ -1,4 +1,5 @@
 use rustc_hash::FxHashSet;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::time::{Duration, Instant};
 use swc_common::comments::SingleThreadedComments;
 use swc_common::pass::Repeated;
@@ -77,11 +78,15 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
 
             perform_dce(&mut program, comments.clone(), unresolved_mark);
 
-            // Tree shake webpack modules - DISABLED: causes panic in WASM builds
-            // The TreeShaker/webpack_analyzer_v2 has WASM compatibility issues
-            // TODO: Fix WASM compatibility in webpack_analyzer_v2
-            // let mut tree_shaker = TreeShaker::new(config.clone());
-            // tree_shaker.optimize(&mut program, cm.clone(), &comments);
+            // Run tree shaker but guard against panics from the analyzer in WASM builds
+            if has_macro_processing_config(&config) {
+                let mut tree_shaker = TreeShaker::new(config.clone());
+                if let Err(err) = catch_unwind(AssertUnwindSafe(|| {
+                    tree_shaker.optimize(&mut program, cm.clone(), &comments);
+                })) {
+                    tracing::warn!("Tree shaking skipped due to panic: {:?}", err);
+                }
+            }
 
             program.mutate(fixer(Some(&comments)));
 
