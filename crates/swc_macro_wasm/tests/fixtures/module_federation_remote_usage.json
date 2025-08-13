@@ -324,7 +324,20 @@
       "zipObjectDeep": false,
       "zipWith": false,
       "chunk_characteristics": {
-        "chunk_format": "async-node"
+        "entry_module_id": "../../../node_modules/.pnpm/module/node_modules/module/index.js",
+        "is_runtime_chunk": false,
+        "has_runtime": false,
+        "is_entrypoint": false,
+        "can_be_initial": false,
+        "is_only_initial": false,
+        "chunk_format": "async-node",
+        "chunk_loading_type": null,
+        "runtime_names": ["main"],
+        "entry_name": null,
+        "has_async_chunks": false,
+        "chunk_files": ["vendors-node_modules_pnpm_module_node_modules_module_index_js.js"],
+        "is_shared_chunk": false,
+        "shared_modules": []
       }
     }
   }

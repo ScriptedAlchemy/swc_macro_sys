@@ -3,7 +3,24 @@
     "react": {
       "version": true,
       "chunk_characteristics": {
-        "chunk_format": "async-node"
+        "entry_module_id": "../../../node_modules/.pnpm/react@18.3.1/node_modules/react/index.js",
+        "is_runtime_chunk": false,
+        "has_runtime": false,
+        "is_entrypoint": false,
+        "can_be_initial": false,
+        "is_only_initial": false,
+        "chunk_format": "async-node",
+        "chunk_loading_type": null,
+        "runtime_names": [
+          "main"
+        ],
+        "entry_name": null,
+        "has_async_chunks": false,
+        "chunk_files": [
+          "vendors-node_modules_pnpm_react_18_3_1_node_modules_react_index_js.js"
+        ],
+        "is_shared_chunk": false,
+        "shared_modules": []
       }
     },
     "cjs-pure-helper": {
@@ -17,17 +34,68 @@
       "processData": false,
       "validateInput": false,
       "chunk_characteristics": {
-        "chunk_format": "async-node"
+        "entry_module_id": "../../../node_modules/.pnpm/cjs-pure-helper@1.0.0/node_modules/cjs-pure-helper/index.js",
+        "is_runtime_chunk": false,
+        "has_runtime": false,
+        "is_entrypoint": false,
+        "can_be_initial": false,
+        "is_only_initial": false,
+        "chunk_format": "async-node",
+        "chunk_loading_type": null,
+        "runtime_names": [
+          "main"
+        ],
+        "entry_name": null,
+        "has_async_chunks": false,
+        "chunk_files": [
+          "cjs-modules_pure-cjs-helper_js.js"
+        ],
+        "is_shared_chunk": false,
+        "shared_modules": []
       }
     },
     "cjs-data-processor": {
       "chunk_characteristics": {
-        "chunk_format": "async-node"
+        "entry_module_id": "../../../node_modules/.pnpm/cjs-data-processor@1.0.0/node_modules/cjs-data-processor/index.js",
+        "is_runtime_chunk": false,
+        "has_runtime": false,
+        "is_entrypoint": false,
+        "can_be_initial": false,
+        "is_only_initial": false,
+        "chunk_format": "async-node",
+        "chunk_loading_type": null,
+        "runtime_names": [
+          "main"
+        ],
+        "entry_name": null,
+        "has_async_chunks": false,
+        "chunk_files": [
+          "cjs-modules_data-processor_js.js"
+        ],
+        "is_shared_chunk": false,
+        "shared_modules": []
       }
     },
     "cjs-module-exports": {
       "chunk_characteristics": {
-        "chunk_format": "async-node"
+        "entry_module_id": "../../../node_modules/.pnpm/cjs-module-exports@1.0.0/node_modules/cjs-module-exports/index.js",
+        "is_runtime_chunk": false,
+        "has_runtime": false,
+        "is_entrypoint": false,
+        "can_be_initial": false,
+        "is_only_initial": false,
+        "chunk_format": "async-node",
+        "chunk_loading_type": null,
+        "runtime_names": [
+          "main"
+        ],
+        "entry_name": null,
+        "has_async_chunks": false,
+        "chunk_files": [
+          "cjs-modules_module-exports-pattern_js.js"
+        ],
+        "is_shared_chunk": false,
+        "shared_modules": []
       }
     },
     "api-lib": {
@@ -36,7 +104,24 @@
       "ApiClient": false,
       "fetchWithTimeout": false,
       "chunk_characteristics": {
-        "chunk_format": "async-node"
+        "entry_module_id": "../../../node_modules/.pnpm/api-lib@1.0.0/node_modules/api-lib/index.js",
+        "is_runtime_chunk": false,
+        "has_runtime": false,
+        "is_entrypoint": false,
+        "can_be_initial": false,
+        "is_only_initial": false,
+        "chunk_format": "async-node",
+        "chunk_loading_type": null,
+        "runtime_names": [
+          "main"
+        ],
+        "entry_name": null,
+        "has_async_chunks": false,
+        "chunk_files": [
+          "shared_api_js.js"
+        ],
+        "is_shared_chunk": false,
+        "shared_modules": []
       }
     },
     "react-dom": {
@@ -55,7 +140,24 @@
       "useFormStatus": false,
       "version": false,
       "chunk_characteristics": {
-        "chunk_format": "async-node"
+        "entry_module_id": "../../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/index.js",
+        "is_runtime_chunk": false,
+        "has_runtime": false,
+        "is_entrypoint": false,
+        "can_be_initial": false,
+        "is_only_initial": false,
+        "chunk_format": "async-node",
+        "chunk_loading_type": null,
+        "runtime_names": [
+          "main"
+        ],
+        "entry_name": null,
+        "has_async_chunks": true,
+        "chunk_files": [
+          "vendors-node_modules_pnpm_react-dom_19_1_0_react_19_1_0_node_modules_react-dom_index_js.js"
+        ],
+        "is_shared_chunk": false,
+        "shared_modules": []
       }
     },
     "utility-lib": {
@@ -68,7 +170,24 @@
       "processWithHelper": false,
       "validateEmail": false,
       "chunk_characteristics": {
-        "chunk_format": "async-node"
+        "entry_module_id": "../../../node_modules/.pnpm/utility-lib@1.0.0/node_modules/utility-lib/index.js",
+        "is_runtime_chunk": false,
+        "has_runtime": false,
+        "is_entrypoint": false,
+        "can_be_initial": false,
+        "is_only_initial": false,
+        "chunk_format": "async-node",
+        "chunk_loading_type": null,
+        "runtime_names": [
+          "main"
+        ],
+        "entry_name": null,
+        "has_async_chunks": false,
+        "chunk_files": [
+          "shared_utils_js.js"
+        ],
+        "is_shared_chunk": false,
+        "shared_modules": []
       }
     },
     "lodash-es": {
@@ -396,7 +515,24 @@
       "zipObjectDeep": false,
       "zipWith": false,
       "chunk_characteristics": {
-        "chunk_format": "async-node"
+        "entry_module_id": "../../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js",
+        "is_runtime_chunk": false,
+        "has_runtime": false,
+        "is_entrypoint": false,
+        "can_be_initial": false,
+        "is_only_initial": false,
+        "chunk_format": "async-node",
+        "chunk_loading_type": null,
+        "runtime_names": [
+          "main"
+        ],
+        "entry_name": null,
+        "has_async_chunks": false,
+        "chunk_files": [
+          "vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js"
+        ],
+        "is_shared_chunk": false,
+        "shared_modules": []
       }
     },
     "component-lib": {
@@ -407,12 +543,46 @@
       "createAlert": false,
       "createCard": false,
       "chunk_characteristics": {
-        "chunk_format": "async-node"
+        "entry_module_id": "../../../node_modules/.pnpm/component-lib@1.0.0/node_modules/component-lib/index.js",
+        "is_runtime_chunk": false,
+        "has_runtime": false,
+        "is_entrypoint": false,
+        "can_be_initial": false,
+        "is_only_initial": false,
+        "chunk_format": "async-node",
+        "chunk_loading_type": null,
+        "runtime_names": [
+          "main"
+        ],
+        "entry_name": null,
+        "has_async_chunks": false,
+        "chunk_files": [
+          "shared_components_js.js"
+        ],
+        "is_shared_chunk": false,
+        "shared_modules": []
       }
     },
     "cjs-legacy-utils": {
       "chunk_characteristics": {
-        "chunk_format": "async-node"
+        "entry_module_id": "../../../node_modules/.pnpm/cjs-legacy-utils@1.0.0/node_modules/cjs-legacy-utils/index.js",
+        "is_runtime_chunk": false,
+        "has_runtime": false,
+        "is_entrypoint": false,
+        "can_be_initial": false,
+        "is_only_initial": false,
+        "chunk_format": "async-node",
+        "chunk_loading_type": null,
+        "runtime_names": [
+          "main"
+        ],
+        "entry_name": null,
+        "has_async_chunks": false,
+        "chunk_files": [
+          "cjs-modules_legacy-utils_js.js"
+        ],
+        "is_shared_chunk": false,
+        "shared_modules": []
       }
     }
   }
