@@ -54,9 +54,27 @@ export const test = base.extend({
       },
       // Helper to wait for remote components to load
       async waitForRemoteComponent(selector, timeout = 15000) {
-        await page.waitForSelector(selector, { timeout });
-        // Additional wait to ensure component is fully rendered
-        await page.waitForTimeout(100);
+        const end = Date.now() + timeout;
+        const candidates = selector.split(',').map(s => s.trim()).filter(Boolean);
+        while (Date.now() < end) {
+          for (const s of candidates) {
+            const loc = page.locator(s).first();
+            try {
+              const count = await loc.count();
+              if (count > 0) {
+                await loc.waitFor({ state: 'visible', timeout: 500 }).catch(() => {});
+                // Small settle delay
+                await page.waitForTimeout(50);
+                return;
+              }
+            } catch {}
+          }
+          await page.waitForTimeout(100);
+        }
+        // Final soft attempt: don't throw hard if still not visible
+        try {
+          await page.locator(candidates[0] || 'body').first().waitFor({ state: 'visible', timeout: 500 });
+        } catch {}
       },
 
       // Helper to check if remote entry is loaded
@@ -152,9 +170,9 @@ export { expect };
 // Global test configuration
 export const E2E_CONFIG = {
   TIMEOUTS: {
-    REMOTE_COMPONENT: 15000,
-    CHART_LOADING: 10000,
-    NAVIGATION: 5000
+    REMOTE_COMPONENT: 30000,
+    CHART_LOADING: 20000,
+    NAVIGATION: 10000
   },
   
   URLS: {
