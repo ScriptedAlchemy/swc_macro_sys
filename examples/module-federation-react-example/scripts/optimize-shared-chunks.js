@@ -10,8 +10,9 @@ const __dirname = path.dirname(__filename);
 // Import the SWC macro WASM optimizer
 async function loadOptimizer() {
   try {
-    // Load from workspace dependency (requires --experimental-wasm-modules flag)
-    const swcMacro = await import('swc_macro_wasm');
+    // Load directly from the pkg directory
+    const wasmPath = path.resolve(__dirname, '../../../crates/swc_macro_wasm/pkg/swc_macro_wasm.js');
+    const swcMacro = await import(wasmPath);
     console.log('Available functions:', Object.keys(swcMacro).filter(k => typeof swcMacro[k] === 'function'));
     return swcMacro;
   } catch (error) {
@@ -170,7 +171,9 @@ async function optimizeChunk(chunkPath, library, treeShakeConfig, optimizer, chu
     console.log('Exports to keep:', Object.keys(libraryKeepFlags).join(', '));
     
     // Run SWC macro optimization
+    console.log(`DEBUG: Calling optimizer with config:`, JSON.stringify(config, null, 2));
     const result = optimizer.optimize(sourceCode, configJson);
+    console.log(`DEBUG: Optimizer returned: type=${typeof result}, length=${result?.length}, changed=${result !== sourceCode}`);
     
     if (result && typeof result === 'string' && result !== sourceCode) {
       // Backup original

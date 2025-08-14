@@ -1,4 +1,5 @@
 use wasm_bindgen::prelude::*;
+use web_sys::console;
 
 mod dce;
 pub mod optimize;
@@ -12,21 +13,21 @@ pub fn optimize(source: String, config: &str) -> String {
     // Install panic hook to surface Rust panic messages/stacktrace into JS console
     console_error_panic_hook::set_once();
 
-    eprintln!("WASM optimize: Called with source length {} and config: {}", source.len(), config);
+    console::log_1(&format!("WASM optimize: Called with source length {} and config: {}", source.len(), config).into());
     // Parse config with proper error handling to avoid panics
     let config: serde_json::Value = match serde_json::from_str(config) {
         Ok(cfg) => cfg,
         Err(e) => {
-            eprintln!("Warning: Invalid config JSON: {}. Using original source.", e);
+            console::log_1(&format!("Warning: Invalid config JSON: {}. Using original source.", e).into());
             return source;
         }
     };
 
-    eprintln!("WASM optimize: About to call optimize::optimize");
+    console::log_1(&"WASM optimize: About to call optimize::optimize".into());
     match optimize::optimize(source.clone(), config) {
         Ok(result) => result,
         Err(e) => {
-            eprintln!("Warning: Optimization failed: {}. Using original source.", e);
+            console::log_1(&format!("Warning: Optimization failed: {}. Using original source.", e).into());
             source
         }
     }

@@ -79,7 +79,17 @@ impl TreeShaker {
         // Analyze
         let analyzer = crate::analyzer::WebpackAnalyzer::new();
         let chunk = analyzer.analyze_chunk(source, characteristics.clone())?;
-        let plan = self.plan_prune(&chunk, &crate::chunk::ShareUsageConfig { entry_module_ids: vec![] });
+        
+        // CRITICAL FIX: Use the actual entry module from characteristics
+        let entry_module_ids = if let Some(entry) = &characteristics.entry_module_id {
+            vec![swc_core::atoms::Atom::from(entry.as_str())]
+        } else {
+            vec![]
+        };
+        let config = crate::chunk::ShareUsageConfig { 
+            entry_module_ids,
+        };
+        let plan = self.plan_prune(&chunk, &config);
         if plan.skip_reason.is_some() || plan.removed_modules.is_empty() {
             return Ok((source.to_string(), plan));
         }
@@ -156,6 +166,9 @@ impl TreeShaker {
 
         // Compute reachability
         let mut reachable: HashSet<ModuleId> = graph.get_reachable_from_multiple(&entry_points);
+        eprintln!("[TreeShaker] Entry points: {:?}", entry_points.len());
+        eprintln!("[TreeShaker] Defined modules: {}", defined_keys.len());
+        eprintln!("[TreeShaker] Reachable modules: {}", reachable.len());
 
         // Conservative safety net: keep any module that is directly referenced by
         // a __webpack_require__(<id>) anywhere in this chunk's source and that is
