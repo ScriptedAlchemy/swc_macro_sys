@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { optimize } from 'swc_macro_wasm';
+import { execFileSync } from 'child_process';
 
 describe('SWC Macro Optimization', () => {
   const fixturesPath = path.resolve(__dirname, '../fixtures');
@@ -20,15 +20,18 @@ describe('SWC Macro Optimization', () => {
             uniq: true,
             map: false,
             filter: false,
-            reduce: false
+            reduce: false,
+            chunk_characteristics: {
+              entry_module_id: '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js',
+              is_runtime_chunk: false,
+              chunk_format: 'async-node'
+            }
           }
-        },
-        entryModules: {
-          'lodash-es': '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js'
         }
       };
       
-      const optimized = optimize(chunk, JSON.stringify(config));
+      const runner = path.resolve(__dirname, '../utils/wasm-optimize-runner.mjs');
+      const optimized = execFileSync('node', ['--experimental-wasm-modules', runner, path.join(fixturesPath, 'lodash-chunk.js'), JSON.stringify(config)], { encoding: 'utf8' });
       
       // Check that enabled exports are preserved
       expect(optimized).toContain('sortBy');
@@ -79,12 +82,9 @@ describe('SWC Macro Optimization', () => {
       const entryModuleId = shareUsage.treeShake['lodash-es'].chunk_characteristics.entry_module_id;
       
       // The treeShake config is already in the correct format
-      const config = {
-        treeShake: shareUsage.treeShake,
-        entryModules: { 'lodash-es': entryModuleId }
-      };
+      const config = { treeShake: shareUsage.treeShake };
       
-      expect(config.entryModules['lodash-es']).toBe(entryModuleId);
+      expect(config.treeShake['lodash-es'].chunk_characteristics.entry_module_id).toBe(entryModuleId);
       expect(config.treeShake['lodash-es'].sortBy).toBe(true);
       expect(config.treeShake['lodash-es'].map).toBe(false);
       expect(config.treeShake['lodash-es'].chunk_characteristics).toBeDefined();
@@ -108,14 +108,15 @@ describe('SWC Macro Optimization', () => {
       
       const config = {
         treeShake: {
-          'lodash-es': { sortBy: true, map: false }
-        },
-        entryModules: {
-          'lodash-es': 'lodash/lodash.js'
+          'lodash-es': {
+            sortBy: true, map: false,
+            chunk_characteristics: { entry_module_id: 'lodash/lodash.js', is_runtime_chunk: false, chunk_format: 'require' }
+          }
         }
       };
       
-      const optimized = optimize(chunk, JSON.stringify(config));
+      const runner2 = path.resolve(__dirname, '../utils/wasm-optimize-runner.mjs');
+      const optimized = execFileSync('node', ['--experimental-wasm-modules', runner2, path.join(fixturesPath, 'lodash-chunk.js'), JSON.stringify(config)], { encoding: 'utf8' });
       
       // Should maintain CommonJS structure
       expect(optimized).toContain('exports.ids');
@@ -140,7 +141,8 @@ describe('SWC Macro Optimization', () => {
         }
       };
       
-      const optimized = optimize(chunk, JSON.stringify(config));
+      const runner3 = path.resolve(__dirname, '../utils/wasm-optimize-runner.mjs');
+      const optimized = execFileSync('node', ['--experimental-wasm-modules', runner3, path.join(fixturesPath, 'lodash-chunk.js'), JSON.stringify(config)], { encoding: 'utf8' });
       
       expect(optimized).toContain('sortBy');
       expect(optimized).not.toContain('exports.map');

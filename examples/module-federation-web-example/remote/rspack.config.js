@@ -1,8 +1,9 @@
 const rspack = require('@rspack/core');
 const { ModuleFederationPlugin } = rspack.container;
+const isProd = process.env.NODE_ENV === 'production';
 
 module.exports = {
-  mode: 'development',
+  mode: isProd ? 'production' : 'development',
   entry: './src/index.js',
   target: 'web',
   devtool: false,
@@ -32,6 +33,19 @@ module.exports = {
         },
       },
     ],
+  },
+  optimization: {
+    minimizer: isProd
+      ? [
+          new rspack.SwcJsMinimizerRspackPlugin({
+            minimizerOptions: {
+              mangle: false,
+              compress: { passes: 2 },
+              format: { comments: false }
+            }
+          })
+        ]
+      : []
   },
   plugins: [
     new ModuleFederationPlugin({

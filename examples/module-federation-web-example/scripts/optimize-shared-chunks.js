@@ -72,35 +72,8 @@ function mergeUsageData(files, targetApp) {
     });
   });
 
-  // Populate entry modules
-  // - If targetApp is provided, use its chunk_characteristics exclusively
-  // - Otherwise, fall back to the first available entry_module_id across apps (prefers order of files)
-  const entryModules = {};
-  if (targetApp) {
-    const target = files.find(f => f.name === targetApp);
-    if (target?.data?.treeShake) {
-      Object.entries(target.data.treeShake).forEach(([moduleKey, moduleExports]) => {
-        const entryId = moduleExports?.chunk_characteristics?.entry_module_id;
-        if (entryId) {
-          entryModules[moduleKey] = entryId;
-        }
-      });
-    }
-  } else {
-    files.forEach(({ data }) => {
-      if (!data?.treeShake) return;
-      Object.entries(data.treeShake).forEach(([moduleKey, moduleExports]) => {
-        const entryId = moduleExports?.chunk_characteristics?.entry_module_id;
-        if (entryId && !entryModules[moduleKey]) {
-          entryModules[moduleKey] = entryId;
-        }
-      });
-    });
-  }
-
   return {
     treeShake: mergedTreeShake,
-    entryModules,
     metadata: {
       timestamp: new Date().toISOString(),
       apps: files.map(f => f.name),
@@ -155,19 +128,14 @@ function findSharedChunks(files) {
 /**
  * Optimize a shared library chunk using SWC macro with tree-shake flags
  */
-async function optimizeChunk(chunkPath, library, treeShakeConfig, entryModules, optimizer, chunkCharacteristics) {
+async function optimizeChunk(chunkPath, library, treeShakeConfig, optimizer, chunkCharacteristics) {
   console.log(`Optimizing chunk: ${path.basename(chunkPath)}`);
   
   try {
-    // Enforce: require chunk characteristics and entry module for this library
-    const entryIdForLibrary = entryModules?.[library];
+    // Enforce: require chunk characteristics only
     const hasChunkCharacteristics = Boolean(chunkCharacteristics?.entry_module_id);
-    if (!entryIdForLibrary || !hasChunkCharacteristics) {
-      console.log(
-        `Skipping ${path.basename(chunkPath)} for '${library}' - missing ${
-          !entryIdForLibrary ? 'entry module id' : 'chunk characteristics'
-        }`
-      );
+    if (!hasChunkCharacteristics) {
+      console.log(`Skipping ${path.basename(chunkPath)} for '${library}' - missing chunk characteristics`);
       return null;
     }
 
@@ -191,14 +159,10 @@ async function optimizeChunk(chunkPath, library, treeShakeConfig, entryModules, 
       };
     }
 
-    const config = {
-      treeShake: treeShakeWithMeta,  // Pass the full treeShake config
-      entryModules: entryModules || {}
-    };
+    const config = { treeShake: treeShakeWithMeta };
     
     const configJson = JSON.stringify(config);
     console.log(`Tree-shake config for ${library}:`, Object.keys(libraryConfig).length, 'exports to keep');
-    console.log(`Entry modules:`, JSON.stringify(config.entryModules, null, 2));
     console.log('Exports to keep:', Object.keys(libraryConfig).join(', '));
     
     // Run SWC macro optimization
@@ -295,8 +259,7 @@ async function main() {
     const results = [];
     
     for (const uniqueChunk of uniqueChunks.values()) {
-      // Build per-app config dynamically: OR-merged exports + app-specific entry modules
-      const { entryModules } = mergeUsageData(files, uniqueChunk.app);
+      // Build per-app config dynamically: OR-merged exports
       
       // Collect chunkCharacteristics - use first library's as representative
       const appData = files.find(f => f.name === uniqueChunk.app)?.data;
@@ -329,7 +292,6 @@ async function main() {
         uniqueChunk.path,
         uniqueChunk.libraries.join(', '),  // For logging
         treeShakeWithMeta,
-        entryModules,
         optimizer,
         chunkCharacteristics
       );

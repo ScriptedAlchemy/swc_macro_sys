@@ -18,17 +18,27 @@ fn test_commonjs_module_removal() {
     
     println!("Original chunk has {} modules", chunk.matches(".js\":").count());
     
-    // Create a config that enables no modules (should remove all) with entry module
+    // Provide required chunk characteristics with explicit entry module id
     let config = json!({
         "treeShake": {
             "test": {
-                "moduleA": false,
-                "moduleB": false,
-                "moduleC": false
+                "chunk_characteristics": {
+                    "entry_module_id": "moduleA.js",
+                    "is_runtime_chunk": false,
+                    "has_runtime": false,
+                    "is_entrypoint": false,
+                    "can_be_initial": false,
+                    "is_only_initial": false,
+                    "chunk_format": "require",
+                    "chunk_loading_type": null,
+                    "runtime_names": ["main"],
+                    "entry_name": null,
+                    "has_async_chunks": false,
+                    "chunk_files": ["test-chunk.js"],
+                    "is_shared_chunk": false,
+                    "shared_modules": []
+                }
             }
-        },
-        "entryModules": {
-            "lodash-es": "moduleA.js"
         }
     });
     

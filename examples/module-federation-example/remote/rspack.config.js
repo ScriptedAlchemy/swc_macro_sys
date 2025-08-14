@@ -1,8 +1,9 @@
 const rspack = require('@rspack/core');
 const { ModuleFederationPlugin } = rspack.container;
+const isProd = process.env.NODE_ENV === 'production';
 
 module.exports = {
-  mode: 'development',
+  mode: isProd ? 'production' : 'development',
   entry: './src/index.js',
   target: 'async-node',
   devtool: false,
@@ -35,6 +36,19 @@ module.exports = {
       },
     ],
   },
+  optimization: {
+    minimizer: isProd
+      ? [
+          new rspack.SwcJsMinimizerRspackPlugin({
+            minimizerOptions: {
+              mangle: false,
+              compress: { passes: 2 },
+              format: { comments: false }
+            }
+          })
+        ]
+      : []
+  },
   plugins: [
     new ModuleFederationPlugin({
       name: 'remote',
@@ -47,6 +61,16 @@ module.exports = {
         './functionalUtils': './src/functionalUtils',
       },
       shared: {
+        react: {
+          singleton: true,
+          requiredVersion: '^18.3.1',
+          eager: false,
+        },
+        'react-dom': {
+          singleton: true,
+          requiredVersion: '^18.3.1',
+          eager: false,
+        },
         'lodash-es': {
           singleton: true,
           strictVersion: true,

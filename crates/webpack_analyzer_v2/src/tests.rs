@@ -531,3 +531,112 @@ fn test_explicit_entry_points_integration_with_dependency_graph() {
     assert!(reachable.contains(&Atom::from("./src/utils.js")));
     assert!(reachable.contains(&Atom::from("./src/helper.js")));
 }
+
+#[test]
+fn test_tree_shaker_prune_conservative() {
+    use crate::chunk::ShareUsageConfig;
+    use crate::tree_shaker::TreeShaker;
+
+    // Build a simple chunk with an unreachable module
+    let mut chunk = WebpackChunk::new(ChunkType::WebpackModules, "test source".to_string());
+    chunk.add_module(Atom::from("./src/index.js"), WebpackModule::new(Atom::from("./src/index.js"), "".to_string()));
+    chunk.add_module(Atom::from("./src/utils.js"), WebpackModule::new(Atom::from("./src/utils.js"), "".to_string()));
+    chunk.add_module(Atom::from("./src/unused.js"), WebpackModule::new(Atom::from("./src/unused.js"), "".to_string()));
+
+    // Provide required ChunkCharacteristics with explicit entry
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: false,
+        has_runtime: false,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "webpack".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["chunk.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+        entry_module_id: Some("./src/index.js".to_string()),
+    };
+    chunk.set_characteristics(characteristics);
+
+    // Add dependencies: index -> utils
+    let mut graph = DependencyGraph::new();
+    for (_, m) in &chunk.modules { graph.add_module(m.clone()); }
+    graph.add_dependency(&Atom::from("./src/index.js"), &Atom::from("./src/utils.js"));
+    // Reinject updated dependencies into chunk modules for consistency in analysis-level view
+    // (Normally analyzer builds these; here we simulate minimal state)
+    if let Some(idx) = chunk.modules.get_mut(&Atom::from("./src/index.js")) {
+        idx.add_dependency(Atom::from("./src/utils.js"));
+    }
+    if let Some(utils) = chunk.modules.get_mut(&Atom::from("./src/utils.js")) {
+        utils.add_dependent(Atom::from("./src/index.js"));
+    }
+
+    let shaker = TreeShaker::new();
+    let cfg = ShareUsageConfig { entry_module_ids: vec![] };
+
+    let result = shaker.prune_chunk(&chunk, &cfg);
+    assert!(result.skip_reason.is_none());
+    assert!(result.removed_modules.contains(&Atom::from("./src/unused.js")));
+    assert!(result.kept_modules.contains(&Atom::from("./src/index.js")));
+    assert!(result.kept_modules.contains(&Atom::from("./src/utils.js")));
+
+    let pruned = result.pruned_chunk.expect("pruned chunk should be present");
+    assert!(pruned.get_module(&Atom::from("./src/index.js")).is_some());
+    assert!(pruned.get_module(&Atom::from("./src/utils.js")).is_some());
+    assert!(pruned.get_module(&Atom::from("./src/unused.js")).is_none());
+}
+
+#[test]
+fn test_tree_shaker_skips_without_entries() {
+    use crate::chunk::ShareUsageConfig;
+    use crate::tree_shaker::TreeShaker;
+
+    let mut chunk = WebpackChunk::new(ChunkType::WebpackModules, "test source".to_string());
+    chunk.add_module(Atom::from("./src/a.js"), WebpackModule::new(Atom::from("./src/a.js"), "".to_string()));
+
+    let shaker = TreeShaker::new();
+    let cfg = ShareUsageConfig { entry_module_ids: vec![] };
+    let result = shaker.prune_chunk(&chunk, &cfg);
+    assert!(result.skip_reason.is_some());
+    assert_eq!(result.original_count, result.pruned_count);
+}
+
+#[test]
+fn test_tree_shaker_skips_runtime_chunk() {
+    use crate::chunk::ShareUsageConfig;
+    use crate::tree_shaker::TreeShaker;
+
+    let characteristics = ChunkCharacteristics {
+        is_runtime_chunk: true,
+        has_runtime: true,
+        is_entrypoint: false,
+        can_be_initial: false,
+        is_only_initial: false,
+        chunk_format: "jsonp".to_string(),
+        chunk_loading_type: None,
+        runtime_names: vec!["main".to_string()],
+        entry_name: None,
+        has_async_chunks: false,
+        chunk_files: vec!["runtime.js".to_string()],
+        is_shared_chunk: false,
+        shared_modules: vec![],
+        entry_module_id: None,
+    };
+
+    let mut chunk = WebpackChunk::new_with_characteristics(
+        ChunkType::JSONP,
+        "source".to_string(),
+        characteristics,
+    );
+    chunk.add_module(Atom::from("./src/runtime.js"), WebpackModule::new(Atom::from("./src/runtime.js"), "".to_string()));
+
+    let shaker = TreeShaker::new();
+    let cfg = ShareUsageConfig { entry_module_ids: vec![Atom::from("./src/runtime.js")] };
+    let result = shaker.prune_chunk(&chunk, &cfg);
+    assert!(result.skip_reason.is_some());
+    assert_eq!(result.original_count, result.pruned_count);
+}

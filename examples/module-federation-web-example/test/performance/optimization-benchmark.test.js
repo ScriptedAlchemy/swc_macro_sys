@@ -36,10 +36,9 @@ describe('Performance Benchmarks', () => {
             filter: false,
             reduce: false
           }
-        },
-        entryModules: {
-          'lodash-es': '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js'
-        }
+        ,
+        // use chunk_characteristics-only configuration
+        // attach entry to the library config when running optimizeChunk
       };
       
       const startTime = performance.now();
@@ -90,8 +89,7 @@ describe('Performance Benchmarks', () => {
       }
       
       const config = {
-        treeShake: { 'lodash-es': { default: true } },
-        entryModules: { 'lodash-es': 'lodash.js' }
+        treeShake: { 'lodash-es': { default: true, chunk_characteristics: { entry_module_id: 'lodash.js' } } }
       };
       
       const memBefore = process.memoryUsage();
@@ -121,11 +119,9 @@ describe('Performance Benchmarks', () => {
             uniq: true,
             map: false,
             filter: false,
-            reduce: false
+            reduce: false,
+            chunk_characteristics: { entry_module_id: '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js' }
           }
-        },
-        entryModules: {
-          'lodash-es': '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js'
         }
       };
       
@@ -147,8 +143,7 @@ describe('Performance Benchmarks', () => {
     it('should maintain valid JavaScript syntax', () => {
       const fixture = path.join(__dirname, '../fixtures/lodash-chunk.js');
       const config = {
-        treeShake: { 'lodash-es': { sortBy: true } },
-        entryModules: { 'lodash-es': 'lodash.js' }
+        treeShake: { 'lodash-es': { sortBy: true, chunk_characteristics: { entry_module_id: 'lodash.js' } } }
       };
       
       const optimized = optimizeChunk(fixture, config);

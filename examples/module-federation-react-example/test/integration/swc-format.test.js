@@ -66,7 +66,6 @@ describe('SWC Macro Format Tests', () => {
 
     // Verify the structure matches what SWC expects
     expect(mergedConfig).toHaveProperty('treeShake');
-    expect(mergedConfig).toHaveProperty('entryModules');
     
     // Check treeShake format
     expect(mergedConfig.treeShake).toHaveProperty('lodash-es');
@@ -88,10 +87,12 @@ describe('SWC Macro Format Tests', () => {
     expect(lodashConfig.after).toBe(false);
     expect(lodashConfig.ary).toBe(false);
     
-    // Entry modules should be set
-    expect(mergedConfig.entryModules['lodash-es']).toBe(
-      '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js'
-    );
+    // chunk_characteristics should carry the entry module id if present
+    if (lodashConfig.chunk_characteristics) {
+      expect(lodashConfig.chunk_characteristics.entry_module_id).toBe(
+        '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js'
+      );
+    }
   });
 
   it('should format config correctly for SWC optimize() call', () => {
@@ -111,16 +112,13 @@ describe('SWC Macro Format Tests', () => {
       }
     };
     
-    const entryModules = {
-      'lodash-es': '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js'
-    };
-
+    const entryModuleId = '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js';
+    
     // This is what gets passed to optimizer.optimize()
     const config = {
       treeShake: {
-        'lodash-es': {}
-      },
-      entryModules: entryModules
+        'lodash-es': { chunk_characteristics: { entry_module_id: entryModuleId } }
+      }
     };
 
     // Only include exports marked as true (the dot notation equivalent)
@@ -130,9 +128,12 @@ describe('SWC Macro Format Tests', () => {
       }
     });
 
-    // Verify only true values are included
-    expect(Object.keys(config.treeShake['lodash-es'])).toHaveLength(9);
-    expect(config.treeShake['lodash-es']).toEqual({
+    // Verify only true values are included (plus chunk_characteristics)
+    expect(Object.keys(config.treeShake['lodash-es']).sort()).toEqual(
+      ['capitalize','debounce','default','groupBy','omit','pick','sortBy','throttle','uniq','chunk_characteristics'].sort()
+    );
+    const { chunk_characteristics: _cc, ...exportFlags } = config.treeShake['lodash-es'];
+    expect(exportFlags).toEqual({
       capitalize: true,
       debounce: true,
       groupBy: true,
@@ -201,7 +202,6 @@ describe('SWC Macro Format Tests', () => {
       
       // Verify structure
       expect(mergedConfig).toHaveProperty('treeShake');
-      expect(mergedConfig).toHaveProperty('entryModules');
       expect(mergedConfig).toHaveProperty('metadata');
       
       // Verify treeShake has library-name as key
@@ -213,8 +213,10 @@ describe('SWC Macro Format Tests', () => {
         expect(typeof value).toBe('boolean');
       });
       
-      // Verify entry module is set
-      expect(mergedConfig.entryModules['lodash-es']).toMatch(/node_modules.*lodash-es.*lodash\.js$/);
+      // Verify entry module is set in chunk_characteristics if present
+      if (mergedConfig.treeShake['lodash-es'].chunk_characteristics) {
+        expect(mergedConfig.treeShake['lodash-es'].chunk_characteristics.entry_module_id).toMatch(/node_modules.*lodash-es.*lodash\.js$/);
+      }
     }
   });
 

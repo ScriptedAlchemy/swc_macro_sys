@@ -20,11 +20,13 @@ describe('SWC Macro Optimization', () => {
             uniq: true,
             map: false,
             filter: false,
-            reduce: false
+            reduce: false,
+            chunk_characteristics: {
+              entry_module_id: '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js',
+              is_runtime_chunk: false,
+              chunk_format: 'async-node'
+            }
           }
-        },
-        entryModules: {
-          'lodash-es': '../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js'
         }
       };
       
@@ -79,12 +81,9 @@ describe('SWC Macro Optimization', () => {
       const entryModuleId = shareUsage.treeShake['lodash-es'].chunk_characteristics.entry_module_id;
       
       // The treeShake config is already in the correct format
-      const config = {
-        treeShake: shareUsage.treeShake,
-        entryModules: { 'lodash-es': entryModuleId }
-      };
+      const config = { treeShake: shareUsage.treeShake };
       
-      expect(config.entryModules['lodash-es']).toBe(entryModuleId);
+      expect(config.treeShake['lodash-es'].chunk_characteristics.entry_module_id).toBe(entryModuleId);
       expect(config.treeShake['lodash-es'].sortBy).toBe(true);
       expect(config.treeShake['lodash-es'].map).toBe(false);
       expect(config.treeShake['lodash-es'].chunk_characteristics).toBeDefined();
@@ -108,10 +107,10 @@ describe('SWC Macro Optimization', () => {
       
       const config = {
         treeShake: {
-          'lodash-es': { sortBy: true, map: false }
-        },
-        entryModules: {
-          'lodash-es': 'lodash/lodash.js'
+          'lodash-es': {
+            sortBy: true, map: false,
+            chunk_characteristics: { entry_module_id: 'lodash/lodash.js', is_runtime_chunk: false, chunk_format: 'require' }
+          }
         }
       };
       

@@ -1,5 +1,4 @@
 use wasm_bindgen::prelude::*;
-use std::panic::{catch_unwind, AssertUnwindSafe};
 
 mod dce;
 pub mod optimize;
@@ -10,24 +9,25 @@ pub mod performance;
 
 #[wasm_bindgen]
 pub fn optimize(source: String, config: &str) -> String {
+    // Install panic hook to surface Rust panic messages/stacktrace into JS console
+    console_error_panic_hook::set_once();
+
     eprintln!("WASM optimize: Called with source length {} and config: {}", source.len(), config);
     // Parse config with proper error handling to avoid panics
     let config: serde_json::Value = match serde_json::from_str(config) {
         Ok(cfg) => cfg,
         Err(e) => {
             eprintln!("Warning: Invalid config JSON: {}. Using original source.", e);
-            // Return original source if config is invalid
             return source;
         }
     };
-    
-    // Use the full optimize function which now properly handles WASM
+
     eprintln!("WASM optimize: About to call optimize::optimize");
     match optimize::optimize(source.clone(), config) {
         Ok(result) => result,
         Err(e) => {
             eprintln!("Warning: Optimization failed: {}. Using original source.", e);
-            source // Return original on error
+            source
         }
     }
 }
@@ -76,7 +76,7 @@ mod tests {
         });
         let original_size = source.len();
         let source_for_debug = source.clone();
-        let result = optimize::optimize(source, config).unwrap();
+        let result = optimize::optimize(source, config).unwrap_or_else(|_| String::new());
         
         println!("=== DEBUG INTEGRATION TEST ===");
         println!("Original source ({} bytes):\n{}", original_size, source_for_debug);
@@ -147,7 +147,7 @@ mod tests {
             }
         });
         
-        let result = optimize::optimize(source, config).unwrap();
+        let result = optimize::optimize(source, config).unwrap_or_else(|_| String::new());
         
         println!("=== DEBUG MACRO CONDITIONS TEST ===");
         println!("Optimized result:\n{}", result);

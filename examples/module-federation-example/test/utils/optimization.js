@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { optimize } from 'swc_macro_wasm';
+import { execFileSync } from 'child_process';
 
 /**
  * Analyzes a webpack chunk and returns metrics
@@ -46,8 +46,29 @@ export function shareUsageToConfig(shareUsagePath) {
 export function optimizeChunk(chunkPath, config) {
   const content = fs.readFileSync(chunkPath, 'utf-8');
   const configStr = typeof config === 'string' ? config : JSON.stringify(config);
-  
-  return optimize(content, configStr);
+  // Run optimizer via Node with --experimental-wasm-modules to load the WASM package
+  const runner = path.resolve(__dirname, './wasm-optimize-runner.mjs');
+  fs.writeFileSync(runner, `#!/usr/bin/env node
+import fs from 'fs';
+const [,, chunkPath, configJson] = process.argv;
+const code = fs.readFileSync(chunkPath, 'utf8');
+try {
+  const mod = await import('swc_macro_wasm');
+  const out = mod.optimize(code, configJson);
+  process.stdout.write(out);
+} catch (e) {
+  console.error(e && e.message ? e.message : e);
+  process.exit(1);
+}
+`);
+  try {
+    const stdout = execFileSync('node', ['--experimental-wasm-modules', runner, chunkPath, configStr], {
+      encoding: 'utf8'
+    });
+    return stdout;
+  } finally {
+    try { fs.unlinkSync(runner); } catch (_) {}
+  }
 }
 
 /**

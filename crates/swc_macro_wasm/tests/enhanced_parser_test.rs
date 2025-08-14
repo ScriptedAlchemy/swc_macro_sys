@@ -59,11 +59,24 @@ fn test_enhanced_parser_export_definitions() {
             "utils": {
                 "utilA": true,
                 "utilB": false,
-                "utilC": true
+                "utilC": true,
+                "chunk_characteristics": {
+                    "entry_module_id": "main.js",
+                    "is_runtime_chunk": false,
+                    "has_runtime": false,
+                    "is_entrypoint": false,
+                    "can_be_initial": false,
+                    "is_only_initial": false,
+                    "chunk_format": "jsonp",
+                    "chunk_loading_type": null,
+                    "runtime_names": ["main"],
+                    "entry_name": null,
+                    "has_async_chunks": false,
+                    "chunk_files": ["test.js"],
+                    "is_shared_chunk": false,
+                    "shared_modules": []
+                }
             }
-        },
-        "entryModules": {
-            "lodash-es": "main.js"
         }
     });
     
@@ -133,11 +146,24 @@ fn test_enhanced_parser_arrow_functions() {
         "treeShake": {
             "helpers": {
                 "helperA": true,
-                "helperB": false
+                "helperB": false,
+                "chunk_characteristics": {
+                    "entry_module_id": "main.js",
+                    "is_runtime_chunk": false,
+                    "has_runtime": false,
+                    "is_entrypoint": false,
+                    "can_be_initial": false,
+                    "is_only_initial": false,
+                    "chunk_format": "jsonp",
+                    "chunk_loading_type": null,
+                    "runtime_names": ["main"],
+                    "entry_name": null,
+                    "has_async_chunks": false,
+                    "chunk_files": ["test.js"],
+                    "is_shared_chunk": false,
+                    "shared_modules": []
+                }
             }
-        },
-        "entryModules": {
-            "lodash-es": "main.js"
         }
     });
     
@@ -218,11 +244,24 @@ fn test_enhanced_parser_nested_structures() {
         "treeShake": {
             "features": {
                 "featureA": true,
-                "featureB": false
+                "featureB": false,
+                "chunk_characteristics": {
+                    "entry_module_id": "main.js",
+                    "is_runtime_chunk": false,
+                    "has_runtime": false,
+                    "is_entrypoint": false,
+                    "can_be_initial": false,
+                    "is_only_initial": false,
+                    "chunk_format": "jsonp",
+                    "chunk_loading_type": null,
+                    "runtime_names": ["main"],
+                    "entry_name": null,
+                    "has_async_chunks": false,
+                    "chunk_files": ["test.js"],
+                    "is_shared_chunk": false,
+                    "shared_modules": []
+                }
             }
-        },
-        "entryModules": {
-            "lodash-es": "main.js"
         }
     });
     
@@ -330,11 +369,24 @@ fn test_enhanced_parser_performance() {
                 "module1": false,
                 "module2": true,
                 "module3": false,
-                "module4": false
+                "module4": false,
+                "chunk_characteristics": {
+                    "entry_module_id": "main.js",
+                    "is_runtime_chunk": false,
+                    "has_runtime": false,
+                    "is_entrypoint": false,
+                    "can_be_initial": false,
+                    "is_only_initial": false,
+                    "chunk_format": "jsonp",
+                    "chunk_loading_type": null,
+                    "runtime_names": ["main"],
+                    "entry_name": null,
+                    "has_async_chunks": false,
+                    "chunk_files": ["test.js"],
+                    "is_shared_chunk": false,
+                    "shared_modules": []
+                }
             }
-        },
-        "entryModules": {
-            "lodash-es": "main.js"
         }
     });
     

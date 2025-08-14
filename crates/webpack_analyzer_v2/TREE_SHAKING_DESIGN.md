@@ -504,28 +504,30 @@ __webpack_require__.d(__webpack_exports__, {
 ```typescript
 interface ShareUsageConfig {
   treeShake: {
-    [libraryName: string]: {
-      [exportName: string]: boolean;
+    [packageName: string]: {
+      // Usage map of exports
+      [exportName: string]: boolean | ChunkCharacteristics;
+      // Required characteristics for this chunk
       chunk_characteristics: ChunkCharacteristics;
-    }
-  }
+    };
+  };
 }
 
 interface ChunkCharacteristics {
-  entry_module_id: string;
+  entry_module_id: string;             // May be a path or numeric string (for JSONP)
   is_runtime_chunk: boolean;
   has_runtime: boolean;
   is_entrypoint: boolean;
   can_be_initial: boolean;
   is_only_initial: boolean;
-  chunk_format: "jsonp" | "async-node" | "module";
+  chunk_format: "jsonp" | "async-node" | "require" | "module" | "webpack";
   chunk_loading_type: string | null;
   runtime_names: string[];
   entry_name: string | null;
   has_async_chunks: boolean;
   chunk_files: string[];
   is_shared_chunk: boolean;
-  shared_modules: string[];
+  shared_modules: unknown[];
 }
 ```
 

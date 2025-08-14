@@ -7,6 +7,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
+    "test": "node --experimental-wasm-modules jsx-test-server.mjs",
     "jsx-demo": "node --experimental-wasm-modules jsx-test-server.mjs",
     "build-wasm": "pnpm -C ../../ build:wasm"
   },

@@ -57,13 +57,27 @@ fn test_verify_remaining_exports_after_optimization() {
             }
         }
         
-        let config = json!({
-            "treeShake": {
-                "lodash-es": lodash_config
-            }
-        });
+        // Attach chunk_characteristics if present in host/remote
+        let chunk_chars = host_lodash.get("chunk_characteristics").cloned()
+            .or_else(|| remote_lodash.get("chunk_characteristics").cloned());
+        if let Some(chars) = chunk_chars.and_then(|v| v.as_object().cloned()) {
+            let mut lodash_config_with_chars = lodash_config.clone();
+            lodash_config_with_chars.insert("chunk_characteristics".to_string(), serde_json::Value::Object(chars));
+            let config = json!({
+                "treeShake": {
+                    "lodash-es": lodash_config_with_chars
+                }
+            });
+            (used_exports, config)
+        } else {
+            let config = json!({
+                "treeShake": {
+                    "lodash-es": lodash_config
+                }
+            });
+            (used_exports, config)
+        }
         
-        (used_exports, config)
     } else {
         // Old format
         let host_used = host_usage["consume_shared_modules"]["lodash-es"]["used_exports"]

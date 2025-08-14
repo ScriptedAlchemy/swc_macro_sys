@@ -112,6 +112,7 @@ fn test_lodash_orphan_detection_with_minimal_usage() {
                 "filter": false,
                 "reduce": false,
                 "chunk_characteristics": {
+                    "entry_module_id": "../../node_modules/lodash-es/lodash.js",
                     "is_runtime_chunk": false,
                     "has_runtime": false,
                     "is_entrypoint": false,
@@ -127,9 +128,6 @@ fn test_lodash_orphan_detection_with_minimal_usage() {
                     "shared_modules": []
                 }
             }
-        },
-        "entryModules": {
-            "lodash-es": "../../node_modules/lodash-es/lodash.js"
         }
     });
     
@@ -177,6 +175,7 @@ fn test_lodash_orphan_detection_with_minimal_usage() {
                 "filter": false,
                 "reduce": false,
                 "chunk_characteristics": {
+                    "entry_module_id": "../../node_modules/lodash-es/lodash.js",
                     "is_runtime_chunk": false,
                     "has_runtime": false,
                     "is_entrypoint": false,
@@ -193,9 +192,7 @@ fn test_lodash_orphan_detection_with_minimal_usage() {
                 }
             }
         },
-        "entryModules": {
-            "lodash-es": "../../node_modules/lodash-es/lodash.js"
-        }
+        
     });
     
     let default_optimized = optimize(lodash_chunk.to_string(), &default_only_config.to_string());
@@ -327,6 +324,7 @@ fn test_real_world_lodash_aggressive_tree_shaking() {
                     "zipObject": false,
                     "zipWith": false,
                     "chunk_characteristics": {
+                        "entry_module_id": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js",
                         "is_runtime_chunk": false,
                         "has_runtime": false,
                         "is_entrypoint": false,
@@ -342,9 +340,6 @@ fn test_real_world_lodash_aggressive_tree_shaking() {
                         "shared_modules": []
                     }
                 }
-            },
-            "entryModules": {
-                "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
             }
         }"#;
         

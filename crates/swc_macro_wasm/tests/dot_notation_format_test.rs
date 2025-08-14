@@ -53,7 +53,23 @@ exports.modules = {
         "treeShake": {
             "lodash-es": {
                 "capitalize": true,
-                "debounce": false
+                "debounce": false,
+                "chunk_characteristics": {
+                    "entry_module_id": "node_modules/lodash-es/lodash.js",
+                    "is_runtime_chunk": false,
+                    "has_runtime": false,
+                    "is_entrypoint": false,
+                    "can_be_initial": false,
+                    "is_only_initial": false,
+                    "chunk_format": "require",
+                    "chunk_loading_type": null,
+                    "runtime_names": ["main"],
+                    "entry_name": null,
+                    "has_async_chunks": false,
+                    "chunk_files": ["vendors-node_modules_lodash-es_lodash_js.js"],
+                    "is_shared_chunk": false,
+                    "shared_modules": []
+                }
             }
         }
     });
@@ -89,12 +105,13 @@ exports.modules = {
                 "sortBy": true,
                 "throttle": true,
                 "uniq": true,
-                "default": true
-                // Note: false values are NOT included, matching our JS implementation
+                "default": true,
+                "chunk_characteristics": {
+                    "entry_module_id": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js",
+                    "is_runtime_chunk": false,
+                    "chunk_format": "require"
+                }
             }
-        },
-        "entryModules": {
-            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
         }
     });
     
@@ -154,9 +171,6 @@ fn test_real_world_dot_notation_config() {
                 "concat": false
             }
         },
-        "entryModules": {
-            "lodash-es": "../../node_modules/.pnpm/lodash-es@4.17.21/node_modules/lodash-es/lodash.js"
-        },
         "metadata": {
             "timestamp": "2025-07-24T05:05:02.083Z",
             "apps": ["host", "remote"],
@@ -168,7 +182,6 @@ fn test_real_world_dot_notation_config() {
     
     // Verify the structure
     assert!(merged_config.get("treeShake").is_some(), "Config must have treeShake");
-    assert!(merged_config.get("entryModules").is_some(), "Config must have entryModules");
     
     let tree_shake = merged_config.get("treeShake").unwrap();
     let lodash_config = tree_shake.get("lodash-es").unwrap();

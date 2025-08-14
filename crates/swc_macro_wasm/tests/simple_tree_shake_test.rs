@@ -44,11 +44,13 @@ exports.modules = {
         "treeShake": {
             "test": {
                 "a": true,
-                "b": false
+                "b": false,
+                "chunk_characteristics": {
+                    "entry_module_id": "test/index.js",
+                    "is_runtime_chunk": false,
+                    "chunk_format": "require"
+                }
             }
-        },
-        "entryModules": {
-            "test": "test/index.js"
         }
     });
     
