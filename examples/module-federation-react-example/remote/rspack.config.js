@@ -12,7 +12,6 @@ export default defineConfig({
   context: __dirname,
   mode: 'development',
   devtool: false,
-  clean: true,
   entry: './src/index.js',
   target: 'web',
   resolve: {
@@ -55,7 +54,6 @@ export default defineConfig({
     new rspack.container.ModuleFederationPlugin({
       name: 'remote',
       filename: 'remoteEntry.js',
-      library: { type: 'var', name: 'remote' },
       exposes: {
         './UserCard': './src/components/UserCard',
         './DataTable': './src/components/DataTable',

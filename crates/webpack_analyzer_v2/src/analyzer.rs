@@ -404,28 +404,37 @@ impl WebpackAnalyzer {
 
     /// Extract modules from the AST based on chunk type
     fn extract_modules(&self, program: &Program, chunk: &mut WebpackChunk) -> Result<()> {
+        // Prefer extractor based on characteristics-derived type
         match chunk.chunk_type {
             ChunkType::CommonJSAsync | ChunkType::CommonJSSync => {
-                self.extract_commonjs_modules(program, chunk)
+                self.extract_commonjs_modules(program, chunk)?;
             },
-            ChunkType::JSONP => self.extract_jsonp_modules(program, chunk),
-            ChunkType::WebpackModules => self.extract_webpack_modules(program, chunk),
-            ChunkType::ESModules => {
-                // For now, treat ES modules similar to webpack modules
-                // TODO: Implement dedicated ES modules extraction
-                self.extract_webpack_modules(program, chunk)
+            ChunkType::JSONP => {
+                self.extract_jsonp_modules(program, chunk)?;
+            },
+            ChunkType::WebpackModules | ChunkType::ESModules => {
+                self.extract_webpack_modules(program, chunk)?;
             },
             ChunkType::Unknown => {
-                // Try all extraction methods and use the one that finds modules
-                if self.extract_commonjs_modules(program, chunk).is_ok() && chunk.module_count() > 0 {
-                    Ok(())
-                } else if self.extract_jsonp_modules(program, chunk).is_ok() && chunk.module_count() > 0 {
-                    Ok(())
-                } else {
-                    self.extract_webpack_modules(program, chunk)
-                }
+                // Unknown: fall back to auto-detection below
             },
         }
+
+        // Fallback: if no modules were extracted, try all strategies in order
+        if chunk.module_count() == 0 {
+            // Try WebpackModules
+            self.extract_webpack_modules(program, chunk)?;
+        }
+        if chunk.module_count() == 0 {
+            // Try CommonJS (sync/async are the same extractor)
+            self.extract_commonjs_modules(program, chunk)?;
+        }
+        if chunk.module_count() == 0 {
+            // Try JSONP
+            self.extract_jsonp_modules(program, chunk)?;
+        }
+
+        Ok(())
     }
 
     /// Extract modules from CommonJS format (exports.modules = {...})
@@ -547,12 +556,27 @@ impl Visit for CommonJSVisitor {
         if let AssignTarget::Simple(SimpleAssignTarget::Member(member)) = &node.left {
             if let MemberProp::Ident(prop) = &member.prop {
                 if prop.sym == "modules" {
-                    if let Expr::Ident(obj_ident) = member.obj.as_ref() {
-                        if obj_ident.sym == "exports" {
-                            // Found exports.modules = {...}
-                            if let Expr::Object(obj) = node.right.as_ref() {
+                    // Accept exports.modules and module.exports.modules
+                    let is_exports_modules = match member.obj.as_ref() {
+                        Expr::Ident(obj_ident) => obj_ident.sym == "exports",
+                        Expr::Member(inner) => match (inner.obj.as_ref(), &inner.prop) {
+                            (Expr::Ident(obj), MemberProp::Ident(p)) => obj.sym == "module" && p.sym == "exports",
+                            _ => false,
+                        },
+                        _ => false,
+                    };
+
+                    if is_exports_modules {
+                        match node.right.as_ref() {
+                            Expr::Object(obj) => {
                                 self.extract_modules_from_object(obj);
                             }
+                            Expr::Paren(paren) => {
+                                if let Expr::Object(obj) = paren.expr.as_ref() {
+                                    self.extract_modules_from_object(obj);
+                                }
+                            }
+                            _ => {}
                         }
                     }
                 }

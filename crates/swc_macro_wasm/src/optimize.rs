@@ -39,6 +39,7 @@ pub enum OptimizationError {
 type OptimizationResult<T> = Result<T, OptimizationError>;
 
 pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult<String> {
+    #[cfg(target_arch = "wasm32")]
     web_sys::console::log_1(&"optimize::optimize: Starting optimization".into());
     
     // Extract minify option from config (default to true for backward compatibility)
@@ -46,13 +47,16 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
     
+    #[cfg(target_arch = "wasm32")]
     web_sys::console::log_1(&format!("optimize::optimize: Minification enabled: {}", should_minify).into());
     
     let cm: Lrc<SourceMap> = Default::default();
     let (mut program, comments) = {
+        #[cfg(target_arch = "wasm32")]
         web_sys::console::log_1(&"optimize::optimize: Creating source file".into());
         let fm = cm.new_source_file(FileName::Custom("test.js".to_string()).into(), source);
         let comments = SingleThreadedComments::default();
+        #[cfg(target_arch = "wasm32")]
         web_sys::console::log_1(&"optimize::optimize: About to parse with Parser::new".into());
         let program = Parser::new(
             Syntax::Es(EsSyntax::default()),
@@ -81,16 +85,16 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
             let top_level_mark = Mark::new();
 
             program.mutate(resolver(unresolved_mark, top_level_mark, false));
-            
-            // TreeShaker will handle entry point preservation
-            
+
+            // Run DCE after macro conditions so orphaned require calls are dropped
             perform_dce(&mut program, comments.clone(), unresolved_mark);
-            
-            // Use analyzer's TreeShaker directly
+
+            // Prune unreachable modules by rewriting modules map
             if has_macro_processing_config(&config) {
                 run_webpack_tree_shake(&mut program, cm.clone(), &comments, &config, should_minify);
             }
-            
+
+            // Final fixer after pruning to keep AST consistent
             program.mutate(fixer(Some(&comments)));
             
             program
@@ -118,28 +122,10 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
     Ok(ret)
 }
 
-fn perform_dce(m: &mut Program, comments: SingleThreadedComments, unresolved_mark: Mark) {
-    let mut visitor = crate::dce::dce(
-        comments,
-        crate::dce::Config {
-            module_mark: None,
-            top_level: true,
-            top_retain: Vec::new(),
-            preserve_imports_with_side_effects: true,
-        },
-        unresolved_mark,
-    );
-
-    loop {
-        m.visit_mut_with(&mut visitor);
-
-        if !visitor.changed() {
-            break;
-        }
-
-        visitor.reset();
-    }
-}
+// DCE is intentionally not run before analysis to preserve the modules table structure
+// for the analyzer. If needed in the future, a post-prune DCE pass that preserves
+// top-level module containers can be added back with a conservative configuration.
+fn perform_dce(_m: &mut Program, _comments: SingleThreadedComments, _unresolved_mark: Mark) { }
 
 /// Check if the config contains macro processing directives that might create orphaned modules
 fn has_macro_processing_config(config: &serde_json::Value) -> bool {
@@ -233,6 +219,7 @@ fn run_webpack_tree_shake(
     config: &serde_json::Value,
     should_minify: bool,
 ) {
+    #[cfg(target_arch = "wasm32")]
     web_sys::console::log_1(&"TreeShaker::optimize: Starting tree shaking optimization".into());
     let timer = WasmTimer::start();
     let mut metrics = TreeShakeMetrics::new();
@@ -242,6 +229,7 @@ fn run_webpack_tree_shake(
 
     for iteration in 1..=max_iterations {
         // Step 1: Emit current AST to string for analysis
+        #[cfg(target_arch = "wasm32")]
         web_sys::console::log_1(&format!("TreeShaker: Starting iteration {}", iteration).into());
         let current_code = {
             let mut buf = vec![];
@@ -265,13 +253,16 @@ fn run_webpack_tree_shake(
         };
 
         // Step 2: Analyze the chunk using webpack_analyzer_v2
+        #[cfg(target_arch = "wasm32")]
         web_sys::console::log_1(&"TreeShaker: Getting chunk characteristics".into());
         let Some(characteristics) = get_chunk_characteristics(config) else {
+            #[cfg(target_arch = "wasm32")]
             web_sys::console::log_1(&"Tree shaking: No chunk_characteristics provided in config - skipping tree shaking".into());
             return;
         };
         // Skip entry or runtime chunks entirely based on characteristics
         if characteristics.is_entrypoint || characteristics.is_runtime_chunk {
+            #[cfg(target_arch = "wasm32")]
             web_sys::console::log_1(&"Tree shaking: Skipping entry or runtime chunk".into());
             return;
         }
@@ -285,14 +276,17 @@ fn run_webpack_tree_shake(
                     metrics.chunks_processed = 1;
                 }
                 if let Some(reason) = &plan.skip_reason {
+                    #[cfg(target_arch = "wasm32")]
                     web_sys::console::log_1(&format!("Tree shaking skipped: {}", reason).into());
                     return;
                 }
 
                 if plan.removed_modules.is_empty() || optimized_source == current_code {
                     if iteration == 1 {
+                        #[cfg(target_arch = "wasm32")]
                         web_sys::console::log_1(&format!("Tree shaking: No unreachable modules found. Kept {} modules, removed {}", plan.kept_modules.len(), plan.removed_modules.len()).into());
                     } else {
+                        #[cfg(target_arch = "wasm32")]
                         web_sys::console::log_1(&format!(
                             "Tree shaking: Converged after {} iterations, removed {} total modules",
                             iteration - 1,
@@ -315,11 +309,13 @@ fn run_webpack_tree_shake(
                     *program = new_prog;
                     // Continue to next iteration to see if more become unreachable
                 } else {
+                    #[cfg(target_arch = "wasm32")]
                     web_sys::console::log_1(&"Tree shaking: Failed to reparse optimized source - stopping".into());
                     break;
                 }
             }
             Err(err) => {
+                #[cfg(target_arch = "wasm32")]
                 web_sys::console::log_1(&format!("Tree shaking: Analyzer prune failed: {} - skipping", err).into());
                 return;
             }

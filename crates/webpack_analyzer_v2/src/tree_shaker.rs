@@ -149,13 +149,22 @@ impl TreeShaker {
             );
         };
         let entry_id = swc_core::atoms::Atom::from(entry_id_str.as_str());
+        
+        // Debug: Print all module keys to see what's available
+        eprintln!("[TreeShaker] Looking for entry: {}", entry_id_str);
+        eprintln!("[TreeShaker] Available modules (first 5):");
+        for (idx, key) in chunk.modules.keys().take(5).enumerate() {
+            eprintln!("  [{}] {}", idx, key);
+        }
+        eprintln!("[TreeShaker] Total modules in chunk: {}", chunk.modules.len());
+        
         if !chunk.modules.contains_key(&entry_id) {
-            eprintln!("[TreeShaker] Skipping: entry_module_id not present in chunk modules");
+            eprintln!("[TreeShaker] Skipping: entry_module_id '{}' not present in chunk modules", entry_id_str);
             return PruneResult::skipped(
-                "entry_module_id not present in chunk modules; pruning skipped".to_string(),
+                format!("entry_module_id '{}' not present in chunk modules; pruning skipped", entry_id_str),
                 original_count,
             );
-        }
+        };
         let entry_points = vec![entry_id];
 
         // Build dependency graph from existing module records
@@ -164,20 +173,14 @@ impl TreeShaker {
             graph.add_module(module.clone());
         }
 
-        // Conservative safety net: keep any module that is directly referenced by
-        // a __webpack_require__(<id>) anywhere in this chunk's source and that is
-        // also defined in this chunk. This prevents removing modules that are
-        // still required due to analysis edge misses in complex wrapper patterns.
-        let defined_keys: HashSet<ModuleId> = chunk.modules.keys().cloned().collect();
-        
         // Compute reachability
+        let defined_keys: HashSet<ModuleId> = chunk.modules.keys().cloned().collect();
         let mut reachable: HashSet<ModuleId> = graph.get_reachable_from_multiple(&entry_points);
         eprintln!("[TreeShaker] Entry points: {:?}", entry_points.len());
         eprintln!("[TreeShaker] Defined modules: {}", defined_keys.len());
         eprintln!("[TreeShaker] Reachable modules: {}", reachable.len());
-        let referenced_defined: HashSet<ModuleId> = Self::collect_defined_require_ids(&chunk.source, &defined_keys);
-        
-        // CRITICAL FIX: Force preserve scheduler modules regardless of reachability
+
+        // Optional preservation of critical scheduler modules
         // The scheduler module is required by React DOM but the dependency chain
         // might be broken due to complex wrapper patterns
         for key in &defined_keys {
@@ -188,8 +191,6 @@ impl TreeShaker {
                 eprintln!("[TreeShaker] Force preserving scheduler module: {}", key);
             }
         }
-        
-        reachable.extend(referenced_defined.into_iter());
 
         let all: HashSet<ModuleId> = defined_keys;
         let removed: HashSet<ModuleId> = all.difference(&reachable).cloned().collect();
