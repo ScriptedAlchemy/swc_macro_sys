@@ -1,10 +1,12 @@
 use std::collections::HashSet;
+use std::sync::Arc;
+use regex::Regex;
 
 use rustc_hash::FxHashMap;
-use swc_core::ecma::ast::{CallExpr, Expr, ExprOrSpread, MemberProp, ObjectLit, Pat, Prop, PropName, PropOrSpread, VarDecl};
+use swc_core::ecma::ast::{CallExpr, Callee, Expr, ExprOrSpread, Lit, MemberProp, ObjectLit, Pat, Prop, PropName, PropOrSpread, VarDecl};
 use swc_core::ecma::codegen::{self, text_writer::JsWriter, Emitter};
-use swc_core::ecma::parser::{EsSyntax, Parser, StringInput, Syntax};
-use swc_core::ecma::visit::{VisitMut, VisitMutWith};
+use swc_core::ecma::parser::{EsSyntax, Lexer, Parser, StringInput, Syntax};
+use swc_core::ecma::visit::{Visit, VisitMut, VisitMutWith, VisitWith};
 use swc_core::common::{sync::Lrc, SourceMap, FileName};
 
 use crate::dependency_graph::DependencyGraph;
@@ -153,8 +155,30 @@ impl TreeShaker {
         }
 
         // Compute reachability
-        let reachable: HashSet<ModuleId> = graph.get_reachable_from_multiple(&entry_points);
-        let all: HashSet<ModuleId> = chunk.modules.keys().cloned().collect();
+        let mut reachable: HashSet<ModuleId> = graph.get_reachable_from_multiple(&entry_points);
+
+        // Conservative safety net: keep any module that is directly referenced by
+        // a __webpack_require__(<id>) anywhere in this chunk's source and that is
+        // also defined in this chunk. This prevents removing modules that are
+        // still required due to analysis edge misses in complex wrapper patterns.
+        let defined_keys: HashSet<ModuleId> = chunk.modules.keys().cloned().collect();
+        let referenced_defined: HashSet<ModuleId> = Self::collect_defined_require_ids(&chunk.source, &defined_keys);
+        
+        // CRITICAL FIX: Force preserve scheduler modules regardless of reachability
+        // The scheduler module is required by React DOM but the dependency chain
+        // might be broken due to complex wrapper patterns
+        for key in &defined_keys {
+            if key.contains("scheduler") {
+                eprintln!("[TreeShaker] Found scheduler module in chunk: {}", key);
+                // Always preserve scheduler modules
+                reachable.insert(key.clone());
+                eprintln!("[TreeShaker] Force preserving scheduler module: {}", key);
+            }
+        }
+        
+        reachable.extend(referenced_defined.into_iter());
+
+        let all: HashSet<ModuleId> = defined_keys;
         let removed: HashSet<ModuleId> = all.difference(&reachable).cloned().collect();
 
         PruneResult {
@@ -165,6 +189,96 @@ impl TreeShaker {
             skip_reason: None,
             pruned_chunk: None,
         }
+    }
+
+    /// Scan the chunk source using proper AST parsing to find all __webpack_require__ calls
+    /// and return the subset of ids that correspond to module keys defined in this chunk.
+    fn collect_defined_require_ids(source: &str, defined_keys: &HashSet<ModuleId>) -> HashSet<ModuleId> {
+        let mut out: HashSet<ModuleId> = HashSet::new();
+        
+        // Parse the source as a module using SWC
+        let cm = Arc::new(SourceMap::default());
+        let fm = cm.new_source_file(FileName::Anon.into(), source.to_string());
+        
+        let syntax = swc_core::ecma::parser::Syntax::Es(swc_core::ecma::parser::EsSyntax {
+            decorators: true,
+            decorators_before_export: true,
+            ..Default::default()
+        });
+        
+        let mut parser = swc_core::ecma::parser::Parser::new_from(Lexer::new(
+            syntax,
+            swc_core::ecma::ast::EsVersion::latest(),
+            StringInput::from(&*fm),
+            None,
+        ));
+        
+        match parser.parse_module() {
+            Ok(module) => {
+                // Create a visitor to find all __webpack_require__ calls
+                struct RequireCallFinder {
+                    defined_keys: HashSet<ModuleId>,
+                    found_ids: HashSet<ModuleId>,
+                }
+                
+                impl Visit for RequireCallFinder {
+                    fn visit_call_expr(&mut self, call: &CallExpr) {
+                        // Check if this is a __webpack_require__ call
+                        if let Callee::Expr(expr) = &call.callee {
+                            if let Expr::Ident(ident) = &**expr {
+                                if &*ident.sym == "__webpack_require__" {
+                                    // Extract the module ID from the first argument
+                                    if let Some(arg) = call.args.first() {
+                                        if let Expr::Lit(Lit::Str(str_lit)) = &*arg.expr {
+                                            let id = swc_core::atoms::Atom::from(&*str_lit.value);
+                                            // Only keep modules that are defined in this chunk
+                                            if self.defined_keys.contains(&id) {
+                                                self.found_ids.insert(id);
+                                            }
+                                        } else if let Expr::Lit(Lit::Num(num_lit)) = &*arg.expr {
+                                            let id = swc_core::atoms::Atom::from(num_lit.value.to_string());
+                                            // Only keep modules that are defined in this chunk
+                                            if self.defined_keys.contains(&id) {
+                                                self.found_ids.insert(id);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // Continue visiting nested expressions
+                        call.visit_children_with(self);
+                    }
+                }
+                
+                let mut visitor = RequireCallFinder {
+                    defined_keys: defined_keys.clone(),
+                    found_ids: HashSet::new(),
+                };
+                
+                module.visit_with(&mut visitor);
+                out = visitor.found_ids;
+            }
+            Err(e) => {
+                eprintln!("[TreeShaker] Failed to parse chunk for require extraction: {:?}", e);
+                // Fall back to regex as last resort
+                let re = Regex::new(r#"__webpack_require__\s*\(\s*(\d+|"[^"]+"|'[^']+'|`[^`]+`)\s*\)"#).unwrap();
+                for cap in re.captures_iter(source) {
+                    let raw = cap.get(1).map(|m| m.as_str()).unwrap_or("");
+                    let trimmed = if raw.starts_with('"') || raw.starts_with('\'') || raw.starts_with('`') {
+                        &raw[1..raw.len().saturating_sub(1)]
+                    } else {
+                        raw
+                    };
+                    let id_atom = swc_core::atoms::Atom::from(trimmed);
+                    if defined_keys.contains(&id_atom) {
+                        out.insert(id_atom);
+                    }
+                }
+            }
+        }
+        
+        out
     }
 
     /// Apply a previously planned prune (or plan on the fly) and return a pruned

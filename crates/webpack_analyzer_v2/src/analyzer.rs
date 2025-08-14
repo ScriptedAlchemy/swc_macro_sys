@@ -139,26 +139,48 @@ impl SharedExtractionMethods {
             }
             let norm = normalize(callee_expr.as_ref());
 
-            if let Expr::Ident(ident) = norm {
-                if ident.sym == "__webpack_require__" {
-                    // Found a webpack_require call
-                    if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
-                        match expr.as_ref() {
-                            Expr::Lit(Lit::Str(s)) => {
-                                source.push_str(&format!("__webpack_require__(\"{}\");\n", s.value));
+            match norm {
+                Expr::Ident(ident) => {
+                    if ident.sym == "__webpack_require__" {
+                        // Found a webpack_require call
+                        if let Some(ExprOrSpread { expr, .. }) = call.args.first() {
+                            match expr.as_ref() {
+                                Expr::Lit(Lit::Str(s)) => {
+                                    source.push_str(&format!("__webpack_require__(\"{}\");\n", s.value));
+                                }
+                                Expr::Lit(Lit::Num(n)) => {
+                                    // Support numeric module IDs (e.g., WebpackModules format)
+                                    source.push_str(&format!("__webpack_require__({});\n", n.value));
+                                }
+                                Expr::Tpl(tpl) if tpl.exprs.is_empty() => {
+                                    let cooked = tpl.quasis.iter().map(|q| q.raw.as_ref()).collect::<Vec<_>>().join("");
+                                    if !cooked.is_empty() { source.push_str(&format!("__webpack_require__(\"{}\");\n", cooked)); }
+                                }
+                                _ => {}
                             }
-                            Expr::Lit(Lit::Num(n)) => {
-                                // Support numeric module IDs (e.g., WebpackModules format)
-                                source.push_str(&format!("__webpack_require__({});\n", n.value));
-                            }
-                            Expr::Tpl(tpl) if tpl.exprs.is_empty() => {
-                                let cooked = tpl.quasis.iter().map(|q| q.raw.as_ref()).collect::<Vec<_>>().join("");
-                                if !cooked.is_empty() { source.push_str(&format!("__webpack_require__(\"{}\");\n", cooked)); }
-                            }
-                            _ => {}
                         }
                     }
                 }
+                Expr::Fn(fn_expr) => {
+                    // IIFE: (function(){ ... __webpack_require__(...) ... })()
+                    let body = &fn_expr.function.body;
+                    let nested = Self::extract_webpack_requires_from_function_body(body);
+                    if !nested.is_empty() { source.push_str(&nested); }
+                }
+                Expr::Arrow(arrow) => {
+                    // IIFE arrow: (()=>{ ... __webpack_require__(...) ... })()
+                    match &*arrow.body {
+                        BlockStmtOrExpr::BlockStmt(block) => {
+                            for stmt in &block.stmts {
+                                Self::extract_webpack_requires_from_stmt(stmt, source);
+                            }
+                        }
+                        BlockStmtOrExpr::Expr(expr) => {
+                            Self::extract_webpack_requires_from_expr(expr, source, mode);
+                        }
+                    }
+                }
+                _ => {}
             }
             
             // Handle extended features based on mode
@@ -550,6 +572,7 @@ impl CommonJSVisitor {
                     let module_id = match &kv.key {
                         PropName::Str(s) => s.value.clone(),
                         PropName::Ident(ident) => ident.sym.clone(),
+                        PropName::Num(num) => Atom::from(num.value.to_string()),
                         _ => continue,
                     };
 
