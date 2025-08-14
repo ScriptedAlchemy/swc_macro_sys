@@ -128,14 +128,14 @@ fn test_source_utils_chunk() {
     
     let analyzer = WebpackAnalyzer::new();
     
-    // Utils chunk characteristics (async-node format)
+    // Utils chunk characteristics (jsonp format based on actual file)
     let characteristics = ChunkCharacteristics {
         is_runtime_chunk: false,
         has_runtime: false,
         is_entrypoint: false,
         can_be_initial: false,
         is_only_initial: false,
-        chunk_format: "async-node".to_string(),
+        chunk_format: "jsonp".to_string(),
         chunk_loading_type: None,
         runtime_names: vec!["remote".to_string()],
         entry_name: None,
@@ -155,9 +155,9 @@ fn test_source_utils_chunk() {
             for module in chunk.modules.values() {
                 graph.add_module(module.clone());
             }
-            // Update for new enum variant - could be CommonJSAsync or CommonJSSync
-            assert!(matches!(chunk.chunk_type, ChunkType::CommonJSAsync | ChunkType::CommonJSSync));
-            assert!(chunk.module_count() > 0, "Should have extracted modules");
+            // Check for JSONP format based on the actual test fixtures
+            assert!(matches!(chunk.chunk_type, ChunkType::JSONP), "Expected JSONP chunk type, got {:?}", chunk.chunk_type);
+            assert!(chunk.module_count() > 0, "Should have extracted modules from JSONP chunk");
             // Dependency count is always non-negative by type definition
         }
         Err(e) => panic!("Failed to analyze source utils chunk: {}", e),
@@ -179,14 +179,14 @@ fn test_source_button_chunk() {
     
     let analyzer = WebpackAnalyzer::new();
     
-    // Button chunk characteristics (async-node format)
+    // Button chunk characteristics (jsonp format based on actual file)
     let characteristics = ChunkCharacteristics {
         is_runtime_chunk: false,
         has_runtime: false,
         is_entrypoint: false,
         can_be_initial: false,
         is_only_initial: false,
-        chunk_format: "async-node".to_string(),
+        chunk_format: "jsonp".to_string(),
         chunk_loading_type: None,
         runtime_names: vec!["remote".to_string()],
         entry_name: None,
@@ -206,9 +206,9 @@ fn test_source_button_chunk() {
             for module in chunk.modules.values() {
                 graph.add_module(module.clone());
             }
-            // Update for new enum variant - could be CommonJSAsync or CommonJSSync
-            assert!(matches!(chunk.chunk_type, ChunkType::CommonJSAsync | ChunkType::CommonJSSync));
-            assert!(chunk.module_count() > 0, "Should have extracted modules");
+            // Check for JSONP format based on the actual test fixtures
+            assert!(matches!(chunk.chunk_type, ChunkType::JSONP), "Expected JSONP chunk type, got {:?}", chunk.chunk_type);
+            assert!(chunk.module_count() > 0, "Should have extracted modules from JSONP chunk");
             // Dependency count is always non-negative by type definition
         }
         Err(e) => panic!("Failed to analyze source button chunk: {}", e),

@@ -164,17 +164,17 @@ impl TreeShaker {
             graph.add_module(module.clone());
         }
 
-        // Compute reachability
-        let mut reachable: HashSet<ModuleId> = graph.get_reachable_from_multiple(&entry_points);
-        eprintln!("[TreeShaker] Entry points: {:?}", entry_points.len());
-        eprintln!("[TreeShaker] Defined modules: {}", defined_keys.len());
-        eprintln!("[TreeShaker] Reachable modules: {}", reachable.len());
-
         // Conservative safety net: keep any module that is directly referenced by
         // a __webpack_require__(<id>) anywhere in this chunk's source and that is
         // also defined in this chunk. This prevents removing modules that are
         // still required due to analysis edge misses in complex wrapper patterns.
         let defined_keys: HashSet<ModuleId> = chunk.modules.keys().cloned().collect();
+        
+        // Compute reachability
+        let mut reachable: HashSet<ModuleId> = graph.get_reachable_from_multiple(&entry_points);
+        eprintln!("[TreeShaker] Entry points: {:?}", entry_points.len());
+        eprintln!("[TreeShaker] Defined modules: {}", defined_keys.len());
+        eprintln!("[TreeShaker] Reachable modules: {}", reachable.len());
         let referenced_defined: HashSet<ModuleId> = Self::collect_defined_require_ids(&chunk.source, &defined_keys);
         
         // CRITICAL FIX: Force preserve scheduler modules regardless of reachability
