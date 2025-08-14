@@ -107,7 +107,7 @@ impl TreeShaker {
         // Emit
         let mut buf = vec![];
         let mut emitter = Emitter {
-            cfg: codegen::Config::default().with_minify(false),
+            cfg: codegen::Config::default().with_minify(true),
             comments: None,
             cm: cm.clone(),
             wr: Box::new(JsWriter::new(cm.clone(), "\n", &mut buf, None)),

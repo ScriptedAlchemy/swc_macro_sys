@@ -164,7 +164,12 @@ async function optimizeChunk(chunkPath, library, treeShakeConfig, optimizer, chu
       treeShakeLib.chunk_characteristics = chunkCharacteristics;
     }
 
-    const config = { treeShake: { [library]: treeShakeLib } };
+    // For React example, don't minify since input is already formatted
+    // This preserves readability and the tree-shaking still provides size reduction
+    const config = { 
+      treeShake: { [library]: treeShakeLib },
+      minify: false  // React chunks are already formatted, keep them readable
+    };
     
     const configJson = JSON.stringify(config);
     console.log(`Tree-shake config for ${library}:`, Object.keys(libraryKeepFlags).length, 'exports to keep');

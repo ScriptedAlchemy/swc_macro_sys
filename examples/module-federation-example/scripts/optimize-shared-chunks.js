@@ -164,7 +164,11 @@ async function optimizeChunk(chunkPath, library, treeShakeConfig, optimizer, chu
       };
     }
 
-    const config = { treeShake: treeShakeWithMeta };
+    // For plain example, minify since input is already minified
+    const config = { 
+      treeShake: treeShakeWithMeta,
+      minify: true  // Keep minified output to match input format
+    };
     
     const configJson = JSON.stringify(config);
     console.log(`Tree-shake config for ${library}:`, Object.keys(libraryConfig).length, 'exports to keep');

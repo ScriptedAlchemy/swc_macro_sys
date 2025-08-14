@@ -40,6 +40,14 @@ type OptimizationResult<T> = Result<T, OptimizationError>;
 
 pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult<String> {
     web_sys::console::log_1(&"optimize::optimize: Starting optimization".into());
+    
+    // Extract minify option from config (default to true for backward compatibility)
+    let should_minify = config.get("minify")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    
+    web_sys::console::log_1(&format!("optimize::optimize: Minification enabled: {}", should_minify).into());
+    
     let cm: Lrc<SourceMap> = Default::default();
     let (mut program, comments) = {
         web_sys::console::log_1(&"optimize::optimize: Creating source file".into());
@@ -80,7 +88,7 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
             
             // Use analyzer's TreeShaker directly
             if has_macro_processing_config(&config) {
-                run_webpack_tree_shake(&mut program, cm.clone(), &comments, &config);
+                run_webpack_tree_shake(&mut program, cm.clone(), &comments, &config, should_minify);
             }
             
             program.mutate(fixer(Some(&comments)));
@@ -94,7 +102,7 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
         let wr = Box::new(text_writer::JsWriter::new(cm.clone(), "\n", &mut buf, None))
             as Box<dyn WriteJs>;
         let mut emitter = Emitter {
-            cfg: codegen::Config::default().with_minify(false),
+            cfg: codegen::Config::default().with_minify(should_minify),
             comments: Some(&comments),
             cm: cm.clone(),
             wr,
@@ -223,6 +231,7 @@ fn run_webpack_tree_shake(
     cm: Lrc<SourceMap>,
     comments: &SingleThreadedComments,
     config: &serde_json::Value,
+    should_minify: bool,
 ) {
     web_sys::console::log_1(&"TreeShaker::optimize: Starting tree shaking optimization".into());
     let timer = WasmTimer::start();
@@ -239,7 +248,7 @@ fn run_webpack_tree_shake(
             let wr = Box::new(text_writer::JsWriter::new(cm.clone(), "\n", &mut buf, None))
                 as Box<dyn WriteJs>;
             let mut emitter = Emitter {
-                cfg: codegen::Config::default().with_minify(false),
+                cfg: codegen::Config::default().with_minify(should_minify),
                 comments: Some(comments),
                 cm: cm.clone(),
                 wr,
