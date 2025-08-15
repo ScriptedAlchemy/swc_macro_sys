@@ -2,7 +2,7 @@
   "name": "module-federation-example",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "workspaces": [
     "host",
     "remote"
@@ -25,6 +25,10 @@
     "test:watch": "pnpm run build && pnpm run optimize && vitest --watch",
     "test:legacy": "pnpm run build && pnpm run optimize && node --experimental-wasm-modules scripts/build-optimize-test.js",
     "test:all": "pnpm run build && pnpm run optimize && vitest run && node scripts/test-vendor-runtime.js",
+    "test:host-import": "node -e \"const host = require('./host/dist/main.js'); console.log('Host module loaded:', host);\"",
+    "test:module-removal": "pnpm run build && pnpm run optimize && node test/module-removal.test.js",
+    "test:module-removal:verbose": "pnpm run build && pnpm run optimize && VERBOSE=true node test/module-removal.test.js",
+    "test:unused-modules": "node test/unused-module-removal.test.js",
     "clean": "rimraf dist coverage host/dist remote/dist node_modules/.cache",
     "lint": "eslint . --ext .js,.jsx"
   },

@@ -380,18 +380,32 @@ impl TreeShaker {
     }
 }
 
-/// Minimal AST pruner mirroring swc_macro_wasm logic for supported formats
+/// Enhanced AST module pruner that completely removes module entries from webpack modules objects
+/// instead of just marking them or removing their exports
 struct AstModulePruner {
     to_remove: std::collections::HashSet<String>,
 }
 
 impl AstModulePruner {
-    fn new(to_remove: std::collections::HashSet<String>) -> Self { Self { to_remove } }
+    fn new(to_remove: std::collections::HashSet<String>) -> Self { 
+        Self { to_remove } 
+    }
 
-    fn should_remove_property(&self, prop: &PropOrSpread) -> bool {
+    /// Check if a module property should be completely removed from __webpack_modules__
+    fn should_remove_module_entry(&self, prop: &PropOrSpread) -> bool {
         if let PropOrSpread::Prop(prop) = prop {
             if let Prop::KeyValue(kv) = prop.as_ref() {
                 let module_id = match &kv.key {
+                    PropName::Num(n) => n.value.to_string(),
+                    PropName::Str(s) => s.value.to_string(),
+                    PropName::Ident(i) => i.sym.to_string(),
+                    _ => return false,
+                };
+                return self.to_remove.contains(&module_id);
+            }
+            // Handle method definitions for webpack modules
+            if let Prop::Method(method) = prop.as_ref() {
+                let module_id = match &method.key {
                     PropName::Num(n) => n.value.to_string(),
                     PropName::Str(s) => s.value.to_string(),
                     PropName::Ident(i) => i.sym.to_string(),
@@ -403,15 +417,50 @@ impl AstModulePruner {
         false
     }
 
-    fn strip_from_object(&self, obj: &mut ObjectLit) {
-        obj.props.retain(|p| !self.should_remove_property(p));
+    /// Check if an array element (module ID) should be removed from dependency arrays
+    fn should_remove_dependency(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Lit(swc_core::ecma::ast::Lit::Str(s)) => {
+                self.to_remove.contains(&s.value.to_string())
+            }
+            Expr::Lit(swc_core::ecma::ast::Lit::Num(n)) => {
+                self.to_remove.contains(&n.value.to_string())
+            }
+            _ => false,
+        }
     }
 
-    fn strip_from_expr(&self, expr: &mut Expr) {
+    /// Completely remove unreachable module entries from webpack modules object
+    fn remove_modules_from_object(&self, obj: &mut ObjectLit) {
+        let original_count = obj.props.len();
+        obj.props.retain(|p| !self.should_remove_module_entry(p));
+        let removed_count = original_count - obj.props.len();
+        if removed_count > 0 {
+            eprintln!("[AstModulePruner] Removed {} module entries from __webpack_modules__", removed_count);
+        }
+    }
+
+    /// Handle different webpack module container formats
+    fn process_modules_expr(&self, expr: &mut Expr) {
         match expr {
-            Expr::Object(obj) => self.strip_from_object(obj),
-            Expr::Paren(paren) => if let Expr::Object(obj) = paren.expr.as_mut() { self.strip_from_object(obj) },
-            _ => {}
+            // Direct object literal: __webpack_modules__ = { ... }
+            Expr::Object(obj) => self.remove_modules_from_object(obj),
+            // Parenthesized object: __webpack_modules__ = ({ ... })
+            Expr::Paren(paren) => {
+                if let Expr::Object(obj) = paren.expr.as_mut() {
+                    self.remove_modules_from_object(obj);
+                }
+            }
+            // Function call returning object: __webpack_modules__ = fn()
+            Expr::Call(call) => {
+                // Some webpack formats use IIFE that returns module object
+                // We need to handle the case where modules are defined inside the function
+                call.visit_mut_children_with(self);
+            }
+            _ => {
+                // Handle any other expression types that might contain module definitions
+                expr.visit_mut_children_with(self);
+            }
         }
     }
 }

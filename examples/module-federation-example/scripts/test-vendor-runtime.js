@@ -3,13 +3,9 @@
 // Runtime execution test for optimized vendor chunks.
 // Verifies that kept exports still execute (not undefined) after optimization.
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const fs = require('fs');
+const path = require('path');
+const { createRequire } = require('module');
 
 function readJson(p) {
   return JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -109,7 +105,7 @@ function evaluateChunkAndGetModulesFromSource(source) {
 
 function requireChunkModules(chunkPath) {
   try {
-    const requireCjs = createRequire(import.meta.url);
+    const requireCjs = createRequire(require.main === module ? __filename : require.main.filename);
     const mod = requireCjs(chunkPath);
     if (mod && (mod.modules || mod.__modules)) return mod.modules || mod.__modules;
   } catch (e) {

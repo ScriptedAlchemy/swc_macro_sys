@@ -3,7 +3,7 @@ const { ModuleFederationPlugin } = rspack.container;
 const isProd = process.env.NODE_ENV === 'production';
 
 module.exports = {
-  mode: isProd ? 'production' : 'development',
+  mode: 'development',
   entry: './src/index.js',
   target: 'async-node',
   devtool: false,
@@ -37,17 +37,17 @@ module.exports = {
     ],
   },
   optimization: {
-    minimizer: isProd
-      ? [
-          new rspack.SwcJsMinimizerRspackPlugin({
-            minimizerOptions: {
-              mangle: false,
-              compress: { passes: 2 },
-              format: { comments: false }
-            }
-          })
-        ]
-      : []
+    minimize: false,
+    sideEffects: false,
+    usedExports: false,
+    providedExports: false,
+    concatenateModules: false,
+    mangleExports: false,
+    nodeEnv: false,
+    mergeDuplicateChunks: false,
+    removeAvailableModules: false,
+    removeEmptyChunks: false,
+    splitChunks: false
   },
   plugins: [
     new ModuleFederationPlugin({
@@ -91,8 +91,6 @@ module.exports = {
         },
       },
     }),
-    new rspack.HtmlRspackPlugin({
-      template: './src/index.html',
-    }),
+
   ],
 };
