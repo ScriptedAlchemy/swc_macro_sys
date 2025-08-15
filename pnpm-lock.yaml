@@ -310,6 +310,9 @@ importers:
 
   examples/module-federation-web-example:
     devDependencies:
+      '@playwright/test':
+        specifier: ^1.40.0
+        version: 1.54.2
       '@rspack/cli':
         specifier: npm:@rspack-canary/cli@1.4.11-canary-1c16f486-20250724191319
         version: /@rspack-canary/cli@1.4.11-canary-1c16f486-20250724191319(@rspack-canary/core@1.4.11-canary-1c16f486-20250724191319)(webpack@5.101.0)

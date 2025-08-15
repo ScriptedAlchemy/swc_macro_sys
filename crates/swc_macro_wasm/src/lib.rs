@@ -1,4 +1,6 @@
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
 use web_sys::console;
 
 mod dce;
@@ -8,29 +10,40 @@ pub mod config;
 pub mod convergence;
 pub mod performance;
 
+// Cross-platform helper: parse JSON config string safely and call optimizer
+pub fn optimize_with_config_str(source: String, config: &str) -> String {
+    // Parse config with proper error handling to avoid panics
+    let config: serde_json::Value = match serde_json::from_str(config) {
+        Ok(cfg) => cfg,
+        Err(_) => {
+            // Return original source on invalid JSON (parity with WASM API)
+            return source;
+        }
+    };
+
+    match optimize::optimize(source.clone(), config) {
+        Ok(result) => result,
+        Err(_) => source,
+    }
+}
+
+// WASM-only export that logs to browser console and installs panic hook
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn optimize(source: String, config: &str) -> String {
     // Install panic hook to surface Rust panic messages/stacktrace into JS console
     console_error_panic_hook::set_once();
 
-    console::log_1(&format!("WASM optimize: Called with source length {} and config: {}", source.len(), config).into());
-    // Parse config with proper error handling to avoid panics
-    let config: serde_json::Value = match serde_json::from_str(config) {
-        Ok(cfg) => cfg,
-        Err(e) => {
-            console::log_1(&format!("Warning: Invalid config JSON: {}. Using original source.", e).into());
-            return source;
-        }
-    };
+    console::log_1(&format!(
+        "WASM optimize: Called with source length {} and config: {}",
+        source.len(), config
+    )
+    .into());
 
     console::log_1(&"WASM optimize: About to call optimize::optimize".into());
-    match optimize::optimize(source.clone(), config) {
-        Ok(result) => result,
-        Err(e) => {
-            console::log_1(&format!("Warning: Optimization failed: {}. Using original source.", e).into());
-            source
-        }
-    }
+
+    // Delegate to cross-platform helper for consistent behavior
+    optimize_with_config_str(source, config)
 }
 
 #[cfg(test)]
@@ -95,9 +108,11 @@ mod tests {
         assert!(!result.contains("__webpack_modules__"), "webpack_modules should be completely removed when no entry points");
         
         println!("Tree shaking integration test passed!");
-        println!("Result size: {} bytes (tree shaking saved {} bytes)", 
-                result.len(), 
-                original_size - result.len());
+        println!(
+            "Result size: {} bytes (tree shaking saved {} bytes)", 
+            result.len(), 
+            original_size - result.len()
+        );
     }
 
     #[test]
@@ -167,9 +182,15 @@ mod tests {
     #[test]
     fn test_invalid_config_does_not_panic() {
         let source = "console.log('hello');".to_string();
-        // Pass deliberately invalid JSON
-        let result = super::optimize(source.clone(), "{not valid json}");
+        // Pass deliberately invalid JSON through the cross-platform helper
+        let result = super::optimize_with_config_str(source.clone(), "{not valid json}");
         // When config parsing fails we should get the original source back
         assert_eq!(result, source);
     }
+}
+
+// Native (non-wasm) shim to keep tests and CLI integration working
+#[cfg(not(target_arch = "wasm32"))]
+pub fn optimize(source: String, config: &str) -> String {
+    optimize_with_config_str(source, config)
 }

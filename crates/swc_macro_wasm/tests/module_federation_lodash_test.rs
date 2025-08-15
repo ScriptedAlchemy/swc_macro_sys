@@ -113,10 +113,19 @@ fn test_module_federation_vs_standard_lodash() {
     let module_federation_dir = Path::new("../../examples/module-federation-example");
     let test_cases_dir = Path::new("../../test-cases");
     
-    let mf_chunk_path = module_federation_dir.join("remote/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original");
-    let standard_chunk_path = test_cases_dir.join("rspack-annotated-output/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js");
+    let mf_chunk_path_default = module_federation_dir.join("remote/dist/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js.original");
+    let standard_chunk_path_default = test_cases_dir.join("rspack-annotated-output/vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js");
 
-    assert!(mf_chunk_path.exists() && standard_chunk_path.exists(), "Comparison chunks not available");
+    // Fallback to bundled fixtures when example outputs are not present
+    let fallback_mf = Path::new("tests/fixtures/module_federation_lodash_chunk.js");
+    let fallback_std = Path::new("tests/fixtures/standard_webpack_lodash_chunk.js");
+
+    let (mf_chunk_path, standard_chunk_path) = if mf_chunk_path_default.exists() && standard_chunk_path_default.exists() {
+        (mf_chunk_path_default, standard_chunk_path_default)
+    } else {
+        assert!(fallback_mf.exists() && fallback_std.exists(), "Comparison chunks not available");
+        (fallback_mf.to_path_buf(), fallback_std.to_path_buf())
+    };
 
     // Read both chunks
     let mf_code = fs::read_to_string(&mf_chunk_path).expect("Failed to read MF chunk");

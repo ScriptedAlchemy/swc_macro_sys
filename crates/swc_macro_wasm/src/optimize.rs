@@ -17,6 +17,16 @@ use thiserror::Error;
 // Re-enabling webpack_analyzer_v2 step by step
 use webpack_analyzer_v2::{ChunkCharacteristics, TreeShaker as AnalyzerTreeShaker};
 
+// Cross-platform logging helper
+#[cfg(target_arch = "wasm32")]
+fn log(msg: &str) {
+    web_sys::console::log_1(&msg.into());
+}
+#[cfg(not(target_arch = "wasm32"))]
+fn log(_msg: &str) {
+    // No-op on native to avoid noisy stdout and wasm_bindgen linkage
+}
+
 /// Error types for optimization operations
 #[derive(Error, Debug)]
 pub enum OptimizationError {
@@ -39,13 +49,13 @@ pub enum OptimizationError {
 type OptimizationResult<T> = Result<T, OptimizationError>;
 
 pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult<String> {
-    web_sys::console::log_1(&"optimize::optimize: Starting optimization".into());
+    log("optimize::optimize: Starting optimization");
     let cm: Lrc<SourceMap> = Default::default();
     let (mut program, comments) = {
-        web_sys::console::log_1(&"optimize::optimize: Creating source file".into());
+        log("optimize::optimize: Creating source file");
         let fm = cm.new_source_file(FileName::Custom("test.js".to_string()).into(), source);
         let comments = SingleThreadedComments::default();
-        web_sys::console::log_1(&"optimize::optimize: About to parse with Parser::new".into());
+        log("optimize::optimize: About to parse with Parser::new");
         let program = Parser::new(
             Syntax::Es(EsSyntax::default()),
             StringInput::from(&*fm),
@@ -224,7 +234,7 @@ fn run_webpack_tree_shake(
     comments: &SingleThreadedComments,
     config: &serde_json::Value,
 ) {
-    web_sys::console::log_1(&"TreeShaker::optimize: Starting tree shaking optimization".into());
+    log("TreeShaker::optimize: Starting tree shaking optimization");
     let timer = WasmTimer::start();
     let mut metrics = TreeShakeMetrics::new();
 
@@ -233,7 +243,7 @@ fn run_webpack_tree_shake(
 
     for iteration in 1..=max_iterations {
         // Step 1: Emit current AST to string for analysis
-        web_sys::console::log_1(&format!("TreeShaker: Starting iteration {}", iteration).into());
+        log(&format!("TreeShaker: Starting iteration {}", iteration));
         let current_code = {
             let mut buf = vec![];
             let wr = Box::new(text_writer::JsWriter::new(cm.clone(), "\n", &mut buf, None))
@@ -256,14 +266,14 @@ fn run_webpack_tree_shake(
         };
 
         // Step 2: Analyze the chunk using webpack_analyzer_v2
-        web_sys::console::log_1(&"TreeShaker: Getting chunk characteristics".into());
+        log("TreeShaker: Getting chunk characteristics");
         let Some(characteristics) = get_chunk_characteristics(config) else {
-            web_sys::console::log_1(&"Tree shaking: No chunk_characteristics provided in config - skipping tree shaking".into());
+            log("Tree shaking: No chunk_characteristics provided in config - skipping tree shaking");
             return;
         };
         // Skip entry or runtime chunks entirely based on characteristics
         if characteristics.is_entrypoint || characteristics.is_runtime_chunk {
-            web_sys::console::log_1(&"Tree shaking: Skipping entry or runtime chunk".into());
+            log("Tree shaking: Skipping entry or runtime chunk");
             return;
         }
 
@@ -276,19 +286,23 @@ fn run_webpack_tree_shake(
                     metrics.chunks_processed = 1;
                 }
                 if let Some(reason) = &plan.skip_reason {
-                    web_sys::console::log_1(&format!("Tree shaking skipped: {}", reason).into());
+                    log(&format!("Tree shaking skipped: {}", reason));
                     return;
                 }
 
                 if plan.removed_modules.is_empty() || optimized_source == current_code {
                     if iteration == 1 {
-                        web_sys::console::log_1(&format!("Tree shaking: No unreachable modules found. Kept {} modules, removed {}", plan.kept_modules.len(), plan.removed_modules.len()).into());
+                        log(&format!(
+                            "Tree shaking: No unreachable modules found. Kept {} modules, removed {}",
+                            plan.kept_modules.len(),
+                            plan.removed_modules.len()
+                        ));
                     } else {
-                        web_sys::console::log_1(&format!(
+                        log(&format!(
                             "Tree shaking: Converged after {} iterations, removed {} total modules",
                             iteration - 1,
                             total_removed
-                        ).into());
+                        ));
                     }
                     metrics.iterations = iteration;
                     break;
@@ -306,12 +320,12 @@ fn run_webpack_tree_shake(
                     *program = new_prog;
                     // Continue to next iteration to see if more become unreachable
                 } else {
-                    web_sys::console::log_1(&"Tree shaking: Failed to reparse optimized source - stopping".into());
+                    log("Tree shaking: Failed to reparse optimized source - stopping");
                     break;
                 }
             }
             Err(err) => {
-                web_sys::console::log_1(&format!("Tree shaking: Analyzer prune failed: {} - skipping", err).into());
+                log(&format!("Tree shaking: Analyzer prune failed: {} - skipping", err));
                 return;
             }
         }

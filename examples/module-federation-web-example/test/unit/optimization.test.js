@@ -1,17 +1,15 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { optimize } from 'swc_macro_wasm';
+import { optimizeChunk } from '../utils/optimization.js';
 
 describe('SWC Macro Optimization', () => {
   const fixturesPath = path.resolve(__dirname, '../fixtures');
   
   describe('Tree Shaking', () => {
     it('should remove unused lodash exports', () => {
-      const chunk = fs.readFileSync(
-        path.join(fixturesPath, 'lodash-chunk.js'), 
-        'utf-8'
-      );
+      const chunkPath = path.join(fixturesPath, 'lodash-chunk.js');
+      const chunk = fs.readFileSync(chunkPath, 'utf-8');
       
       const config = {
         treeShake: {
@@ -30,7 +28,7 @@ describe('SWC Macro Optimization', () => {
         }
       };
       
-      const optimized = optimize(chunk, JSON.stringify(config));
+      const optimized = optimizeChunk(chunkPath, config);
       
       // Check that enabled exports are preserved
       expect(optimized).toContain('sortBy');
@@ -92,6 +90,7 @@ describe('SWC Macro Optimization', () => {
   
   describe('CommonJS Split Chunks', () => {
     it('should preserve module structure in exports.modules format', () => {
+      const chunkPath = path.join(fixturesPath, 'lodash-chunk.js');
       const chunk = `
         "use strict";
         exports.ids = ["vendors-lodash"];
@@ -114,7 +113,7 @@ describe('SWC Macro Optimization', () => {
         }
       };
       
-      const optimized = optimize(chunk, JSON.stringify(config));
+      const optimized = optimizeChunk(chunkPath, config);
       
       // Should maintain CommonJS structure
       expect(optimized).toContain('exports.ids');
@@ -124,6 +123,7 @@ describe('SWC Macro Optimization', () => {
   
   describe('Macro Processing', () => {
     it('should process @common:if conditions correctly', () => {
+      const chunkPath = path.join(fixturesPath, 'lodash-chunk.js');
       const chunk = `
         /* @common:if [condition="treeShake.lodash-es.sortBy"] */
         exports.sortBy = __webpack_require__("sortBy.js").default;
@@ -139,7 +139,7 @@ describe('SWC Macro Optimization', () => {
         }
       };
       
-      const optimized = optimize(chunk, JSON.stringify(config));
+      const optimized = optimizeChunk(chunkPath, config);
       
       expect(optimized).toContain('sortBy');
       expect(optimized).not.toContain('exports.map');

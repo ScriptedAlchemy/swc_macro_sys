@@ -1,3 +1,4 @@
+const path = require('path');
 const rspack = require('@rspack/core');
 const { ModuleFederationPlugin } = rspack.container;
 const isProd = process.env.NODE_ENV === 'production';
@@ -8,6 +9,8 @@ module.exports = {
   target: 'web',
   devtool: false,
   output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: '[name].js',
     publicPath: 'http://localhost:3002/',
     clean: true,
   },

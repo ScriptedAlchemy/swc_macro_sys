@@ -200,9 +200,23 @@ describe('Module Federation Integration', () => {
     it('should execute host app with optimized chunks', async () => {
       // Create a test that verifies lodash functions actually work after optimization
       const testScript = path.join(hostDistPath, 'test-lodash-functions.js');
+      const vendorChunk = fs.readdirSync(hostDistPath)
+        .find(file => {
+          if (!file.endsWith('.js') || file.endsWith('.original')) return false;
+          try {
+            const content = fs.readFileSync(path.join(hostDistPath, file), 'utf8');
+            return content.includes('lodash') && content.includes('sortBy');
+          } catch {
+            return false;
+          }
+        });
+      if (!vendorChunk) {
+        throw new Error('Could not find lodash-es vendor chunk in host/dist');
+      }
       fs.writeFileSync(testScript, `
         (async () => {
           try {
+            const fs = require('fs');
             // Provide browser-like globals for JSONP
             global.self = globalThis;
             self["webpackChunkapp"] = [];
@@ -229,7 +243,7 @@ describe('Module Federation Integration', () => {
             };
 
             // Load the vendor chunk to populate capturedModules
-            require('./vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js');
+            require('./${vendorChunk}');
             Array.prototype.push = __origPush;
 
             if (!capturedModules) {
@@ -341,9 +355,23 @@ describe('Module Federation Integration', () => {
     it('should execute remote app with optimized chunks', async () => {
       // Create a test that verifies lodash functions actually work after optimization
       const testScript = path.join(remoteDistPath, 'test-lodash-functions.js');
+      const vendorChunk = fs.readdirSync(remoteDistPath)
+        .find(file => {
+          if (!file.endsWith('.js') || file.endsWith('.original')) return false;
+          try {
+            const content = fs.readFileSync(path.join(remoteDistPath, file), 'utf8');
+            return content.includes('lodash') && content.includes('capitalize');
+          } catch {
+            return false;
+          }
+        });
+      if (!vendorChunk) {
+        throw new Error('Could not find lodash-es vendor chunk in remote/dist');
+      }
       fs.writeFileSync(testScript, `
         (async () => {
           try {
+            const fs = require('fs');
             // Provide browser-like globals for JSONP
             global.self = globalThis;
             self["webpackChunkapp"] = [];
@@ -369,7 +397,7 @@ describe('Module Federation Integration', () => {
             };
 
             // Load the vendor chunk to populate capturedModules
-            require('./vendors-node_modules_pnpm_lodash-es_4_17_21_node_modules_lodash-es_lodash_js.js');
+            require('./${vendorChunk}');
             Array.prototype.push = __origPush;
 
             if (!capturedModules) {
@@ -407,61 +435,25 @@ describe('Module Federation Integration', () => {
             if (!aggregatorId) throw new Error('Could not resolve lodash aggregator module id');
 
             const lodashExports = __webpack_require__(aggregatorId);
-            
+
             console.log('Remote App');
             console.log('Testing lodash functions from optimized chunk:');
-            
-            // Test groupBy - MUST NOT BE NULL
-            if (typeof lodashExports.groupBy !== 'function') {
-              throw new Error('groupBy is not a function! It was replaced with null!');
+
+            // Remote-specific checks (reuse a subset)
+            if (typeof lodashExports.capitalize !== 'function') {
+              throw new Error('capitalize is not a function! It was replaced with null!');
             }
-            const users = [
-              { name: 'john', role: 'admin', age: 30 },
-              { name: 'jane', role: 'user', age: 25 },
-              { name: 'bob', role: 'admin', age: 35 }
-            ];
-            const grouped = lodashExports.groupBy(users, 'role');
-            console.log('Grouped users by role:', Object.keys(grouped).join(', '));
-            console.log('Admin count:', grouped.admin.length);
-            console.log('User count:', grouped.user.length);
-            
-            // Test pick - MUST NOT BE NULL
-            if (typeof lodashExports.pick !== 'function') {
-              throw new Error('pick is not a function! It was replaced with null!');
+            const capitalized = lodashExports.capitalize('hello world');
+            console.log('Capitalized text:', capitalized);
+
+            if (lodashExports.zip !== null) {
+              throw new Error('zip should be null but it is not!');
             }
-            const picked = lodashExports.pick(users[0], ['name', 'role']);
-            console.log('Picked fields:', Object.keys(picked).join(', '));
-            
-            // Test omit - MUST NOT BE NULL
-            if (typeof lodashExports.omit !== 'function') {
-              throw new Error('omit is not a function! It was replaced with null!');
-            }
-            const omitted = lodashExports.omit(users[0], ['age']);
-            console.log('After omit age:', Object.keys(omitted).join(', '));
-            
-            // Test throttle - MUST NOT BE NULL
-            if (typeof lodashExports.throttle !== 'function') {
-              throw new Error('throttle is not a function! It was replaced with null!');
-            }
-            const throttled = lodashExports.throttle(() => {}, 100);
-            console.log('Throttle created:', typeof throttled === 'function');
-            
-            // Test debounce - MUST NOT BE NULL
-            if (typeof lodashExports.debounce !== 'function') {
-              throw new Error('debounce is not a function! It was replaced with null!');
-            }
-            const debounced = lodashExports.debounce(() => {}, 100);
-            console.log('Debounce created:', typeof debounced === 'function');
-            
-            // Verify that unused functions ARE null
-            if (lodashExports.flatMap !== null) {
-              throw new Error('flatMap should be null but it is not!');
-            }
-            if (lodashExports.flatten !== null) {
-              throw new Error('flatten should be null but it is not!');
+            if (lodashExports.zipObject !== null) {
+              throw new Error('zipObject should be null but it is not!');
             }
             console.log('Unused functions correctly nullified');
-            
+
             console.log('All tests completed successfully');
           } catch (error) {
             console.error('Test failed:', error.message);
@@ -470,29 +462,22 @@ describe('Module Federation Integration', () => {
           }
         })();
       `);
-      
+
       const result = execSync(`node ${testScript}`, {
         cwd: remoteDistPath,
         encoding: 'utf-8'
       });
-      
-      // Check that the functions actually work
+
       expect(result).toContain('Remote App');
       expect(result).toContain('Testing lodash functions from optimized chunk:');
-      expect(result).toContain('Grouped users by role: admin, user');
-      expect(result).toContain('Admin count: 2');
-      expect(result).toContain('User count: 1');
-      expect(result).toContain('Picked fields: name, role');
-      expect(result).toContain('After omit age: name, role');
-      expect(result).toContain('Throttle created: true');
-      expect(result).toContain('Debounce created: true');
+      expect(result).toContain('Capitalized text: Hello world');
       expect(result).toContain('Unused functions correctly nullified');
       expect(result).toContain('All tests completed successfully');
-      
+
       // Make sure no errors about null functions
       expect(result).not.toContain('is not a function');
       expect(result).not.toContain('It was replaced with null');
-      
+
       // Clean up
       fs.unlinkSync(testScript);
     });

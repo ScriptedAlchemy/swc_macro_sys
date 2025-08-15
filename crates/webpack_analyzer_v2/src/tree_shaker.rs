@@ -228,10 +228,33 @@ impl TreeShaker {
         
         match parser.parse_module() {
             Ok(module) => {
-                // Create a visitor to find all __webpack_require__ calls
+                // Create a visitor to find all __webpack_require__ calls that are at top-level
+                // (i.e., NOT inside module wrapper functions that accept a `__webpack_require__` parameter).
                 struct RequireCallFinder {
                     defined_keys: HashSet<ModuleId>,
                     found_ids: HashSet<ModuleId>,
+                    // depth counter for functions that look like webpack module wrappers
+                    wrapper_fn_depth: usize,
+                }
+                
+                impl RequireCallFinder {
+                    fn handle_require_call(&mut self, call: &CallExpr) {
+                        // Only consider calls when not inside a module wrapper function
+                        if self.wrapper_fn_depth > 0 { return; }
+                        if let Some(arg) = call.args.first() {
+                            if let Expr::Lit(Lit::Str(str_lit)) = &*arg.expr {
+                                let id = swc_core::atoms::Atom::from(&*str_lit.value);
+                                if self.defined_keys.contains(&id) {
+                                    self.found_ids.insert(id);
+                                }
+                            } else if let Expr::Lit(Lit::Num(num_lit)) = &*arg.expr {
+                                let id = swc_core::atoms::Atom::from(num_lit.value.to_string());
+                                if self.defined_keys.contains(&id) {
+                                    self.found_ids.insert(id);
+                                }
+                            }
+                        }
+                    }
                 }
                 
                 impl Visit for RequireCallFinder {
@@ -240,33 +263,45 @@ impl TreeShaker {
                         if let Callee::Expr(expr) = &call.callee {
                             if let Expr::Ident(ident) = &**expr {
                                 if &*ident.sym == "__webpack_require__" {
-                                    // Extract the module ID from the first argument
-                                    if let Some(arg) = call.args.first() {
-                                        if let Expr::Lit(Lit::Str(str_lit)) = &*arg.expr {
-                                            let id = swc_core::atoms::Atom::from(&*str_lit.value);
-                                            // Only keep modules that are defined in this chunk
-                                            if self.defined_keys.contains(&id) {
-                                                self.found_ids.insert(id);
-                                            }
-                                        } else if let Expr::Lit(Lit::Num(num_lit)) = &*arg.expr {
-                                            let id = swc_core::atoms::Atom::from(num_lit.value.to_string());
-                                            // Only keep modules that are defined in this chunk
-                                            if self.defined_keys.contains(&id) {
-                                                self.found_ids.insert(id);
-                                            }
-                                        }
-                                    }
+                                    self.handle_require_call(call);
                                 }
                             }
                         }
-                        // Continue visiting nested expressions
                         call.visit_children_with(self);
+                    }
+                    
+                    fn visit_fn_expr(&mut self, n: &swc_core::ecma::ast::FnExpr) {
+                         // Heuristic: if function params include an ident named "__webpack_require__",
+                         // then treat as a module wrapper function and ignore requires inside it.
+                         let mut is_wrapper = false;
+                         let func = &n.function;
+                         for param in &func.params {
+                             if let Pat::Ident(bi) = &param.pat {
+                                 if &*bi.id.sym == "__webpack_require__" { is_wrapper = true; break; }
+                             }
+                         }
+                         if is_wrapper { self.wrapper_fn_depth += 1; }
+                         n.visit_children_with(self);
+                         if is_wrapper { self.wrapper_fn_depth = self.wrapper_fn_depth.saturating_sub(1); }
+                     }
+                    
+                    fn visit_function(&mut self, n: &swc_core::ecma::ast::Function) {
+                        let mut is_wrapper = false;
+                        for param in &n.params {
+                            if let Pat::Ident(bi) = &param.pat {
+                                if &*bi.id.sym == "__webpack_require__" { is_wrapper = true; break; }
+                            }
+                        }
+                        if is_wrapper { self.wrapper_fn_depth += 1; }
+                        n.visit_children_with(self);
+                        if is_wrapper { self.wrapper_fn_depth = self.wrapper_fn_depth.saturating_sub(1); }
                     }
                 }
                 
                 let mut visitor = RequireCallFinder {
                     defined_keys: defined_keys.clone(),
                     found_ids: HashSet::new(),
+                    wrapper_fn_depth: 0,
                 };
                 
                 module.visit_with(&mut visitor);
@@ -274,8 +309,10 @@ impl TreeShaker {
             }
             Err(e) => {
                 eprintln!("[TreeShaker] Failed to parse chunk for require extraction: {:?}", e);
-                // Fall back to regex as last resort
-                let re = Regex::new(r#"__webpack_require__\s*\(\s*(\d+|"[^"]+"|'[^']+'|`[^`]+`)\s*\)"#).unwrap();
+                // Fall back to regex as last resort, scoped to top-level approximations by excluding
+                // requires that appear within typical module wrapper patterns "function(module, exports, __webpack_require__)"
+                // This is a best-effort heuristic.
+                let re = Regex::new(r#"__webpack_require__\s*\(\s*(\d+|\"[^\"]+\"|'[^']+'|`[^`]+`)\s*\)"#).unwrap();
                 for cap in re.captures_iter(source) {
                     let raw = cap.get(1).map(|m| m.as_str()).unwrap_or("");
                     let trimmed = if raw.starts_with('"') || raw.starts_with('\'') || raw.starts_with('`') {

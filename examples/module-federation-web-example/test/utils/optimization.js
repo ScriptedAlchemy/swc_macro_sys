@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { optimize } from 'swc_macro_wasm';
+import { execFileSync } from 'child_process';
+import url from 'url';
 
 /**
  * Analyzes a webpack chunk and returns metrics
@@ -41,13 +42,23 @@ export function shareUsageToConfig(shareUsagePath) {
 }
 
 /**
- * Optimizes a chunk with the given config
+ * Optimizes a chunk with the given config using an external Node runner to avoid Vitest WASM loader issues
  */
 export function optimizeChunk(chunkPath, config) {
-  const content = fs.readFileSync(chunkPath, 'utf-8');
   const configStr = typeof config === 'string' ? config : JSON.stringify(config);
-  
-  return optimize(content, configStr);
+  const runner = path.resolve(path.dirname(new URL(import.meta.url).pathname), './wasm-optimize-runner.mjs');
+
+  // Ensure runner exists; if not, use fallback path to the module-federation-example runner
+  let runnerPath = runner;
+  if (!fs.existsSync(runnerPath)) {
+    const fallback = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../module-federation-example/test/utils/wasm-optimize-runner.mjs');
+    runnerPath = fs.existsSync(fallback) ? fallback : runner;
+  }
+
+  const stdout = execFileSync('node', ['--experimental-wasm-modules', runnerPath, chunkPath, configStr], {
+    encoding: 'utf8'
+  });
+  return stdout;
 }
 
 /**
