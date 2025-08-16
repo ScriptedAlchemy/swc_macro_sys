@@ -3,8 +3,8 @@ use swc_common::pass::Repeated;
 use swc_common::sync::Lrc;
 use swc_common::{FileName, Mark, SourceMap};
 use swc_core::ecma::codegen;
-use swc_core::ecma::visit::VisitMutWith;
-use swc_ecma_ast::Program;
+use swc_core::ecma::visit::{VisitMut, VisitMutWith};
+use swc_ecma_ast::{Expr, ExprOrSpread, Program, Prop, PropName};
 use swc_ecma_codegen::text_writer::WriteJs;
 use swc_ecma_codegen::{Emitter, text_writer};
 use swc_ecma_parser::{EsSyntax, Parser, StringInput, Syntax};
@@ -13,6 +13,7 @@ use swc_ecma_transforms_base::resolver;
 use swc_macro_condition_transform::condition_transform;
 use swc_macro_parser::MacroParser;
 use crate::webpack_parser::WebpackChunkParser;
+use std::collections::{HashMap, HashSet};
 
 pub fn optimize(source: String, config: serde_json::Value) -> String {
     let cm: Lrc<SourceMap> = Default::default();
@@ -62,7 +63,7 @@ pub fn optimize(source: String, config: serde_json::Value) -> String {
 
             program.mutate(fixer(Some(&comments)));
 
-            // After DCE, run webpack parser to build dependency graph for potential pruning
+            // After DCE, run webpack parser to build dependency graph for pruning
             // Emit current program (post-DCE) to string and analyze
             let mut intermediate_buf = vec![];
             {
@@ -84,11 +85,11 @@ pub fn optimize(source: String, config: serde_json::Value) -> String {
                 Err(_) => return program,
             };
 
+            // Parse webpack chunk and compute reachable set from entry
             if let Ok(parser) = WebpackChunkParser::new() {
                 if let Ok(chunk) = parser.parse_chunk_file(&dce_output) {
-                    let _graph = parser.build_dependency_graph(&chunk);
-                    // Optionally consider entry_module_id from config for future pruning
-                    let _entry_module_id = config_clone
+                    let graph = parser.build_dependency_graph(&chunk);
+                    let entry_module_id = config_clone
                         .get("treeShake")
                         .and_then(|ts| ts.as_object())
                         .and_then(|obj| obj.values().next())
@@ -96,7 +97,25 @@ pub fn optimize(source: String, config: serde_json::Value) -> String {
                         .and_then(|cc| cc.get("entry_module_id"))
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string());
-                    // Future work: compute reachable set from entry_module_id and prune unreachable modules
+
+                    if let Some(entry) = entry_module_id {
+                        // Only prune if entry exists in this chunk to avoid removing everything
+                        if chunk.modules.contains_key(&entry) {
+                            let reachable = compute_reachable(&graph, &entry);
+                            let keep: HashSet<String> = reachable
+                                .into_iter()
+                                .filter(|id| chunk.modules.contains_key(id))
+                                .collect();
+
+                            if !keep.is_empty() {
+                                // Mutate AST to remove unreachable module entries in the modules object
+                                let mut pruner = PruneModulesVisitor { keep };
+                                let mut program_mut = program;
+                                program_mut.visit_mut_with(&mut pruner);
+                                return program_mut;
+                            }
+                        }
+                    }
                 }
             }
  
@@ -152,5 +171,67 @@ fn perform_dce(m: &mut Program, comments: SingleThreadedComments, unresolved_mar
         }
 
         visitor.reset();
+    }
+}
+
+fn compute_reachable(graph: &HashMap<String, Vec<String>>, start: &str) -> HashSet<String> {
+    let mut visited: HashSet<String> = HashSet::new();
+    let mut stack: Vec<String> = vec![start.to_string()];
+    while let Some(node) = stack.pop() {
+        if visited.insert(node.clone()) {
+            if let Some(deps) = graph.get(&node) {
+                for dep in deps {
+                    // Push dependency even if it's not present in the graph yet (graph ensures key exists)
+                    stack.push(dep.clone());
+                }
+            }
+        }
+    }
+    visited
+}
+
+struct PruneModulesVisitor {
+    keep: HashSet<String>,
+}
+
+impl VisitMut for PruneModulesVisitor {
+    fn visit_mut_call_expr(&mut self, call: &mut swc_ecma_ast::CallExpr) {
+        // Look for something.push([...])
+        if let swc_ecma_ast::Callee::Expr(callee_expr) = &call.callee {
+            if let Expr::Member(member) = &**callee_expr {
+                if let swc_ecma_ast::MemberProp::Ident(ident) = &member.prop {
+                    if ident.sym.as_ref() == "push" {
+                        // Expect first argument to be an array like [ [chunkName], { modules }, ... ]
+                        if let Some(ExprOrSpread { expr, .. }) = call.args.get(0) {
+                            if let Expr::Array(arr) = &mut **expr {
+                                if let Some(Some(second)) = arr.elems.get_mut(1) {
+                                    if let Expr::Object(obj) = &mut *second.expr {
+                                        // Filter module properties based on keep set
+                                        obj.props.retain(|prop_or_spread| {
+                                            if let swc_ecma_ast::PropOrSpread::Prop(p) = prop_or_spread {
+                                                if let Prop::KeyValue(kv) = &**p {
+                                                    // Accept string or numeric keys only
+                                                    match &kv.key {
+                                                        PropName::Str(s) => self.keep.contains(&s.value.to_string()),
+                                                        PropName::Num(n) => self.keep.contains(&n.value.to_string()),
+                                                        _ => true, // Keep unknown patterns to be safe
+                                                    }
+                                                } else {
+                                                    true
+                                                }
+                                            } else {
+                                                true
+                                            }
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        call.visit_mut_children_with(self);
     }
 }

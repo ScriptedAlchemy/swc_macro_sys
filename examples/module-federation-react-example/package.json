@@ -33,7 +33,6 @@
     "playwright": "^1.48.2",
     "puppeteer": "^22.0.0",
     "style-loader": "^4.0.0",
-    "swc_macro_wasm": "file:../../crates/swc_macro_wasm/pkg",
     "vite": "^5.0.0",
     "vite-plugin-top-level-await": "^1.5.0",
     "vite-plugin-wasm": "^3.4.1",

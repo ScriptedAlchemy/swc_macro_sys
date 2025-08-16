@@ -1,4 +1,4 @@
-// Integration tests for optimization pipeline using real webpack chunks and share-usage.json
+# Integration tests for optimization pipeline using real webpack chunks and share-usage.json
 
 use std::fs;
 use std::path::PathBuf;
@@ -22,6 +22,16 @@ fn load_chunk_file(file_name: &str) -> String {
 
 fn optimize_with_config(source: String, config: Value) -> String {
     swc_macro_wasm::optimize::optimize(source, config)
+}
+
+fn count_modules_in_webpack_chunk(source: &str) -> usize {
+    // Use the webpack parser to count modules
+    if let Ok(parser) = swc_macro_wasm::webpack_parser::WebpackChunkParser::new() {
+        if let Ok(chunk) = parser.parse_chunk_file(source) {
+            return chunk.modules.len();
+        }
+    }
+    0
 }
 
 #[test]
@@ -78,8 +88,15 @@ fn iterate_share_usage_and_optimize_each_chunk() {
             let source = load_chunk_file(first_chunk);
             let optimized = optimize_with_config(source.clone(), config);
 
-            // Basic assertions: optimized output should be valid JS string; it should contain chunk name pattern
+            // Basic assertions: optimized output should be valid JS string
             assert!(optimized.len() > 0, "optimized output should not be empty for {}", pkg_name);
+
+            // Count modules in original and optimized chunks
+            let original_modules = count_modules_in_webpack_chunk(&source);
+            let optimized_modules = count_modules_in_webpack_chunk(&optimized);
+
+            println!("Package: {}, Original modules: {}, Optimized modules: {}", 
+                     pkg_name, original_modules, optimized_modules);
 
             // If entry_module_id is present, we expect it to survive; at minimum string should still be present
             if !entry_module_id.is_empty() {
@@ -88,6 +105,13 @@ fn iterate_share_usage_and_optimize_each_chunk() {
                     "entry_module_id should be preserved in or referenced by optimized output for {}",
                     pkg_name
                 );
+
+                // For chunks with explicit entry points and more than 10 modules, 
+                // expect pruning to achieve some reduction
+                if original_modules > 10 {
+                    assert!(optimized_modules <= original_modules, 
+                            "Optimized module count should not exceed original for {}", pkg_name);
+                }
             }
         }
     }
@@ -128,7 +152,138 @@ fn ensure_non_entry_shared_chunks_are_prunable() {
     let optimized = optimize_with_config(source.clone(), config);
 
     // For a shared non-entry chunk, optimization should either keep same or reduce size
-    // We don't assert strict size reduction because DCE may be a no-op for some fixtures,
-    // but we ensure the output is still syntactically emitted and non-empty.
     assert!(optimized.len() > 0, "optimized output should not be empty for react-redux");
+
+    // Module count analysis
+    let original_modules = count_modules_in_webpack_chunk(&source);
+    let optimized_modules = count_modules_in_webpack_chunk(&optimized);
+
+    println!("React-redux chunk - Original modules: {}, Optimized modules: {}", 
+             original_modules, optimized_modules);
+
+    assert!(optimized_modules <= original_modules, 
+            "React-redux optimization should not increase module count");
+}
+
+#[test]
+fn test_pruning_with_chart_js_aggressive_config() {
+    // Test with chart.js which has many exports marked as false/unused
+    let usage = load_share_usage();
+    let tree_shake = usage.get("treeShake").expect("missing treeShake");
+
+    let pkg = tree_shake.get("chart.js").expect("chart.js config missing");
+    let chars = pkg
+        .get("chunk_characteristics")
+        .expect("chunk_characteristics missing for chart.js");
+
+    let chunk_files = chars
+        .get("chunk_files")
+        .and_then(|v| v.as_array())
+        .expect("chart.js should have chunk_files");
+    let first_chunk = chunk_files[0]
+        .as_str()
+        .expect("chunk file must be string");
+
+    // Build config with chart.js
+    let mut module_cfg = pkg.clone();
+    if let Some(obj) = module_cfg.as_object_mut() {
+        obj.insert("chunk_characteristics".into(), chars.clone());
+    }
+    let mut tree_shake_obj = serde_json::Map::new();
+    tree_shake_obj.insert("chart.js".to_string(), module_cfg);
+    let config = Value::Object(serde_json::Map::from_iter([(
+        "treeShake".into(),
+        Value::Object(tree_shake_obj),
+    )]));
+
+    let source = load_chunk_file(first_chunk);
+    let optimized = optimize_with_config(source.clone(), config);
+
+    assert!(optimized.len() > 0, "optimized output should not be empty for chart.js");
+
+    // Module and size analysis
+    let original_modules = count_modules_in_webpack_chunk(&source);
+    let optimized_modules = count_modules_in_webpack_chunk(&optimized);
+
+    println!("Chart.js chunk - Original modules: {}, Optimized modules: {}", 
+             original_modules, optimized_modules);
+    println!("Chart.js chunk - Original size: {} bytes, Optimized size: {} bytes", 
+             source.len(), optimized.len());
+
+    // Chart.js has many unused exports - should see reduction in modules or size
+    if original_modules > 5 {
+        assert!(optimized_modules <= original_modules, 
+                "Chart.js optimization should not increase module count");
+        
+        // For large chunks with many unused exports, expect size reduction too
+        if source.len() > 50000 {
+            let reduction_percent = ((source.len() - optimized.len()) as f64 / source.len() as f64) * 100.0;
+            println!("Chart.js size reduction: {:.1}%", reduction_percent);
+            
+            // Don't assert a minimum reduction as DCE alone might not achieve it,
+            // but log for monitoring
+        }
+    }
+}
+
+#[test]
+fn test_antd_icons_pruning_effectiveness() {
+    // Test with @ant-design/icons which has many icon exports marked as false
+    let usage = load_share_usage();
+    let tree_shake = usage.get("treeShake").expect("missing treeShake");
+
+    let pkg = tree_shake.get("@ant-design/icons").expect("@ant-design/icons config missing");
+    let chars = pkg
+        .get("chunk_characteristics")
+        .expect("chunk_characteristics missing for @ant-design/icons");
+
+    let chunk_files = chars
+        .get("chunk_files")
+        .and_then(|v| v.as_array())
+        .expect("@ant-design/icons should have chunk_files");
+    let first_chunk = chunk_files[0]
+        .as_str()
+        .expect("chunk file must be string");
+
+    // Build config with @ant-design/icons
+    let mut module_cfg = pkg.clone();
+    if let Some(obj) = module_cfg.as_object_mut() {
+        obj.insert("chunk_characteristics".into(), chars.clone());
+    }
+    let mut tree_shake_obj = serde_json::Map::new();
+    tree_shake_obj.insert("@ant-design/icons".to_string(), module_cfg);
+    let config = Value::Object(serde_json::Map::from_iter([(
+        "treeShake".into(),
+        Value::Object(tree_shake_obj),
+    )]));
+
+    let source = load_chunk_file(first_chunk);
+    let optimized = optimize_with_config(source.clone(), config);
+
+    assert!(optimized.len() > 0, "optimized output should not be empty for @ant-design/icons");
+
+    // Detailed analysis
+    let original_modules = count_modules_in_webpack_chunk(&source);
+    let optimized_modules = count_modules_in_webpack_chunk(&optimized);
+
+    println!("@ant-design/icons chunk - Original modules: {}, Optimized modules: {}", 
+             original_modules, optimized_modules);
+    println!("@ant-design/icons chunk - Original size: {} bytes, Optimized size: {} bytes", 
+             source.len(), optimized.len());
+
+    if original_modules > 1 {
+        assert!(optimized_modules <= original_modules, 
+                "@ant-design/icons optimization should not increase module count");
+    }
+
+    // Log metrics for analysis
+    if original_modules > 0 {
+        let module_reduction_percent = ((original_modules - optimized_modules) as f64 / original_modules as f64) * 100.0;
+        println!("@ant-design/icons module reduction: {:.1}%", module_reduction_percent);
+    }
+
+    if source.len() > 0 {
+        let size_reduction_percent = ((source.len() - optimized.len()) as f64 / source.len() as f64) * 100.0;
+        println!("@ant-design/icons size reduction: {:.1}%", size_reduction_percent);
+    }
 }

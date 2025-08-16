@@ -39,16 +39,6 @@ module.exports = {
   },
   optimization: {
     minimize: false,
-    sideEffects: false,
-    usedExports: false,
-    providedExports: false,
-    concatenateModules: false,
-    mangleExports: false,
-    nodeEnv: false,
-    mergeDuplicateChunks: false,
-    removeAvailableModules: false,
-    removeEmptyChunks: false,
-    splitChunks: false
   },
   plugins: [
     new ModuleFederationPlugin({

@@ -303,6 +303,34 @@ impl WebpackChunkParser {
             modules: visitor.modules,
         })
     }
+
+    /// Parse from an existing AST Module without reparsing source text.
+    /// Useful when an upstream pipeline (e.g. optimizer) already has a Module AST available.
+    pub fn parse_from_module(&self, module: &swc_core::ecma::ast::Module) -> Result<ChunkInfo> {
+        let mut visitor = WebpackChunkVisitor::new();
+        module.visit_with(&mut visitor);
+
+        if visitor.chunk_name.is_empty() {
+            return Err(WebpackParseError::InvalidChunkFormat(
+                "Could not find webpack chunk structure".to_string(),
+            ));
+        }
+
+        Ok(ChunkInfo {
+            name: visitor.chunk_name,
+            modules: visitor.modules,
+        })
+    }
+
+    /// Parse directly from a Program. Only Module programs are supported; Script will return an error.
+    pub fn parse_from_program(&self, program: &swc_core::ecma::ast::Program) -> Result<ChunkInfo> {
+        match program {
+            swc_core::ecma::ast::Program::Module(m) => self.parse_from_module(m),
+            swc_core::ecma::ast::Program::Script(_) => Err(WebpackParseError::InvalidChunkFormat(
+                "Unsupported Program::Script for webpack chunk parsing".to_string(),
+            )),
+        }
+    }
     
     /// Get all module keys from a chunk
     pub fn get_module_keys(&self, chunk: &ChunkInfo) -> Vec<String> {
