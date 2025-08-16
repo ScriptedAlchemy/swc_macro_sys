@@ -16,7 +16,8 @@
     "test:coverage": "cargo tarpaulin --workspace --out Html --output-dir coverage/rust && vitest run --coverage",
     "lint": "cargo clippy --workspace -- -D warnings && pnpm -r lint",
     "clean": "cargo clean && pnpm -r clean && rimraf coverage",
-    "optimize": "pnpm -C examples/module-federation-example optimize && pnpm -C examples/module-federation-web-example optimize"
+    "optimize": "pnpm -C examples/module-federation-example optimize && pnpm -C examples/module-federation-web-example optimize",
+    "postinstall": "pnpm run build:wasm"
   },
   "dependencies": {
     "@types/node": "^20.0.0"

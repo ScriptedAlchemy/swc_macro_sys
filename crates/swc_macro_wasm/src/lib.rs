@@ -4,6 +4,7 @@ mod dce;
 pub mod optimize;
 pub mod webpack_parser;
 
+pub use optimize::{optimize_with_prune_result, PruneResult};
 use webpack_parser::WebpackChunkParser;
 
 #[wasm_bindgen]
@@ -97,6 +98,34 @@ pub fn get_webpack_dependency_tree(content: &str, start_module_id: &str) -> Stri
             }
         }
         Err(e) => format!("{{\"error\": \"{}\"}}", e),
+    }
+}
+
+// New: WASM wrapper that returns both optimized source and prune result as JSON
+#[wasm_bindgen]
+pub fn optimize_with_prune_result_json(source: &str, config: &str) -> String {
+    let config_value: serde_json::Value = match serde_json::from_str(config) {
+        Ok(v) => v,
+        Err(e) => return format!("{{\"error\": \"Invalid config: {}\"}}", e),
+    };
+
+    let (optimized_source, prune) = optimize::optimize_with_prune_result(source.to_string(), config_value);
+
+    // Build a JSON object manually to avoid requiring Serialize on PruneResult
+    let prune_json = serde_json::json!({
+        "kept_modules": prune.kept_modules,
+        "removed_modules": prune.removed_modules,
+        "original_count": prune.original_count,
+        "pruned_count": prune.pruned_count,
+        "skip_reason": prune.skip_reason,
+    });
+
+    match serde_json::to_string(&serde_json::json!({
+        "optimized_source": optimized_source,
+        "prune_result": prune_json,
+    })) {
+        Ok(s) => s,
+        Err(e) => format!("{{\"error\": \"Failed to serialize result: {}\"}}", e),
     }
 }
 

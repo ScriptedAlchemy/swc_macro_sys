@@ -53,7 +53,7 @@ swc_macro_sys/
 │   ├── swc_macro_condition_transform/  # Conditional macro transformation
 │   ├── swc_macro_parser/               # Macro parsing capabilities
 │   ├── swc_macro_wasm/                 # WASM bindings + tree shaking implementation
-│   └── webpack_analyzer_v2/            # Pure webpack chunk analysis library
+
 ├── examples/                           # Various usage examples
 │   └── module-federation-example/      # Complete Module Federation demo
 ├── test-cases/                         # Real-world test bundles
@@ -65,7 +65,7 @@ swc_macro_sys/
 - **`swc_macro_condition_transform`**: Conditional macro transformation for compile-time optimizations
 - **`swc_macro_parser`**: Macro parsing capabilities for JavaScript/TypeScript code
 - **`swc_macro_wasm`**: WASM bindings with complete tree shaking and optimization implementation
-- **`webpack_analyzer_v2`**: Pure analysis library for webpack chunks (parsing, dependency graphs)
+
 
 > **Note**: The `webpack_chunk_tree_shaker` crate has been removed. All tree shaking logic is now consolidated in `swc_macro_wasm/src/optimize.rs` for better maintainability.
 
@@ -205,8 +205,7 @@ const optimizedCode = optimize(webpackBundle, {
 ### Rust Usage
 
 ```rust
-use webpack_analyzer_v2::tree_shaker::TreeShaker;
-use webpack_analyzer_v2::{WebpackAnalyzer, chunk::ChunkCharacteristics};
+
 
 let analyzer = WebpackAnalyzer::new();
 let characteristics = ChunkCharacteristics { chunk_format: "require".into(), entry_module_id: Some("../../node_modules/lodash-es/lodash.js".into()), ..Default::default() };

@@ -44,17 +44,17 @@ export default defineConfig({
     },
   ],
 
-  /* Configure development server for testing - only start if not already running */
+  /* Configure production server for testing - only start if not already running */
   webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER ? undefined : [
     {
-      command: 'pnpm -C host dev',
+      command: 'pnpm -C host serve',
       url: 'http://localhost:3001/',
       reuseExistingServer: true,
       timeout: 120000,
     },
     {
-      command: 'pnpm -C remote dev',
-      url: 'http://localhost:3002/remoteEntry.js',
+      command: 'pnpm -C remote serve',
+      url: 'http://localhost:3002/',
       reuseExistingServer: true,
       timeout: 120000,
     },

@@ -1,4 +1,4 @@
-# Integration tests for optimization pipeline using real webpack chunks and share-usage.json
+// Integration tests for optimization pipeline using real webpack chunks and share-usage.json
 
 use std::fs;
 use std::path::PathBuf;
@@ -201,38 +201,28 @@ fn test_pruning_with_chart_js_aggressive_config() {
 
     assert!(optimized.len() > 0, "optimized output should not be empty for chart.js");
 
-    // Module and size analysis
     let original_modules = count_modules_in_webpack_chunk(&source);
     let optimized_modules = count_modules_in_webpack_chunk(&optimized);
 
-    println!("Chart.js chunk - Original modules: {}, Optimized modules: {}", 
-             original_modules, optimized_modules);
-    println!("Chart.js chunk - Original size: {} bytes, Optimized size: {} bytes", 
-             source.len(), optimized.len());
+    println!(
+        "chart.js chunk - Original modules: {}, Optimized modules: {}",
+        original_modules, optimized_modules
+    );
 
-    // Chart.js has many unused exports - should see reduction in modules or size
-    if original_modules > 5 {
-        assert!(optimized_modules <= original_modules, 
-                "Chart.js optimization should not increase module count");
-        
-        // For large chunks with many unused exports, expect size reduction too
-        if source.len() > 50000 {
-            let reduction_percent = ((source.len() - optimized.len()) as f64 / source.len() as f64) * 100.0;
-            println!("Chart.js size reduction: {:.1}%", reduction_percent);
-            
-            // Don't assert a minimum reduction as DCE alone might not achieve it,
-            // but log for monitoring
-        }
-    }
+    assert!(
+        optimized_modules <= original_modules,
+        "chart.js optimization should not increase module count"
+    );
 }
 
 #[test]
 fn test_antd_icons_pruning_effectiveness() {
-    // Test with @ant-design/icons which has many icon exports marked as false
     let usage = load_share_usage();
     let tree_shake = usage.get("treeShake").expect("missing treeShake");
 
-    let pkg = tree_shake.get("@ant-design/icons").expect("@ant-design/icons config missing");
+    let pkg = tree_shake
+        .get("@ant-design/icons")
+        .expect("@ant-design/icons config missing");
     let chars = pkg
         .get("chunk_characteristics")
         .expect("chunk_characteristics missing for @ant-design/icons");
@@ -245,7 +235,6 @@ fn test_antd_icons_pruning_effectiveness() {
         .as_str()
         .expect("chunk file must be string");
 
-    // Build config with @ant-design/icons
     let mut module_cfg = pkg.clone();
     if let Some(obj) = module_cfg.as_object_mut() {
         obj.insert("chunk_characteristics".into(), chars.clone());
@@ -262,28 +251,16 @@ fn test_antd_icons_pruning_effectiveness() {
 
     assert!(optimized.len() > 0, "optimized output should not be empty for @ant-design/icons");
 
-    // Detailed analysis
     let original_modules = count_modules_in_webpack_chunk(&source);
     let optimized_modules = count_modules_in_webpack_chunk(&optimized);
 
-    println!("@ant-design/icons chunk - Original modules: {}, Optimized modules: {}", 
-             original_modules, optimized_modules);
-    println!("@ant-design/icons chunk - Original size: {} bytes, Optimized size: {} bytes", 
-             source.len(), optimized.len());
+    println!(
+        "@ant-design/icons chunk - Original modules: {}, Optimized modules: {}",
+        original_modules, optimized_modules
+    );
 
-    if original_modules > 1 {
-        assert!(optimized_modules <= original_modules, 
-                "@ant-design/icons optimization should not increase module count");
-    }
-
-    // Log metrics for analysis
-    if original_modules > 0 {
-        let module_reduction_percent = ((original_modules - optimized_modules) as f64 / original_modules as f64) * 100.0;
-        println!("@ant-design/icons module reduction: {:.1}%", module_reduction_percent);
-    }
-
-    if source.len() > 0 {
-        let size_reduction_percent = ((source.len() - optimized.len()) as f64 / source.len() as f64) * 100.0;
-        println!("@ant-design/icons size reduction: {:.1}%", size_reduction_percent);
-    }
+    assert!(
+        optimized_modules <= original_modules,
+        "@ant-design/icons optimization should not increase module count"
+    );
 }

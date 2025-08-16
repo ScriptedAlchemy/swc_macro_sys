@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Major Architecture Refactoring
 - **Consolidated tree shaking implementation** - All tree shaking logic now lives in `swc_macro_wasm/src/optimize.rs`
 - **Removed webpack_chunk_tree_shaker crate** - No longer needed after consolidation
-- **webpack_analyzer_v2 is now a pure analysis library** - Clear separation between analysis and optimization
+
 - **Test suite consolidation** - Removed 9 outdated test files, consolidated into 20 focused test files
 
 #### Implementation Improvements
@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `webpack_dependency_tracking_test.rs`
 
 ### Fixed
-- Code duplication in webpack_analyzer_v2 (400+ lines consolidated)
+
 - Unsafe code patterns replaced with safe alternatives
 - Test structure aligned with new architecture
 
@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Initial tree shaking design and implementation
-- webpack_analyzer_v2 crate for chunk analysis
+
 - Module federation support
 - Comprehensive test suite with 160+ tests
 

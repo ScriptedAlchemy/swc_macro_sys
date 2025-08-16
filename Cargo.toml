@@ -14,6 +14,7 @@ path = "extract_webpack_dependencies.rs"
 
 [dependencies]
 swc_macro_wasm = { path = "./crates/swc_macro_wasm" }
+serde_json = { workspace = true }
 
 [workspace.dependencies]
 regex = "1.11.1"
@@ -22,4 +23,3 @@ swc_core = { version = "26.0.0" }
 
 swc_macro_condition_transform = { path = "./crates/swc_macro_condition_transform" }
 swc_macro_parser = { path = "./crates/swc_macro_parser" }
-webpack_analyzer_v2 = { path = "./crates/webpack_analyzer_v2" }
