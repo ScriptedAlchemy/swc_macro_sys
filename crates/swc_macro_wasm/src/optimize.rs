@@ -15,7 +15,7 @@ use swc_macro_condition_transform::condition_transform;
 use swc_macro_parser::MacroParser;
 use thiserror::Error;
 // Re-enabling webpack_analyzer_v2 step by step
-use webpack_analyzer_v2::{ChunkCharacteristics, TreeShaker as AnalyzerTreeShaker};
+use webpack_analyzer_v2::{ChunkCharacteristics, TreeShaker as AnalyzerTreeShaker, tree_shaker::SplitChunkOptimizer, WebpackAnalyzer, ShareUsageConfig};
 
 // Cross-platform logging helper
 #[cfg(target_arch = "wasm32")]
@@ -48,14 +48,34 @@ pub enum OptimizationError {
 
 type OptimizationResult<T> = Result<T, OptimizationError>;
 
-pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult<String> {
-    log("optimize::optimize: Starting optimization");
+/// Optimize with share-usage.json configuration for configuration-driven split chunk optimization
+pub fn optimize_with_share_usage_config(
+    source: String,
+    config: serde_json::Value,
+    share_usage_config_path: &str,
+) -> OptimizationResult<String> {
+    log("optimize_with_share_usage_config: Starting configuration-driven optimization");
+    
+    // Load ShareUsageConfig from file
+    let share_config = ShareUsageConfig::load_from_file(share_usage_config_path)
+        .map_err(|e| OptimizationError::WebpackAnalysisError(format!("Failed to load share-usage config: {}", e)))?;
+    
+    optimize_with_config(source, config, Some(share_config))
+}
+
+/// Internal optimization method that accepts optional ShareUsageConfig
+fn optimize_with_config(
+    source: String,
+    config: serde_json::Value,
+    share_config: Option<ShareUsageConfig>,
+) -> OptimizationResult<String> {
+    log("optimize_with_config: Starting optimization with configuration support");
     let cm: Lrc<SourceMap> = Default::default();
     let (mut program, comments) = {
-        log("optimize::optimize: Creating source file");
+        log("optimize_with_config: Creating source file");
         let fm = cm.new_source_file(FileName::Custom("test.js".to_string()).into(), source);
         let comments = SingleThreadedComments::default();
-        log("optimize::optimize: About to parse with Parser::new");
+        log("optimize_with_config: About to parse with Parser::new");
         let program = Parser::new(
             Syntax::Es(EsSyntax::default()),
             StringInput::from(&*fm),
@@ -76,21 +96,17 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
         program.visit_mut_with(&mut transformer);
 
         // Apply resolver and optimization
-        // This worked fine in WASM from the beginning (June 2025)
-        // Only the TreeShaker for webpack bundles causes WASM panics
         swc_common::GLOBALS.set(&Default::default(), || {
             let unresolved_mark = Mark::new();
             let top_level_mark = Mark::new();
 
             program.mutate(resolver(unresolved_mark, top_level_mark, false));
             
-            // TreeShaker will handle entry point preservation
-            
             perform_dce(&mut program, comments.clone(), unresolved_mark);
             
-            // Use analyzer's TreeShaker directly
+            // Use configuration-driven tree shaking if available
             if has_macro_processing_config(&config) {
-                run_webpack_tree_shake(&mut program, cm.clone(), &comments, &config);
+                run_webpack_tree_shake_with_config(&mut program, cm.clone(), &comments, &config, share_config.as_ref());
             }
             
             program.mutate(fixer(Some(&comments)));
@@ -118,6 +134,10 @@ pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult
     };
 
     Ok(ret)
+}
+
+pub fn optimize(source: String, config: serde_json::Value) -> OptimizationResult<String> {
+    optimize_with_config(source, config, None)
 }
 
 fn perform_dce(m: &mut Program, comments: SingleThreadedComments, unresolved_mark: Mark) {
@@ -227,14 +247,15 @@ impl TreeShakeMetrics {
     }
 }
 
-/// Perform webpack tree shaking by delegating to webpack_analyzer_v2's TreeShaker
-fn run_webpack_tree_shake(
+/// Perform webpack tree shaking with configuration support
+fn run_webpack_tree_shake_with_config(
     program: &mut Program,
     cm: Lrc<SourceMap>,
     comments: &SingleThreadedComments,
     config: &serde_json::Value,
+    share_config: Option<&ShareUsageConfig>,
 ) {
-    log("TreeShaker::optimize: Starting tree shaking optimization");
+    log("TreeShaker::optimize: Starting configuration-driven tree shaking optimization");
     let timer = WasmTimer::start();
     let mut metrics = TreeShakeMetrics::new();
 
@@ -275,59 +296,81 @@ fn run_webpack_tree_shake(
         if characteristics.is_entrypoint || characteristics.is_runtime_chunk {
             log("Tree shaking: Skipping entry or runtime chunk");
             return;
-        }
+        };
 
-        // Delegate planning and pruning to analyzer's TreeShaker
-        let analyzer_shaker = AnalyzerTreeShaker::new();
-        match analyzer_shaker.prune_source(&current_code, &characteristics.clone()) {
-            Ok((optimized_source, plan)) => {
-                if iteration == 1 {
-                    metrics.modules_before = plan.original_count;
-                    metrics.chunks_processed = 1;
+        // Step 3: Try configuration-driven split chunk optimization first
+        let optimized_source = if let Some(split_optimized) = try_split_chunk_optimization_with_config(&current_code, &characteristics, share_config) {
+            log("TreeShaker: Applied configuration-driven split chunk optimization");
+            split_optimized
+        } else {
+            // Fallback to regular tree shaking
+            log("TreeShaker: Configuration-driven split chunk optimization failed, falling back to regular tree shaking");
+            if share_config.is_some() {
+                log("TreeShaker: WARNING - ShareUsageConfig provided but split chunk optimization failed!");
+            }
+            let analyzer_shaker = AnalyzerTreeShaker::new();
+            match analyzer_shaker.prune_source(&current_code, &characteristics.clone()) {
+                Ok((optimized_source, plan)) => {
+                    if iteration == 1 {
+                        metrics.modules_before = plan.original_count;
+                        metrics.chunks_processed = 1;
+                    }
+                    if let Some(reason) = &plan.skip_reason {
+                        log(&format!("Tree shaking skipped: {}", reason));
+                        return;
+                    }
+
+                    if plan.removed_modules.is_empty() || optimized_source == current_code {
+                        if iteration == 1 {
+                            log(&format!(
+                                "Tree shaking: No unreachable modules found. Kept {} modules, removed {}",
+                                plan.kept_modules.len(),
+                                plan.removed_modules.len()
+                            ));
+                        } else {
+                            log(&format!(
+                                "Tree shaking: Converged after {} iterations, removed {} total modules",
+                                iteration - 1,
+                                total_removed
+                            ));
+                        }
+                        metrics.iterations = iteration;
+                        break;
+                    }
+
+                    total_removed += plan.removed_modules.len();
+                    optimized_source
                 }
-                if let Some(reason) = &plan.skip_reason {
-                    log(&format!("Tree shaking skipped: {}", reason));
+                Err(err) => {
+                    log(&format!("Tree shaking: Analyzer prune failed: {} - skipping", err));
                     return;
                 }
-
-                if plan.removed_modules.is_empty() || optimized_source == current_code {
-                    if iteration == 1 {
-                        log(&format!(
-                            "Tree shaking: No unreachable modules found. Kept {} modules, removed {}",
-                            plan.kept_modules.len(),
-                            plan.removed_modules.len()
-                        ));
-                    } else {
-                        log(&format!(
-                            "Tree shaking: Converged after {} iterations, removed {} total modules",
-                            iteration - 1,
-                            total_removed
-                        ));
-                    }
-                    metrics.iterations = iteration;
-                    break;
-                }
-
-                total_removed += plan.removed_modules.len();
-
-                // Re-parse optimized source into AST and replace program
-                let fm2 = cm
-                    .new_source_file(FileName::Custom("optimized.js".to_string()).into(), optimized_source);
-                let parsed = Parser::new(Syntax::Es(EsSyntax::default()), StringInput::from(&*fm2), Some(comments))
-                    .parse_program()
-                    .map_err(|e| OptimizationError::ParseError(format!("Parser error after prune: {:?}", e)));
-                if let Ok(new_prog) = parsed {
-                    *program = new_prog;
-                    // Continue to next iteration to see if more become unreachable
-                } else {
-                    log("Tree shaking: Failed to reparse optimized source - stopping");
-                    break;
-                }
             }
-            Err(err) => {
-                log(&format!("Tree shaking: Analyzer prune failed: {} - skipping", err));
-                return;
-            }
+        };
+
+        // Step 4: Check if optimization made changes
+        if optimized_source == current_code {
+            log(&format!(
+                "Tree shaking: Converged after {} iterations, removed {} total modules",
+                iteration,
+                total_removed
+            ));
+            metrics.iterations = iteration;
+            break;
+        }
+
+        // Step 5: Re-parse optimized source into AST and replace program
+        let fm2 = cm
+            .new_source_file(FileName::Custom("optimized.js".to_string()).into(), optimized_source);
+        let parsed = Parser::new(Syntax::Es(EsSyntax::default()), StringInput::from(&*fm2), Some(comments))
+            .parse_program()
+            .map_err(|e| OptimizationError::ParseError(format!("Parser error after prune: {:?}", e)));
+        if let Ok(new_prog) = parsed {
+            *program = new_prog;
+            // Continue to next iteration to see if more become unreachable
+        } else {
+            log("Tree shaking: Failed to reparse optimized source - stopping");
+            break;
         }
 
         // Continue to next iteration to see if more modules become unreachable
@@ -348,6 +391,16 @@ fn run_webpack_tree_shake(
             total_removed
         );
     }
+}
+
+/// Perform webpack tree shaking with enhanced split chunk optimization (backward compatibility)
+fn run_webpack_tree_shake(
+    program: &mut Program,
+    cm: Lrc<SourceMap>,
+    comments: &SingleThreadedComments,
+    config: &serde_json::Value,
+) {
+    run_webpack_tree_shake_with_config(program, cm, comments, config, None);
 }
 
 /// Cross-platform timer: uses std::time::Instant on native, js_sys::Date on wasm32
@@ -384,6 +437,81 @@ impl WasmTimer {
     fn elapsed(&self) -> Duration {
         self.start.elapsed()
     }
+}
+
+/// Try configuration-driven split chunk optimization for vendor/shared chunks
+/// Returns Some(optimized_source) if split chunk optimization was applied, None otherwise
+fn try_split_chunk_optimization_with_config(
+    source: &str, 
+    characteristics: &ChunkCharacteristics,
+    share_config: Option<&ShareUsageConfig>
+) -> Option<String> {
+    // Create a WebpackChunk for analysis
+    let analyzer = WebpackAnalyzer::new();
+    let chunk = match analyzer.analyze_chunk(source, characteristics.clone()) {
+        Ok(chunk) => chunk,
+        Err(err) => {
+            log(&format!("Split chunk analysis failed: {}", err));
+            return None;
+        }
+    };
+
+    // Initialize split chunk optimizer
+    let split_optimizer = SplitChunkOptimizer::new().with_debug(true);
+    
+    // Use configuration-driven chunk processing if available
+    let should_process = if let Some(config) = share_config {
+        split_optimizer.should_process_chunk_with_config(&chunk, Some(config))
+    } else {
+        split_optimizer.should_process_chunk(&chunk)
+    };
+    
+    if !should_process {
+        log("Not a split chunk - skipping split chunk optimization");
+        return None;
+    }
+
+    // Apply configuration-driven optimization if available
+     if let Some(config) = share_config {
+         let other_chunks: Vec<&webpack_analyzer_v2::WebpackChunk> = vec![];
+         match split_optimizer.optimize_split_chunk_with_config(&chunk, &other_chunks, Some(config)) {
+             Ok((optimized_source, result)) => {
+                 log(&format!(
+                     "Configuration-driven split chunk optimization: {} -> {} modules",
+                     chunk.modules.len(),
+                     result.pruned_count
+                 ));
+                 return Some(optimized_source);
+             }
+             Err(err) => {
+                 log(&format!("Configuration-driven split chunk optimization failed: {}", err));
+                 // Fall through to regular optimization
+             }
+         }
+     }
+ 
+     // Fallback to regular split chunk optimization
+     let other_chunks: Vec<&webpack_analyzer_v2::WebpackChunk> = vec![];
+     match split_optimizer.optimize_split_chunk(&chunk, &other_chunks) {
+         Ok((optimized_source, result)) => {
+             log(&format!(
+                 "Split chunk optimization: {} -> {} modules",
+                 chunk.modules.len(),
+                 result.pruned_count
+             ));
+             Some(optimized_source)
+         }
+         Err(err) => {
+             log(&format!("Split chunk optimization failed: {}", err));
+             None
+         }
+     }
+}
+
+/// Try split chunk optimization for vendor/shared chunks (backward compatibility)
+/// Returns Some(optimized_source) if split chunk optimization was applied, None otherwise
+fn try_split_chunk_optimization(source: &str, characteristics: &ChunkCharacteristics) -> Option<String> {
+    try_split_chunk_optimization_with_config(source, characteristics, None)
 }
 
 // Legacy entry point extraction removed - explicit entry points required

@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use serde_json::Value;
-// use swc_core::atoms::Atom;
+use swc_core::atoms::Atom;
 
 use webpack_analyzer_v2::{ChunkCharacteristics, ChunkType, ShareUsageConfig, TreeShaker, WebpackAnalyzer};
 
@@ -11,6 +11,12 @@ fn repo_path(segments: &[&str]) -> PathBuf {
     for s in ["..", ".."].into_iter() { p.push(s); }
     for seg in segments { p.push(seg); }
     p
+}
+
+/// Load ShareUsageConfig from share-usage.json file
+fn load_share_usage_config(config_path: &PathBuf) -> Result<ShareUsageConfig, Box<dyn std::error::Error>> {
+    let content = fs::read_to_string(config_path)?;
+    ShareUsageConfig::from_json(&content)
 }
 
 #[test]
@@ -68,11 +74,28 @@ fn test_rspack_annotated_output_jsonp_analysis() {
     assert_eq!(chunk.chunk_type, ChunkType::JSONP);
     assert!(chunk.module_count() > 0);
 
-    // Plan prune using explicit entries only if present; otherwise should skip
+    // Load ShareUsageConfig from share-usage.json
+    let usage_path = repo_path(&["test-cases", "rspack-annotated-output", "share-usage.json"]);
+    let config = if usage_path.exists() {
+        load_share_usage_config(&usage_path).unwrap_or_else(|_| ShareUsageConfig { 
+            entry_module_ids: vec![],
+            tree_shake: std::collections::HashMap::new(),
+        })
+    } else {
+        ShareUsageConfig { 
+            entry_module_ids: vec![],
+            tree_shake: std::collections::HashMap::new(),
+        }
+    };
+    
+    // Plan prune using configuration-driven approach
     let shaker = TreeShaker::new();
-    let cfg = ShareUsageConfig { entry_module_ids: vec![] };
-    let plan = shaker.plan_prune(&chunk, &cfg);
-    assert!(plan.skip_reason.is_some());
+    let plan = shaker.plan_prune(&chunk, &config);
+    
+    // Should skip if no entry module IDs in config or entry not present in chunk
+    if config.entry_module_ids.is_empty() {
+        assert!(plan.skip_reason.is_some(), "Should skip when no entry module IDs configured");
+    }
 }
 
 

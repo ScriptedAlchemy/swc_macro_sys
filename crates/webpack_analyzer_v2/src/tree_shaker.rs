@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap, VecDeque};
 use std::sync::Arc;
 use regex::Regex;
 
@@ -88,6 +88,7 @@ impl TreeShaker {
         };
         let config = crate::chunk::ShareUsageConfig { 
             entry_module_ids,
+            tree_shake: std::collections::HashMap::new(),
         };
         let plan = self.plan_prune(&chunk, &config);
         if plan.skip_reason.is_some() || plan.removed_modules.is_empty() {
@@ -380,10 +381,533 @@ impl TreeShaker {
     }
 }
 
+/// Split chunk optimizer for removing unreferenced object keys from vendor/shared chunks
+/// This handles the two-pass analysis system for split chunk optimization
+pub struct SplitChunkOptimizer {
+    /// Enable debug logging for split chunk processing
+    debug: bool,
+}
+
+impl Default for SplitChunkOptimizer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SplitChunkOptimizer {
+    pub fn new() -> Self {
+        Self { debug: false }
+    }
+
+    pub fn with_debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
+        self
+    }
+
+    /// Process only split chunks based on configuration, not entry/runtime/bootstrap chunks
+    /// Uses ShareUsageConfig to identify chunks via chunk_characteristics.chunk_files
+    /// and skips runtime chunks based on is_runtime_chunk flag
+    pub fn should_process_chunk(&self, chunk: &WebpackChunk) -> bool {
+        self.should_process_chunk_with_config(chunk, None)
+    }
+    
+    /// Process chunks based on ShareUsageConfig - configuration-driven approach
+    pub fn should_process_chunk_with_config(&self, chunk: &WebpackChunk, config: Option<&ShareUsageConfig>) -> bool {
+        let Some(characteristics) = &chunk.characteristics else {
+            if self.debug {
+                eprintln!("[SplitChunkOptimizer] Skipping: missing ChunkCharacteristics");
+            }
+            return false;
+        };
+
+        // Skip runtime chunks entirely
+        if characteristics.is_runtime() {
+            if self.debug {
+                eprintln!("[SplitChunkOptimizer] Skipping: runtime chunk");
+            }
+            return false;
+        }
+
+        // If configuration is provided, use configuration-driven approach
+        if let Some(config) = config {
+            let chunk_files = &characteristics.chunk_files;
+            if let Some(_lib_config) = config.should_process_chunk(chunk_files) {
+                if self.debug {
+                    let chunk_name = chunk_files.first().map(|s| s.as_str()).unwrap_or("<unknown>");
+                    eprintln!("[SplitChunkOptimizer] Configuration-driven processing for chunk '{}'", chunk_name);
+                }
+                return true;
+            } else {
+                if self.debug {
+                    let chunk_name = chunk_files.first().map(|s| s.as_str()).unwrap_or("<unknown>");
+                    eprintln!("[SplitChunkOptimizer] Chunk '{}' not found in configuration or is runtime chunk", chunk_name);
+                }
+                return false;
+            }
+        }
+
+        // Fallback to heuristic-based approach when no configuration is provided
+        // Process any chunk that has modules - we'll determine unreferenced keys during optimization
+        let chunk_files = &characteristics.chunk_files;
+        let has_modules = !chunk.modules.is_empty();
+        
+        if self.debug {
+            let chunk_name = chunk_files.first().map(|s| s.as_str()).unwrap_or("<unknown>");
+            eprintln!("[SplitChunkOptimizer] Heuristic-based: Chunk '{}': has_modules={}, should_process={}", 
+                chunk_name, has_modules, has_modules);
+        }
+        
+        has_modules
+    }
+
+    /// Check if chunk has any modules that could potentially be optimized
+    fn has_optimizable_modules(&self, chunk: &WebpackChunk) -> bool {
+        !chunk.modules.is_empty()
+    }
+
+    /// Find which modules in split chunk are referenced by other chunks
+    /// This is Pass 1 of the two-pass analysis system
+    pub fn find_external_references(
+        &self,
+        split_chunk_modules: &HashSet<String>,
+        other_chunks: &[&WebpackChunk]
+    ) -> HashSet<String> {
+        let mut external_refs = HashSet::new();
+        
+        if self.debug {
+            eprintln!("[SplitChunkOptimizer] Finding external references from {} other chunks", other_chunks.len());
+        }
+        
+        for chunk in other_chunks {
+            // Extract all webpack_require calls from this chunk
+            let requires = self.extract_all_requires(&chunk.source);
+            
+            // Keep requires that reference our split chunk's modules
+            for req in requires {
+                if split_chunk_modules.contains(&req) {
+                    external_refs.insert(req.clone());
+                    if self.debug {
+                        eprintln!("[SplitChunkOptimizer] Found external reference: {}", req);
+                    }
+                }
+            }
+        }
+        
+        if self.debug {
+            eprintln!("[SplitChunkOptimizer] Found {} external references", external_refs.len());
+        }
+        
+        external_refs
+    }
+
+    /// Build internal dependency graph within the split chunk
+    /// This is Pass 2 of the two-pass analysis system
+    pub fn build_internal_require_graph(&self, split_chunk: &WebpackChunk) -> HashMap<String, Vec<String>> {
+        let mut graph = HashMap::new();
+        
+        if self.debug {
+            eprintln!("[SplitChunkOptimizer] Building internal dependency graph for {} modules", split_chunk.modules.len());
+        }
+        
+        for (module_key, module) in &split_chunk.modules {
+            // Extract requires from this module's function body
+            let requires = self.extract_requires_from_module_source(&module.source);
+            
+            // Filter to only internal requires (within same chunk)
+            let internal_requires: Vec<String> = requires.into_iter()
+                .filter(|req| {
+                    let atom_key = swc_core::atoms::Atom::from(req.as_str());
+                    split_chunk.modules.contains_key(&atom_key)
+                })
+                .collect();
+            
+            if self.debug && !internal_requires.is_empty() {
+                eprintln!("[SplitChunkOptimizer] Module '{}' requires: {:?}", module_key, internal_requires);
+            }
+            
+            graph.insert(module_key.to_string(), internal_requires);
+        }
+        
+        graph
+    }
+
+    /// Find all modules transitively required from external references
+    /// This computes the transitive closure of reachable modules
+    pub fn compute_transitive_closure(
+        &self,
+        external_refs: &HashSet<String>,
+        internal_graph: &HashMap<String, Vec<String>>
+    ) -> HashSet<String> {
+        let mut reachable = external_refs.clone();
+        let mut queue: VecDeque<String> = external_refs.iter().cloned().collect();
+        
+        if self.debug {
+            eprintln!("[SplitChunkOptimizer] Computing transitive closure from {} external references", external_refs.len());
+        }
+        
+        while let Some(current) = queue.pop_front() {
+            if let Some(deps) = internal_graph.get(&current) {
+                for dep in deps {
+                    if !reachable.contains(dep) {
+                        reachable.insert(dep.clone());
+                        queue.push_back(dep.clone());
+                        if self.debug {
+                            eprintln!("[SplitChunkOptimizer] Added to reachable: {}", dep);
+                        }
+                    }
+                }
+            }
+        }
+        
+        if self.debug {
+            eprintln!("[SplitChunkOptimizer] Transitive closure complete: {} reachable modules", reachable.len());
+        }
+        
+        reachable
+    }
+
+    /// Extract all webpack_require calls from chunk source
+    fn extract_all_requires(&self, source: &str) -> HashSet<String> {
+        let mut requires = HashSet::new();
+        
+        // Use regex to find all __webpack_require__ calls
+        let re = Regex::new(r#"__webpack_require__\s*\(\s*(?:/\*[^*]*\*/\s*)?["']([^"']+)["']\s*(?:/\*[^*]*\*/)?\s*\)"#).unwrap();
+        
+        for cap in re.captures_iter(source) {
+            if let Some(module_id) = cap.get(1) {
+                requires.insert(module_id.as_str().to_string());
+            }
+        }
+        
+        requires
+    }
+
+    /// Extract webpack_require calls from a specific module's source
+    fn extract_requires_from_module_source(&self, module_source: &str) -> HashSet<String> {
+        self.extract_all_requires(module_source)
+    }
+
+    /// Determine modules to keep/remove based on ShareUsageConfig flags
+    fn determine_modules_from_config(
+        &self,
+        module_keys: &HashSet<String>,
+        split_chunk: &WebpackChunk,
+        config: &ShareUsageConfig
+    ) -> (HashSet<String>, HashSet<String>) {
+        let mut reachable = HashSet::new();
+        let mut to_remove = HashSet::new();
+        
+        if self.debug {
+            eprintln!("[SplitChunkOptimizer] Using configuration-driven module selection");
+        }
+        
+        // Get the chunk files to find the right configuration
+        let chunk_files = if let Some(characteristics) = &split_chunk.characteristics {
+            &characteristics.chunk_files
+        } else {
+            if self.debug {
+                eprintln!("[SplitChunkOptimizer] No chunk characteristics found, using fallback");
+            }
+            // Try to find configuration for any chunk file
+            for (chunk_name, lib_config) in &config.tree_shake {
+                if self.debug {
+                    eprintln!("[SplitChunkOptimizer] Checking config for chunk: {}", chunk_name);
+                }
+                
+                // Check each module in this chunk against the configuration
+                 for module_key in module_keys {
+                     if let Some(&should_keep) = lib_config.exports.get(module_key) {
+                         if should_keep {
+                             reachable.insert(module_key.clone());
+                             if self.debug {
+                                 eprintln!("[SplitChunkOptimizer] Config: keeping module {}", module_key);
+                             }
+                         } else {
+                             to_remove.insert(module_key.clone());
+                             if self.debug {
+                                 eprintln!("[SplitChunkOptimizer] Config: removing module {}", module_key);
+                             }
+                         }
+                     } else {
+                         // Module not in config, keep it by default
+                         reachable.insert(module_key.clone());
+                         if self.debug {
+                             eprintln!("[SplitChunkOptimizer] Config: module {} not in config, keeping by default", module_key);
+                         }
+                     }
+                }
+                
+                // If we found any configuration matches, use this config
+                if !reachable.is_empty() || !to_remove.is_empty() {
+                    return (reachable, to_remove);
+                }
+            }
+            
+            // No configuration found, keep all modules
+            if self.debug {
+                eprintln!("[SplitChunkOptimizer] No configuration found, keeping all modules");
+            }
+            return (module_keys.clone(), HashSet::new());
+        };
+        
+        // Find the appropriate library configuration based on chunk files
+        for chunk_file in chunk_files {
+            // Try to match chunk file name with configuration keys
+            for (chunk_name, lib_config) in &config.tree_shake {
+                if chunk_file.contains(chunk_name) || chunk_name.contains(chunk_file) {
+                    if self.debug {
+                        eprintln!("[SplitChunkOptimizer] Found matching config for chunk file '{}' -> config '{}'", chunk_file, chunk_name);
+                    }
+                    
+                    // Apply configuration flags to determine which modules to keep/remove
+                     for module_key in module_keys {
+                         if let Some(&should_keep) = lib_config.exports.get(module_key) {
+                             if should_keep {
+                                 reachable.insert(module_key.clone());
+                                 if self.debug {
+                                     eprintln!("[SplitChunkOptimizer] Config: keeping module {}", module_key);
+                                 }
+                             } else {
+                                 to_remove.insert(module_key.clone());
+                                 if self.debug {
+                                     eprintln!("[SplitChunkOptimizer] Config: removing module {}", module_key);
+                                 }
+                             }
+                         } else {
+                             // Module not in config, keep it by default
+                             reachable.insert(module_key.clone());
+                             if self.debug {
+                                 eprintln!("[SplitChunkOptimizer] Config: module {} not in config, keeping by default", module_key);
+                             }
+                         }
+                    }
+                    
+                    return (reachable, to_remove);
+                }
+            }
+        }
+        
+        // No matching configuration found, keep all modules
+        if self.debug {
+            eprintln!("[SplitChunkOptimizer] No matching configuration found for chunk files: {:?}", chunk_files);
+        }
+        (module_keys.clone(), HashSet::new())
+    }
+
+    /// Optimize split chunk with configuration support
+    pub fn optimize_split_chunk_with_config(
+        &self,
+        split_chunk: &WebpackChunk,
+        other_chunks: &[&WebpackChunk],
+        config: Option<&ShareUsageConfig>
+    ) -> Result<(String, PruneResult), Box<dyn std::error::Error>> {
+        if !self.should_process_chunk_with_config(split_chunk, config) {
+            return Ok((split_chunk.source.clone(), PruneResult::skipped(
+                "Not a split chunk or doesn't meet processing criteria".to_string(),
+                split_chunk.modules.len(),
+            )));
+        }
+
+        self.optimize_split_chunk_internal(split_chunk, other_chunks, config)
+    }
+    
+    /// Optimize split chunk by removing unreferenced object keys (backward compatibility)
+    pub fn optimize_split_chunk(
+        &self,
+        split_chunk: &WebpackChunk,
+        other_chunks: &[&WebpackChunk]
+    ) -> Result<(String, PruneResult), Box<dyn std::error::Error>> {
+        self.optimize_split_chunk_with_config(split_chunk, other_chunks, None)
+    }
+    
+    /// Internal optimization logic shared by both methods
+    fn optimize_split_chunk_internal(
+        &self,
+        split_chunk: &WebpackChunk,
+        other_chunks: &[&WebpackChunk],
+        config: Option<&ShareUsageConfig>
+    ) -> Result<(String, PruneResult), Box<dyn std::error::Error>> {
+
+        // Step 1: Get all module keys in this split chunk
+        let module_keys: HashSet<String> = split_chunk.modules.keys().map(|k| k.to_string()).collect();
+        
+        // Step 2: Determine modules to remove based on configuration or analysis
+        let (reachable, to_remove) = if let Some(config) = config {
+            // Configuration-driven approach: use ShareUsageConfig flags
+            self.determine_modules_from_config(&module_keys, split_chunk, config)
+        } else {
+            // Analysis-driven approach: use external references and dependency analysis
+            let mut external_refs = self.find_external_references(&module_keys, other_chunks);
+            
+            // Always preserve entry module when specified
+            if let Some(characteristics) = &split_chunk.characteristics {
+                if let Some(entry_module_id) = &characteristics.entry_module_id {
+                    if module_keys.contains(entry_module_id) {
+                        external_refs.insert(entry_module_id.clone());
+                        if self.debug {
+                            eprintln!("[SplitChunkOptimizer] Preserving entry module: {}", entry_module_id);
+                        }
+                    }
+                }
+            }
+            
+            // Build internal dependency graph and compute transitive closure
+            let internal_graph = self.build_internal_require_graph(split_chunk);
+            let reachable = self.compute_transitive_closure(&external_refs, &internal_graph);
+            let to_remove: HashSet<String> = module_keys.difference(&reachable).cloned().collect();
+            
+            (reachable, to_remove)
+        };
+        
+        if self.debug {
+            eprintln!("[SplitChunkOptimizer] Optimization summary:");
+            eprintln!("  Total modules: {}", module_keys.len());
+            eprintln!("  Reachable modules: {}", reachable.len());
+            eprintln!("  Modules to remove: {}", to_remove.len());
+        }
+        
+        if to_remove.is_empty() {
+            return Ok((split_chunk.source.clone(), PruneResult {
+                kept_modules: reachable.into_iter().map(|s| swc_core::atoms::Atom::from(s)).collect(),
+                removed_modules: HashSet::new(),
+                original_count: module_keys.len(),
+                pruned_count: module_keys.len(),
+                skip_reason: Some("No modules to remove".to_string()),
+                pruned_chunk: None,
+            }));
+        }
+        
+        // Step 6: Apply AST transformation to remove unreferenced keys
+        let optimized_source = self.remove_object_keys_from_source(&split_chunk.source, &to_remove)?;
+        
+        let pruned_count = reachable.len();
+        let result = PruneResult {
+            kept_modules: reachable.into_iter().map(|s| swc_core::atoms::Atom::from(s)).collect(),
+            removed_modules: to_remove.into_iter().map(|s| swc_core::atoms::Atom::from(s)).collect(),
+            original_count: module_keys.len(),
+            pruned_count,
+            skip_reason: None,
+            pruned_chunk: None,
+        };
+        
+        Ok((optimized_source, result))
+    }
+
+    /// Remove object keys from source using AST transformation
+    fn remove_object_keys_from_source(
+        &self,
+        source: &str,
+        to_remove: &HashSet<String>
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        // Parse the source
+        let cm: Lrc<SourceMap> = Default::default();
+        let fm = cm.new_source_file(FileName::Custom("split_chunk.js".to_string()).into(), source.to_string());
+        let mut program = Parser::new(Syntax::Es(EsSyntax::default()), StringInput::from(&*fm), None)
+            .parse_program()
+            .map_err(|e| format!("Parse error: {:?}", e))?;
+
+        // Apply split chunk object key pruner
+        let mut pruner = SplitChunkKeyPruner::new(to_remove.clone());
+        program.visit_mut_with(&mut pruner);
+
+        // Emit the optimized code
+        let mut buf = vec![];
+        let mut emitter = Emitter {
+            cfg: codegen::Config::default().with_minify(false),
+            comments: None,
+            cm: cm.clone(),
+            wr: Box::new(JsWriter::new(cm.clone(), "\n", &mut buf, None)),
+        };
+        emitter.emit_program(&program).map_err(|e| format!("Emit error: {:?}", e))?;
+        let optimized = String::from_utf8(buf).map_err(|_| "Invalid UTF-8")?;
+        
+        Ok(optimized)
+    }
+}
+
 /// Enhanced AST module pruner that completely removes module entries from webpack modules objects
 /// instead of just marking them or removing their exports
 struct AstModulePruner {
     to_remove: std::collections::HashSet<String>,
+}
+
+/// Split chunk specific key pruner for removing unreferenced object keys from exports.modules
+struct SplitChunkKeyPruner {
+    to_remove: HashSet<String>,
+    debug: bool,
+}
+
+impl SplitChunkKeyPruner {
+    fn new(to_remove: HashSet<String>) -> Self {
+        Self { to_remove, debug: false }
+    }
+
+    fn with_debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
+        self
+    }
+
+    /// Check if a module key should be removed from exports.modules
+    fn should_remove_key(&self, key: &str) -> bool {
+        self.to_remove.contains(key)
+    }
+
+    /// Remove unreferenced keys from exports.modules object
+    fn prune_exports_modules(&self, obj: &mut ObjectLit) {
+        let original_count = obj.props.len();
+        obj.props.retain(|prop| {
+            if let PropOrSpread::Prop(prop) = prop {
+                if let Prop::KeyValue(kv) = prop.as_ref() {
+                    let key_str = match &kv.key {
+                        PropName::Str(s) => s.value.to_string(),
+                        PropName::Ident(i) => i.sym.to_string(),
+                        _ => return true, // Keep non-string keys
+                    };
+                    
+                    let should_keep = !self.should_remove_key(&key_str);
+                    if !should_keep && self.debug {
+                        eprintln!("[SplitChunkKeyPruner] Removing key: {}", key_str);
+                    }
+                    return should_keep;
+                }
+            }
+            true // Keep non-key-value props
+        });
+        
+        let removed_count = original_count - obj.props.len();
+        if removed_count > 0 && self.debug {
+            eprintln!("[SplitChunkKeyPruner] Removed {} keys from exports.modules", removed_count);
+        }
+    }
+}
+
+impl VisitMut for SplitChunkKeyPruner {
+    fn visit_mut_assign_expr(&mut self, node: &mut swc_core::ecma::ast::AssignExpr) {
+        // Handle exports.modules = { ... } pattern
+        if let swc_core::ecma::ast::AssignTarget::Simple(swc_core::ecma::ast::SimpleAssignTarget::Member(member)) = &node.left {
+            let is_modules = matches!(&member.prop, MemberProp::Ident(p) if p.sym == "modules")
+                || matches!(&member.prop, MemberProp::Computed(c) if matches!(c.expr.as_ref(), Expr::Lit(swc_core::ecma::ast::Lit::Str(s)) if s.value == *"modules"));
+            
+            if is_modules {
+                if let Expr::Ident(obj) = member.obj.as_ref() {
+                    if obj.sym == "exports" {
+                        if let Expr::Object(obj_lit) = &mut *node.right {
+                            self.prune_exports_modules(obj_lit);
+                        }
+                    }
+                }
+            }
+        }
+        
+        node.visit_mut_children_with(self);
+    }
+
+    fn visit_mut_object_lit(&mut self, node: &mut ObjectLit) {
+        // Handle direct object literals that might be exports.modules
+        // This is a fallback for cases where the assignment pattern doesn't match
+        self.prune_exports_modules(node);
+        node.visit_mut_children_with(self);
+    }
 }
 
 impl AstModulePruner {
@@ -441,7 +965,7 @@ impl AstModulePruner {
     }
 
     /// Handle different webpack module container formats
-    fn process_modules_expr(&self, expr: &mut Expr) {
+    fn process_modules_expr(&mut self, expr: &mut Expr) {
         match expr {
             // Direct object literal: __webpack_modules__ = { ... }
             Expr::Object(obj) => self.remove_modules_from_object(obj),
@@ -462,6 +986,16 @@ impl AstModulePruner {
                 expr.visit_mut_children_with(self);
             }
         }
+    }
+
+    /// Strip modules from expression - handles various webpack module container formats
+    fn strip_from_expr(&mut self, expr: &mut Expr) {
+        self.process_modules_expr(expr);
+    }
+
+    /// Strip modules from object literal - removes unreachable module entries
+    fn strip_from_object(&self, obj: &mut ObjectLit) {
+        self.remove_modules_from_object(obj);
     }
 }
 

@@ -62,7 +62,10 @@ fn host_react_dom_vendor_preserves_scheduler_dependency() {
     flags.insert("createPortal".into(), serde_json::Value::Bool(true));
     let mut _cfg = serde_json::Map::new();
     _cfg.insert("react-dom".into(), serde_json::Value::Object(flags));
-    let share_cfg = ShareUsageConfig { entry_module_ids: vec![] };
+    let share_cfg = ShareUsageConfig { 
+        entry_module_ids: vec![],
+        tree_shake: std::collections::HashMap::new(),
+    };
 
     let shaker = TreeShaker::new();
     let plan = shaker.plan_prune(&chunk, &share_cfg);

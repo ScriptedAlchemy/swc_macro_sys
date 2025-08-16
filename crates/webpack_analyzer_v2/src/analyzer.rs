@@ -345,26 +345,20 @@ impl WebpackAnalyzer {
         // Step 1: Determine chunk type from characteristics
         let chunk_type = characteristics.determine_chunk_type();
         
-        // Step 2: Validate chunk type is not Unknown
-        if chunk_type == ChunkType::Unknown {
-            return Err(format!("Unable to determine chunk type from characteristics. chunk_format: '{}'", 
-                characteristics.chunk_format).into());
-        }
-
-        // Step 3: Parse the source code
+        // Step 2: Parse the source code (allow Unknown to enable CommonJS/JSONP fallback only)
         let program = self.parse_source(source)?;
 
-        // Step 4: Create chunk with characteristics
+        // Step 3: Create chunk with characteristics
         let mut chunk = WebpackChunk::new_with_characteristics(
             chunk_type.clone(),
             source.to_string(),
             characteristics,
         );
 
-        // Step 5: Extract modules based on chunk type
+        // Step 4: Extract modules based on chunk type
         self.extract_modules(&program, &mut chunk)?;
 
-        // Step 6: Build dependency graph
+        // Step 5: Build dependency graph
         self.build_dependency_graph(&mut chunk)?;
 
         Ok(chunk)
@@ -409,20 +403,18 @@ impl WebpackAnalyzer {
                 self.extract_commonjs_modules(program, chunk)
             },
             ChunkType::JSONP => self.extract_jsonp_modules(program, chunk),
-            ChunkType::WebpackModules => self.extract_webpack_modules(program, chunk),
-            ChunkType::ESModules => {
-                // For now, treat ES modules similar to webpack modules
-                // TODO: Implement dedicated ES modules extraction
-                self.extract_webpack_modules(program, chunk)
+            // Explicitly disable webpack runtime and ESModules styles
+            ChunkType::WebpackModules | ChunkType::ESModules => {
+                Err("Unsupported chunk format: only JSONP or CommonJS styles are supported".into())
             },
             ChunkType::Unknown => {
-                // Try all extraction methods and use the one that finds modules
+                // Try CommonJS and JSONP extraction methods only
                 if self.extract_commonjs_modules(program, chunk).is_ok() && chunk.module_count() > 0 {
                     Ok(())
                 } else if self.extract_jsonp_modules(program, chunk).is_ok() && chunk.module_count() > 0 {
                     Ok(())
                 } else {
-                    self.extract_webpack_modules(program, chunk)
+                    Err("Unsupported or unrecognized chunk format: only JSONP or CommonJS styles are supported".into())
                 }
             },
         }
@@ -518,14 +510,14 @@ impl WebpackAnalyzer {
                 dependencies = visitor.dependencies;
             }
             Err(_e) => {
-                // If parsing fails, we'll return empty dependencies
-                // This can happen with malformed or incomplete source
+                // Parsing failed; skip dependency extraction to avoid false positives
+                // Conservative behavior: return no dependencies rather than using best-effort heuristics
+                dependencies = Vec::new();
             }
         }
 
         Ok(dependencies)
     }
-
 }
 
 /// Visitor for CommonJS format chunks

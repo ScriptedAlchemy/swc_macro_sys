@@ -33,7 +33,10 @@ fn analyze_and_prune_remote_antd_chunk() {
 
     // Plan prune conservatively using characteristics.entry_module_id
     let shaker = TreeShaker::new();
-    let plan = shaker.plan_prune(&chunk, &webpack_analyzer_v2::chunk::ShareUsageConfig { entry_module_ids: vec![] });
+    let plan = shaker.plan_prune(&chunk, &webpack_analyzer_v2::chunk::ShareUsageConfig { 
+        entry_module_ids: vec![],
+        tree_shake: std::collections::HashMap::new(),
+    });
     assert!(plan.skip_reason.is_none(), "tree shaker should not skip with valid characteristics");
     assert!(plan.original_count >= plan.pruned_count, "pruned count should be <= original");
 }

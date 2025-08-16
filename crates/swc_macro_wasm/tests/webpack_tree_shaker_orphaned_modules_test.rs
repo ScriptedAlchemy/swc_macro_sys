@@ -56,24 +56,12 @@ fn test_orphaned_modules_after_macro_processing() {
             "featureC": true
         },
         "treeShake": {
-            "test": {
-                "chunk_characteristics": {
-                    "entry_module_id": "main.js",
-                    "is_runtime_chunk": false,
-                    "has_runtime": false,
-                    "is_entrypoint": false,
-                    "can_be_initial": false,
-                    "is_only_initial": false,
-                    "chunk_format": "jsonp",
-                    "chunk_loading_type": null,
-                    "runtime_names": ["main"],
-                    "entry_name": null,
-                    "has_async_chunks": false,
-                    "chunk_files": ["vendor.js"],
-                    "is_shared_chunk": false,
-                    "shared_modules": []
-                }
-            }
+            "main.js": true,
+            "featureA.js": false,
+            "featureB.js": false,
+            "featureC.js": true,
+            "helperA.js": false,
+            "helperB.js": false
         }
     });
     
@@ -206,24 +194,16 @@ fn test_deep_orphaned_module_chains() {
             "enableProductService": false
         },
         "treeShake": {
-            "test": {
-                "chunk_characteristics": {
-                    "entry_module_id": "entry.js",
-                    "is_runtime_chunk": false,
-                    "has_runtime": false,
-                    "is_entrypoint": false,
-                    "can_be_initial": false,
-                    "is_only_initial": false,
-                    "chunk_format": "jsonp",
-                    "chunk_loading_type": null,
-                    "runtime_names": ["main"],
-                    "entry_name": null,
-                    "has_async_chunks": false,
-                    "chunk_files": ["vendor.js"],
-                    "is_shared_chunk": false,
-                    "shared_modules": []
-                }
-            }
+            "entry.js": true,
+            "services/user.js": false,
+            "services/product.js": false,
+            "services/core.js": true,
+            "db/user-db.js": false,
+            "db/product-db.js": false,
+            "db/connection.js": false,
+            "auth/auth-helper.js": false,
+            "cache/product-cache.js": false,
+            "config/app-config.js": true
         }
     });
     
@@ -378,23 +358,7 @@ fn test_lodash_specific_orphaned_modules() {
                 "map": false,
                 "filter": false,
                 "sortBy": true,
-                "groupBy": false,
-                "chunk_characteristics": {
-                    "entry_module_id": "lodash-es/lodash.js",
-                    "is_runtime_chunk": false,
-                    "has_runtime": false,
-                    "is_entrypoint": false,
-                    "can_be_initial": false,
-                    "is_only_initial": false,
-                    "chunk_format": "jsonp",
-                    "chunk_loading_type": null,
-                    "runtime_names": ["main"],
-                    "entry_name": null,
-                    "has_async_chunks": false,
-                    "chunk_files": ["vendor.js"],
-                    "is_shared_chunk": false,
-                    "shared_modules": []
-                }
+                "groupBy": false
             }
         }
     });

@@ -44,7 +44,10 @@ fn react_dom_vendor_preserves_scheduler_dependency() {
     // In the remote vendor, scheduler module id is NOT defined inside this chunk.
     // The tree shaker must NOT remove the react-dom module that requires it; it should be kept as entry reachable.
     let shaker = TreeShaker::new();
-    let plan = shaker.plan_prune(&chunk, &ShareUsageConfig { entry_module_ids: vec![] });
+    let plan = shaker.plan_prune(&chunk, &ShareUsageConfig { 
+        entry_module_ids: vec![],
+        tree_shake: std::collections::HashMap::new(),
+    });
     assert!(plan.skip_reason.is_none(), "tree shaker should run with characteristics");
 
     // Entry must be kept

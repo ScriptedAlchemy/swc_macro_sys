@@ -58,7 +58,10 @@ fn test_esm_react_chunk_analysis_and_skip_prune_without_entries() {
 
     // Plan prune via characteristics only; no guessing
     let shaker = TreeShaker::new();
-    let cfg = ShareUsageConfig { entry_module_ids: vec![] };
+    let cfg = ShareUsageConfig { 
+        entry_module_ids: vec![],
+        tree_shake: std::collections::HashMap::new(),
+    };
     let plan = shaker.plan_prune(&chunk, &cfg);
     assert!(plan.skip_reason.is_some() || plan.pruned_count <= plan.original_count);
 }

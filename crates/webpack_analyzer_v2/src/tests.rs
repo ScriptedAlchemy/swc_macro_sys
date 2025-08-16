@@ -312,6 +312,7 @@ fn test_extract_explicit_entry_points() {
             Atom::from("./src/index.js"),
             Atom::from("./src/utils.js"),
         ],
+        tree_shake: std::collections::HashMap::new(),
     };
     
     let entry_points = chunk.extract_explicit_entry_points(&config);
@@ -339,6 +340,7 @@ fn test_extract_explicit_entry_points_missing_modules() {
             Atom::from("./src/index.js"),
             Atom::from("./src/missing.js"), // This doesn't exist in chunk
         ],
+        tree_shake: std::collections::HashMap::new(),
     };
     
     let entry_points = chunk.extract_explicit_entry_points(&config);
@@ -383,6 +385,7 @@ fn test_extract_explicit_entry_points_with_characteristics() {
     // Configure with one explicit entry point
     let config = ShareUsageConfig {
         entry_module_ids: vec![Atom::from("./src/index.js")],
+        tree_shake: std::collections::HashMap::new(),
     };
     
     let entry_points = chunk.extract_explicit_entry_points(&config);
@@ -409,6 +412,7 @@ fn test_extract_explicit_entry_points_strict_success() {
             Atom::from("./src/index.js"),
             Atom::from("./src/utils.js"),
         ],
+        tree_shake: std::collections::HashMap::new(),
     };
     
     let result = chunk.extract_explicit_entry_points_strict(&config);
@@ -436,6 +440,7 @@ fn test_extract_explicit_entry_points_strict_missing_entry() {
             Atom::from("./src/index.js"),
             Atom::from("./src/missing.js"), // This doesn't exist
         ],
+        tree_shake: std::collections::HashMap::new(),
     };
     
     let result = chunk.extract_explicit_entry_points_strict(&config);
@@ -460,6 +465,7 @@ fn test_extract_explicit_entry_points_strict_no_config() {
     // Empty configuration - no explicit entry points
     let config = ShareUsageConfig {
         entry_module_ids: vec![],
+        tree_shake: std::collections::HashMap::new(),
     };
     
     let result = chunk.extract_explicit_entry_points_strict(&config);
@@ -486,6 +492,7 @@ fn test_extract_explicit_entry_points_no_inference() {
     // Empty configuration - should not infer any entry points
     let config = ShareUsageConfig {
         entry_module_ids: vec![],
+        tree_shake: std::collections::HashMap::new(),
     };
     
     let entry_points = chunk.extract_explicit_entry_points(&config);
@@ -510,6 +517,7 @@ fn test_explicit_entry_points_integration_with_dependency_graph() {
     // Configure explicit entry points
     let config = ShareUsageConfig {
         entry_module_ids: vec![Atom::from("./src/index.js")],
+        tree_shake: std::collections::HashMap::new(),
     };
     
     let entry_points = chunk.extract_explicit_entry_points(&config);
@@ -576,7 +584,10 @@ fn test_tree_shaker_prune_conservative() {
     }
 
     let shaker = TreeShaker::new();
-    let cfg = ShareUsageConfig { entry_module_ids: vec![] };
+    let cfg = ShareUsageConfig { 
+        entry_module_ids: vec![],
+        tree_shake: std::collections::HashMap::new(),
+    };
 
     let result = shaker.prune_chunk(&chunk, &cfg);
     assert!(result.skip_reason.is_none());
@@ -599,7 +610,10 @@ fn test_tree_shaker_skips_without_entries() {
     chunk.add_module(Atom::from("./src/a.js"), WebpackModule::new(Atom::from("./src/a.js"), "".to_string()));
 
     let shaker = TreeShaker::new();
-    let cfg = ShareUsageConfig { entry_module_ids: vec![] };
+    let cfg = ShareUsageConfig { 
+        entry_module_ids: vec![],
+        tree_shake: std::collections::HashMap::new(),
+    };
     let result = shaker.prune_chunk(&chunk, &cfg);
     assert!(result.skip_reason.is_some());
     assert_eq!(result.original_count, result.pruned_count);
@@ -635,7 +649,10 @@ fn test_tree_shaker_skips_runtime_chunk() {
     chunk.add_module(Atom::from("./src/runtime.js"), WebpackModule::new(Atom::from("./src/runtime.js"), "".to_string()));
 
     let shaker = TreeShaker::new();
-    let cfg = ShareUsageConfig { entry_module_ids: vec![Atom::from("./src/runtime.js")] };
+    let cfg = ShareUsageConfig { 
+        entry_module_ids: vec![Atom::from("./src/runtime.js")],
+        tree_shake: std::collections::HashMap::new(),
+    };
     let result = shaker.prune_chunk(&chunk, &cfg);
     assert!(result.skip_reason.is_some());
     assert_eq!(result.original_count, result.pruned_count);

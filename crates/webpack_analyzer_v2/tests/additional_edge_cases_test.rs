@@ -62,7 +62,10 @@ fn jsonp_with_runtime_and_missing_deps() {
     assert!(chunk.modules.contains_key(&"42".into()));
 
     let shaker = TreeShaker::new();
-    let plan = shaker.plan_prune(&chunk, &ShareUsageConfig { entry_module_ids: vec![] });
+    let plan = shaker.plan_prune(&chunk, &ShareUsageConfig { 
+        entry_module_ids: vec![],
+        tree_shake: std::collections::HashMap::new(),
+    });
     assert!(plan.skip_reason.is_none());
     // Only entry and present are reachable; 42 is not referenced by entry
     assert_eq!(plan.pruned_count, 2);
@@ -88,7 +91,10 @@ fn commonjs_sparse_keys_and_missing_deps() {
     assert!(chunk.modules.contains_key(&"7".into()));
 
     let shaker = TreeShaker::new();
-    let plan = shaker.plan_prune(&chunk, &ShareUsageConfig { entry_module_ids: vec![] });
+    let plan = shaker.plan_prune(&chunk, &ShareUsageConfig { 
+        entry_module_ids: vec![],
+        tree_shake: std::collections::HashMap::new(),
+    });
     assert!(plan.skip_reason.is_none());
     // entry -> inner; numeric 7 is unreachable
     assert_eq!(plan.pruned_count, 2);
@@ -111,7 +117,10 @@ fn reexport_wrapper_entry_keeps_transitive() {
     let chars = make_cjs_chars("./entry.js");
     let chunk = analyzer.analyze_chunk(src, chars.clone()).unwrap();
     let shaker = TreeShaker::new();
-    let plan = shaker.plan_prune(&chunk, &ShareUsageConfig { entry_module_ids: vec![] });
+    let plan = shaker.plan_prune(&chunk, &ShareUsageConfig { 
+        entry_module_ids: vec![],
+        tree_shake: std::collections::HashMap::new(),
+    });
     assert!(plan.skip_reason.is_none());
     // All three are reachable via re-export chain and template literal require
     assert_eq!(plan.pruned_count, 3);

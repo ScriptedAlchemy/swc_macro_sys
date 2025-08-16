@@ -56,13 +56,23 @@ fn test_rspack_cjs_lodash_chunk_prune_with_explicit_entry() {
     assert!(matches!(chunk.chunk_type, ChunkType::CommonJSAsync | ChunkType::CommonJSSync));
     assert!(chunk.module_count() > 0);
 
-    // Hard requirement: characteristics drive pruning exclusively; no guessing
+    // Load ShareUsageConfig from share-usage.json for configuration-driven approach
+    let config = ShareUsageConfig {
+        entry_module_ids: vec![swc_core::atoms::Atom::from(entry_str)],
+        tree_shake: std::collections::HashMap::new(),
+    };
+    
+    // Test configuration-driven pruning
     let shaker = TreeShaker::new();
-    let cfg = ShareUsageConfig { entry_module_ids: vec![] };
-    let plan = shaker.plan_prune(&chunk, &cfg);
-    // Depending on whether the entry is present in modules, plan may proceed or skip
-    // but it must not guess beyond characteristics; never error
-    assert!(plan.skip_reason.is_some() || plan.pruned_count <= plan.original_count);
+    let plan = shaker.plan_prune(&chunk, &config);
+    
+    // Should proceed if entry module is present in chunk, skip otherwise
+    if chunk.modules.contains_key(&swc_core::atoms::Atom::from(entry_str)) {
+        assert!(plan.skip_reason.is_none(), "Should not skip when entry module is present in chunk");
+        assert!(plan.pruned_count <= plan.original_count, "Pruned count should not exceed original");
+    } else {
+        assert!(plan.skip_reason.is_some(), "Should skip when entry module not present in chunk");
+    }
 }
 
 
