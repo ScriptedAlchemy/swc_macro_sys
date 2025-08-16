@@ -1,5 +1,3 @@
-cargo-features = ["edition2024"]
-
 [package]
 name = "swc_macro_wasm"
 version = "0.1.0"
@@ -17,15 +15,13 @@ swc_ecma_codegen = "13.2.0"
 swc_ecma_parser = "14.0.1"
 swc_ecma_transforms_base = "15.1.0"
 wasm-bindgen = "0.2.100"
-console_error_panic_hook = { version = "0.1.7", optional = true }
-js-sys = { version = "0.3" }
-web-sys = { version = "0.3", features = ["console"] }
 serde_json = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }
+regex = "1.0"
+thiserror = "1.0"
 
 swc_macro_condition_transform = { workspace = true }
 swc_macro_parser = { workspace = true }
-# Re-enabling webpack_analyzer_v2 step by step
-webpack_analyzer_v2 = { workspace = true }
 indexmap = "2.9.0"
 petgraph = "0.8.2"
 swc_atoms = "5.0.0"
@@ -33,12 +29,3 @@ rustc-hash = "2.1.1"
 swc_ecma_utils = "15.0.2"
 swc_ecma_visit = "11.0.0"
 tracing = "0.1.41"
-thiserror = "1.0.69"
-serde = { version = "1.0", features = ["derive"] }
-regex = { workspace = true }
-
-[dev-dependencies]
-uuid = { version = "1.8", features = ["v4"] }
-
-[features]
-default = ["console_error_panic_hook"]
