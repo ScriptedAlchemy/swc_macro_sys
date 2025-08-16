@@ -202,27 +202,29 @@ impl VisitMut for PruneModulesVisitor {
                 if let swc_ecma_ast::MemberProp::Ident(ident) = &member.prop {
                     if ident.sym.as_ref() == "push" {
                         // Expect first argument to be an array like [ [chunkName], { modules }, ... ]
-                        if let Some(ExprOrSpread { expr, .. }) = call.args.get(0) {
-                            if let Expr::Array(arr) = &mut **expr {
-                                if let Some(Some(second)) = arr.elems.get_mut(1) {
-                                    if let Expr::Object(obj) = &mut *second.expr {
-                                        // Filter module properties based on keep set
-                                        obj.props.retain(|prop_or_spread| {
-                                            if let swc_ecma_ast::PropOrSpread::Prop(p) = prop_or_spread {
-                                                if let Prop::KeyValue(kv) = &**p {
-                                                    // Accept string or numeric keys only
-                                                    match &kv.key {
-                                                        PropName::Str(s) => self.keep.contains(&s.value.to_string()),
-                                                        PropName::Num(n) => self.keep.contains(&n.value.to_string()),
-                                                        _ => true, // Keep unknown patterns to be safe
+                        if let Some(first_arg) = call.args.get_mut(0) {
+                            if let swc_ecma_ast::ExprOrSpread { expr, .. } = first_arg {
+                                if let Expr::Array(arr) = expr.as_mut() {
+                                    if let Some(Some(second)) = arr.elems.get_mut(1) {
+                                        if let Expr::Object(obj) = second.expr.as_mut() {
+                                            // Filter module properties based on keep set
+                                            obj.props.retain(|prop_or_spread| {
+                                                if let swc_ecma_ast::PropOrSpread::Prop(p) = prop_or_spread {
+                                                    if let Prop::KeyValue(kv) = &**p {
+                                                        // Accept string or numeric keys only
+                                                        match &kv.key {
+                                                            PropName::Str(s) => self.keep.contains(&s.value.to_string()),
+                                                            PropName::Num(n) => self.keep.contains(&n.value.to_string()),
+                                                            _ => true, // Keep unknown patterns to be safe
+                                                        }
+                                                    } else {
+                                                        true
                                                     }
                                                 } else {
                                                     true
                                                 }
-                                            } else {
-                                                true
-                                            }
-                                        });
+                                            });
+                                        }
                                     }
                                 }
                             }
