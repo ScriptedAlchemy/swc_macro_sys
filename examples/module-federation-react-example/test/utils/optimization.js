@@ -51,7 +51,7 @@ export function optimizeChunk(chunkPath, config) {
   const runner = `
     (async () => {
       const fs = require('fs');
-      const optimizer = await import('swc_macro_wasm');
+      const optimizer = await import('../../../../crates/swc_macro_wasm/pkg/swc_macro_wasm.js');
       const src = fs.readFileSync(${JSON.stringify(chunkPath)}, 'utf8');
       const cfg = ${JSON.stringify(configStr)};
       const out = optimizer.optimize(src, cfg);
