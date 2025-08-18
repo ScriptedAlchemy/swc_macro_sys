@@ -131,7 +131,7 @@ async function runFullPipeline() {
     };
     
     // Load SWC macro optimizer
-    const optimizer = await import('swc_macro_wasm');
+    const optimizer = await import('../../../crates/swc_macro_wasm/pkg/swc_macro_wasm.js');
     console.log('✅ SWC macro optimizer loaded');
     
     // Backup original chunks

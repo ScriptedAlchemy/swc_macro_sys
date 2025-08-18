@@ -6,7 +6,7 @@ const path = require('path');
 // Import the SWC macro WASM optimizer
 async function loadOptimizer() {
   try {
-    const swcMacro = await import('swc_macro_wasm');
+    const swcMacro = await import('../../../crates/swc_macro_wasm/pkg/swc_macro_wasm.js');
     return swcMacro;
   } catch (error) {
     console.error('Failed to load SWC macro optimizer:', error.message);

@@ -7,8 +7,8 @@ const path = require('path');
 // Import the SWC macro WASM optimizer
 async function loadOptimizer() {
   try {
-    // Load from workspace dependency (requires --experimental-wasm-modules flag)
-    const swcMacro = await import('swc_macro_wasm');
+    // Load from relative path (requires --experimental-wasm-modules flag)
+    const swcMacro = await import('../../../crates/swc_macro_wasm/pkg/swc_macro_wasm.js');
     console.log('Available functions:', Object.keys(swcMacro).filter(k => typeof swcMacro[k] === 'function'));
     return swcMacro;
   } catch (error) {

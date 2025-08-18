@@ -89,7 +89,7 @@ async function runPipeline() {
     let optimizer;
     try {
       // Load from workspace dependency (same as optimize-shared-chunks.js)
-      optimizer = await import('swc_macro_wasm');
+      optimizer = await import('../../../crates/swc_macro_wasm/pkg/swc_macro_wasm.js');
       console.log('✅ SWC macro optimizer loaded');
       console.log('   Available functions:', Object.keys(optimizer).filter(k => typeof optimizer[k] === 'function'));
     } catch (error) {
